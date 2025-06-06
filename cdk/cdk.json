@@ -51,14 +51,19 @@
     "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
     "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
     "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
-    "bedrockRegion": "us-east-1",
+    "bedrockRegion": "eu-central-1",
     "allowedIpV4AddressRanges": ["0.0.0.0/1", "128.0.0.0/1"],
     "allowedIpV6AddressRanges": [
       "0000:0000:0000:0000:0000:0000:0000:0000/1",
       "8000:0000:0000:0000:0000:0000:0000:0000/1"
     ],
-    "identityProviders": [],
-    "userPoolDomainPrefix": "",
+    "identityProviders": [
+       {
+        "service": "google",
+        "secretName": "googleOAuthCredentials"
+      }
+    ],
+    "userPoolDomainPrefix": "nhrf",
     "allowedSignUpEmailDomains": [],
     "autoJoinUserGroups": ["CreatingBotAllowed"],
     "selfSignUpEnabled": true,
