@@ -16,74 +16,80 @@ import id from './id';
 import ms from './ms';
 import vi from './vi';
 import pl from './pl';
+import gr from './gr';
 
 export const LANGUAGES: {
   value: string;
   label: string;
 }[] = [
-  {
-    value: 'en',
-    label: 'English',
-  },
-  {
-    value: 'de',
-    label: 'Deutsch',
-  },
-  {
-    value: 'fr',
-    label: 'Français',
-  },
-  {
-    value: 'es',
-    label: 'Español',
-  },
-  {
-    value: 'ja',
-    label: '日本語',
-  },
-  {
-    value: 'ko',
-    label: '한국어',
-  },
-  {
-    value: 'zhhans',
-    label: '中文 (简体)',
-  },
-  {
-    value: 'zhhant',
-    label: '中文 (繁體)',
-  },
-  {
-    value: 'it',
-    label: 'Italian',
-  },
-  {
-    value: 'nb',
-    label: 'Norsk (Bokmål)',
-  },
-  {
-    value: 'th',
-    label: 'ไทย',
-  },
-  {
-    value: 'id',
-    label: 'Bahasa Indonesia',
-  },
-  {
-    value: 'ms',
-    label: 'Bahasa Melayu',
-  },
-  {
-    value: 'vi',
-    label: 'Tiếng Việt',
-  },
-  {
-    value: 'pl',
-    label: 'Polski',
-  },
-];
+    {
+      value: 'gr',
+      label: 'Ελληνικά',
+    },
+    {
+      value: 'en',
+      label: 'English',
+    },
+    {
+      value: 'de',
+      label: 'Deutsch',
+    },
+    {
+      value: 'fr',
+      label: 'Français',
+    },
+    {
+      value: 'es',
+      label: 'Español',
+    },
+    {
+      value: 'ja',
+      label: '日本語',
+    },
+    {
+      value: 'ko',
+      label: '한국어',
+    },
+    {
+      value: 'zhhans',
+      label: '中文 (简体)',
+    },
+    {
+      value: 'zhhant',
+      label: '中文 (繁體)',
+    },
+    {
+      value: 'it',
+      label: 'Italian',
+    },
+    {
+      value: 'nb',
+      label: 'Norsk (Bokmål)',
+    },
+    {
+      value: 'th',
+      label: 'ไทย',
+    },
+    {
+      value: 'id',
+      label: 'Bahasa Indonesia',
+    },
+    {
+      value: 'ms',
+      label: 'Bahasa Melayu',
+    },
+    {
+      value: 'vi',
+      label: 'Tiếng Việt',
+    },
+    {
+      value: 'pl',
+      label: 'Polski',
+    },
+  ];
 
 const resources = {
+  gr,
   en,
   de,
   fr,
