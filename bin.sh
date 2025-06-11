@@ -39,15 +39,16 @@ done
 
 
 # Default parameters
-ALLOW_SELF_REGISTER="true"
+ALLOW_SELF_REGISTER="false"
 ENABLE_LAMBDA_SNAPSTART="false"
+#IPV4_RANGES="185.229.26.21/32"
 IPV4_RANGES=""
 IPV6_RANGES=""
 DISABLE_IPV6="false"
 ALLOWED_SIGN_UP_EMAIL_DOMAINS=""
-BEDROCK_REGION="us-east-1"
+BEDROCK_REGION="eu-central-1"
 CDK_JSON_OVERRIDE="{}"
-REPO_URL="https://github.com/aws-samples/bedrock-chat.git"
+REPO_URL="https://github.com/PCG-International/nhrf-bedrock-chat.git"
 VERSION="v3"
 
 # Parse command-line arguments for customization
