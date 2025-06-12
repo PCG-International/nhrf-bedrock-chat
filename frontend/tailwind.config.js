@@ -15,6 +15,14 @@ export default {
         fastPulse: 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       colors: {
+        'nhrf-gray': {
+          light: '#aaa',
+          dark: '#777'
+        },
+        'drawers-white': {
+          light: '#f9f9f9',
+          dark: '#f9f9f9'
+        },
         'aws-squid-ink': {
           light: '#232F3E',
           dark: '#171717',

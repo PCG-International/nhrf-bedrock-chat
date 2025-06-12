@@ -285,7 +285,7 @@ const Drawer: React.FC<Props> = (props) => {
         <nav
           className={`lg:visible lg:w-64 ${
             opened ? 'visible w-64' : 'invisible w-0'
-          } text-sm  text-white transition-width`}>
+          } text-lg  text-white transition-width`}>
           {!isAdminPanel && (
             <>
               <DrawerItem
