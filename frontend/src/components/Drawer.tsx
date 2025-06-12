@@ -281,7 +281,7 @@ const Drawer: React.FC<Props> = (props) => {
 
   return (
     <>
-      <div className="relative h-full overflow-y-auto bg-drawers-white-light scrollbar-thin scrollbar-track-white scrollbar-thumb-drawer-white-light/30 dark:bg-aws-ui-color-dark dark:scrollbar-thumb-aws-ui-color-dark/30">
+      <div className="relative h-full overflow-y-auto bg-drawers-white-light scrollbar-thin scrollbar-track-white scrollbar-thumb-drawers-white-light/30 dark:bg-aws-ui-color-dark dark:scrollbar-thumb-aws-ui-color-dark/30">
         <nav
           className={`lg:visible lg:w-64 ${
             opened ? 'visible w-64' : 'invisible w-0'
@@ -316,7 +316,7 @@ const Drawer: React.FC<Props> = (props) => {
 
               <ExpandableDrawerGroup
                 label={t('app.starredBots')}
-                className="mt-5 bg-drawer-white-light pt-1 dark:bg-drawer-white-dark">
+                className="mt-5 bg-drawers-white-light pt-1 dark:bg-drawers-white-dark">
                 {starredBots === undefined && (
                   <div className="flex flex-col gap-2 p-2">
                     <Skeleton className="h-10 w-full bg-aws-sea-blue-light/50 dark:bg-aws-sea-blue-dark/50" />
@@ -361,7 +361,7 @@ const Drawer: React.FC<Props> = (props) => {
 
               <ExpandableDrawerGroup
                 label={t('app.recentlyUsedBots')}
-                className="bg-drawer-white-light pt-1 dark:bg-drawer-white-dark ">
+                className="bg-drawers-white-light pt-1 dark:bg-drawers-white-dark ">
                 {recentlyUsedUnstarredBots === undefined && (
                   <div className="flex flex-col gap-2 p-2">
                     <Skeleton className="h-10 w-full bg-aws-sea-blue-light/50 dark:bg-aws-sea-blue-dark/50" />
@@ -407,7 +407,7 @@ const Drawer: React.FC<Props> = (props) => {
               <ExpandableDrawerGroup
                 label={t('app.conversationHistory')}
                 className={twMerge(
-                  'bg-drawer-white-light pt-1 dark:bg-drawer-white-dark',
+                  'bg-drawers-white-light pt-1 dark:bg-drawers-white-dark',
                   props.isAdmin ? 'mb-20' : 'mb-10'
                 )}>
                 {conversations === undefined && (
@@ -476,7 +476,7 @@ const Drawer: React.FC<Props> = (props) => {
             className={twMerge(
               opened ? 'w-64' : 'w-0',
               props.isAdmin ? 'h-20' : 'h-10',
-              'fixed -bottom-2 z-50 mb-2 flex flex-col items-start border-t bg-drawer-white-light transition-width dark:bg-aws-ui-color-dark lg:w-64'
+              'fixed -bottom-2 z-50 mb-2 flex flex-col items-start border-t bg-drawers-white-light transition-width dark:bg-aws-ui-color-dark lg:w-64'
             )}>
             {props.isAdmin && !isAdminPanel && (
               <DrawerItem
