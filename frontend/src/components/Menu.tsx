@@ -92,8 +92,8 @@ const MenuSettings: React.FC<Props> = (props) => {
           className="absolute bottom-10 left-2 w-60 rounded border border-black bg-aws-paper-light text-black dark:border-aws-font-color-white-dark dark:bg-aws-ui-color-dark dark:text-aws-font-color-white-dark">
           <div className="flex flex-col gap-1 border-b p-2">
             <div className="font-bold">{userName}</div>
-            <div className="">
-              <div className="italic">{t('app.userGroups')}</div>
+            <div className="text-gray">
+              <div className="italic">{t('app.userGroups')}:</div>
               <ul className="list-disc pl-5">
                 {userGroups.map((group) => (
                   <li key={group}>{group}</li>
