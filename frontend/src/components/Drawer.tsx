@@ -288,7 +288,7 @@ const Drawer: React.FC<Props> = (props) => {
           } text-lg text-drawers-text-light transition-width`}>
 
           <div className="p-4 flex justify-center">
-            <img src="https://nhrf-web-assets.s3.eu-central-1.amazonaws.com/nhrf_logo_nobg.png" alt="App Logo" className="h-10 w-auto" />
+            <img src="https://nhrf-web-assets.s3.eu-central-1.amazonaws.com/nhrf_logo_nobg.png" alt="App Logo" className="h-12 w-auto" />
           </div>
           {!isAdminPanel && (
             <>
