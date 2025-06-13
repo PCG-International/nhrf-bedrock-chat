@@ -15,6 +15,22 @@ export default {
         fastPulse: 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       colors: {
+        'nhrf-gray': {
+          light: '#aaa',
+          dark: '#777'
+        },
+        'drawers-white': {
+          light: '#f9f9f9',
+          dark: '#f9f9f9'
+        },
+        'drawers-white-mist': {
+          light: '#0000000a',
+          dark: '#47484a'
+        },
+        'drawers-text': {
+          light: '#0d0d0d',
+          dark: '#f9f9f9'
+        },
         'aws-squid-ink': {
           light: '#232F3E',
           dark: '#171717',
@@ -44,7 +60,7 @@ export default {
           dark: '#151515',
         },
         'aws-paper': {
-          light: '#f1f3f3',
+          light: '#ffffff',
           dark: '#212121',
         },
         red: '#dc2626',

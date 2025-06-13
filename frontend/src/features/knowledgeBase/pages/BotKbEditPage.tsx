@@ -2685,7 +2685,7 @@ const BotKbEditPage: React.FC = () => {
                     onClick={onClickEdit}
                     loading={isLoading}
                     disabled={disabledRegister}>
-                    {t('bot.button.edit')}
+                    {t('button.SaveAndSubmit')}
                   </Button>
                 )}
               </div>

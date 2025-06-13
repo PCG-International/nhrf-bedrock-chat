@@ -6,7 +6,7 @@ const translation = {
       },
     },
     app: {
-      name: 'Bedrock Chat',
+      name: 'ΕΘΝΙΚΟ ΙΔΡΥΜΑ ΕΡΕΥΝΩΝ',
       inputMessage: 'Πώς μπορώ να σας βοηθήσω;',
       starredBots: 'Αγαπημένα Bots',
       recentlyUsedBots: 'Πρόσφατα Χρησιμοποιημένα Bots',
