@@ -16,7 +16,7 @@ from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
 from app.routes.schemas.conversation import type_model_name
 from app.utils import get_bedrock_runtime_client
 from botocore.exceptions import ClientError
-from retry import retry
+from reretry import retry
 
 if TYPE_CHECKING:
     from app.agents.tools.agent_tool import AgentTool
@@ -265,6 +265,14 @@ def compose_args_for_converse_api(
     enable_reasoning: bool = False,
 ) -> ConverseStreamRequestTypeDef:
     def process_content(c: ContentModel, role: str) -> list[ContentBlockTypeDef]:
+        # Drop unsigned reasoning blocks only for DeepSeek R1
+        if (
+            is_deepseek_model(model)
+            and c.content_type == "reasoning"
+            and not getattr(c, "signature", None)
+        ):
+            return []
+
         if c.content_type == "text":
             if (
                 role == "user"
@@ -534,6 +542,8 @@ def get_model_id(
 ) -> str:
     # Ref: https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html
     base_model_ids = {
+        "claude-v4-opus": "anthropic.claude-opus-4-20250514-v1:0",
+        "claude-v4-sonnet": "anthropic.claude-sonnet-4-20250514-v1:0",
         "claude-v3-haiku": "anthropic.claude-3-haiku-20240307-v1:0",
         "claude-v3-opus": "anthropic.claude-3-opus-20240229-v1:0",
         "claude-v3.5-sonnet": "anthropic.claude-3-5-sonnet-20240620-v1:0",
@@ -567,6 +577,8 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-opus",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3-opus",
                 "claude-v3.5-haiku",
@@ -587,6 +599,8 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-opus",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-haiku",
                 "claude-v3.5-sonnet",
@@ -606,6 +620,8 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-opus",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3-opus",
                 "claude-v3.5-haiku",
@@ -626,6 +642,7 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-sonnet",
                 "claude-v3.7-sonnet",
@@ -639,6 +656,7 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-sonnet",
                 "claude-v3.7-sonnet",
@@ -653,6 +671,7 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-sonnet",
                 "claude-v3.7-sonnet",
@@ -674,6 +693,7 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-sonnet",
                 "claude-v3.5-sonnet-v2",
@@ -685,6 +705,7 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-sonnet",
                 "claude-v3.5-sonnet-v2",
@@ -696,6 +717,7 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-sonnet",
                 "claude-v3.5-sonnet-v2",
@@ -708,6 +730,7 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-sonnet",
                 "claude-v3.5-sonnet-v2",
@@ -719,6 +742,7 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4-sonnet",
                 "claude-v3-haiku",
                 "claude-v3.5-sonnet",
                 "claude-v3.5-sonnet-v2",

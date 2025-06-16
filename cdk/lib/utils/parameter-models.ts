@@ -32,6 +32,7 @@ const BaseParametersSchema = z.object({
 
   // Bedrock configuration
   bedrockRegion: z.string().default("us-east-1"),
+  enableBedrockCrossRegionInference: z.boolean().default(true),
 });
 
 /**
@@ -49,8 +50,6 @@ function getEnvVar(name: string, defaultValue?: string): string | undefined {
  * Parameters schema for the main Bedrock Chat application
  */
 const BedrockChatParametersSchema = BaseParametersSchema.extend({
-  // Bedrock configuration
-  enableBedrockCrossRegionInference: z.boolean().default(true),
 
   // IP address restrictions
   allowedIpV4AddressRanges: z
@@ -95,6 +94,7 @@ const BedrockChatParametersSchema = BaseParametersSchema.extend({
 
   // BotStore
   enableBotStore: z.boolean().default(true),
+  enableBotStoreReplicas: z.boolean().default(false),
   botStoreLanguage: BotStoreLanguageSchema.default("en"),
 
   // ID token refresh interval
@@ -138,7 +138,7 @@ const BedrockCustomBotParametersSchema = BaseParametersSchema.extend({
   knowledge: z.string(),
   knowledgeBase: z.string(),
   guardrails: z.string(),
-  useStandByReplicas: z
+  enableRagReplicas: z
     .string()
     .optional()
     .transform((val) => val === "true")
@@ -222,6 +222,7 @@ export function resolveBedrockChatParameters(
     alternateDomainName: app.node.tryGetContext("alternateDomainName"),
     hostedZoneId: app.node.tryGetContext("hostedZoneId"),
     enableBotStore: app.node.tryGetContext("enableBotStore"),
+    enableBotStoreReplicas: app.node.tryGetContext("EnableBotStoreReplicas"),
     botStoreLanguage: app.node.tryGetContext("botStoreLanguage"),
     devAccessIamRoleArn: app.node.tryGetContext("devAccessIamRoleArn"),
   };
@@ -284,6 +285,9 @@ export function resolveApiPublishParameters(): ApiPublishParameters {
     envName: getEnvVar("ENV_NAME"),
     envPrefix: getEnvVar("ENV_PREFIX"),
     bedrockRegion: getEnvVar("BEDROCK_REGION"),
+    enableBedrockCrossRegionInference: getEnvVar(
+      "ENABLE_BEDROCK_CROSS_REGION_INFERENCE"
+    ),
     publishedApiThrottleRateLimit: getEnvVar(
       "PUBLISHED_API_THROTTLE_RATE_LIMIT"
     ),
@@ -317,7 +321,7 @@ export function resolveBedrockCustomBotParameters(): BedrockCustomBotParameters 
     knowledge: getEnvVar("KNOWLEDGE"),
     knowledgeBase: getEnvVar("BEDROCK_KNOWLEDGE_BASE"),
     guardrails: getEnvVar("BEDROCK_GUARDRAILS"),
-    useStandByReplicas: getEnvVar("USE_STAND_BY_REPLICAS"),
+    enableRagReplicas: getEnvVar("ENABLE_RAG_REPLICAS"),
   };
 
   return BedrockCustomBotParametersSchema.parse(envVars);
