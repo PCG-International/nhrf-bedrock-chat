@@ -14,19 +14,19 @@ const CLAUDE_SUPPORTED_MEDIA_TYPES = [
   'image/webp',
 ];
 
-const NOVA_SUPPORTED_MEDIA_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-];
+// const NOVA_SUPPORTED_MEDIA_TYPES = [
+//   'image/jpeg',
+//   'image/png',
+//   'image/gif',
+//   'image/webp',
+// ];
 
-const LLAMA_SUPPORTED_MEDIA_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-];
+// const LLAMA_SUPPORTED_MEDIA_TYPES = [
+//   'image/jpeg',
+//   'image/png',
+//   'image/gif',
+//   'image/webp',
+// ];
 
 const DEFAULT_MODEL: Model = 'claude-v3.7-sonnet';
 
