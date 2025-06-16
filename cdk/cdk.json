@@ -90,7 +90,7 @@
     "enableBedrockCrossRegionInference": true,
     "enableLambdaSnapStart": true,
     "enableBotStore": true,
-    "enableBotStoreReplicas": false,
+    "enableBotStoreReplicas": true,
     "botStoreLanguage": "en",
     "tokenValidMinutes": 30,
     "alternateDomainName": "ai-pilot.eie.gr/",
