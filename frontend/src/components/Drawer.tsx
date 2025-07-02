@@ -153,13 +153,13 @@ const Item: React.FC<ItemProps> = (props) => {
               }}
             />
           ) : (
-            <>
+            <div className={"truncate"} title={props.label}>
               {props.generatedTitle ? (
-                <LazyOutputText text={props.label} />
+                <LazyOutputText text={props.label}/>
               ) : (
                 <>{props.label}</>
               )}
-            </>
+            </div>
           )}
         </>
       }
