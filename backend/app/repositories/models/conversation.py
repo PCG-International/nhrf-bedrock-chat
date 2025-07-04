@@ -130,13 +130,23 @@ class ImageContentModel(BaseModel):
 
     def to_contents_for_invoke(self) -> list[dict[str, Any]]:
         """Convert to Claude 4 invoke API format"""
+        # Handle Base64-encoded image data properly
+        import base64
+        
+        if isinstance(self.body, bytes):
+            # If body is bytes, convert to base64 string
+            data_str = base64.b64encode(self.body).decode('utf-8')
+        else:
+            # If body is already a string (base64-encoded), use it directly
+            data_str = self.body
+            
         return [
             {
                 "type": "image",
                 "source": {
                     "type": "base64",
                     "media_type": self.media_type,
-                    "data": self.body.decode() if isinstance(self.body, bytes) else self.body,
+                    "data": data_str,
                 },
             }
         ]
@@ -214,13 +224,23 @@ class AttachmentContentModel(BaseModel):
 
     def to_contents_for_invoke(self) -> list[dict[str, Any]]:
         """Convert to Claude 4 invoke API format for document attachments"""
+        # Handle Base64-encoded attachment data properly
+        import base64
+        
+        if isinstance(self.body, bytes):
+            # If body is bytes, convert to base64 string
+            data_str = base64.b64encode(self.body).decode('utf-8')
+        else:
+            # If body is already a string (base64-encoded), use it directly
+            data_str = self.body
+            
         return [
             {
                 "type": "document",
                 "source": {
                     "type": "base64",
                     "media_type": f"application/{Path(self.file_name).suffix[1:]}",
-                    "data": self.body.decode() if isinstance(self.body, bytes) else self.body,
+                    "data": data_str,
                 },
                 "name": self.file_name,
             }

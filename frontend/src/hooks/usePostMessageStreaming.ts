@@ -28,6 +28,10 @@ const usePostMessageStreaming = create<{
         token,
       });
 
+      // Check if payload is large (>100KB) for hybrid storage approach
+      const LARGE_PAYLOAD_THRESHOLD = 100 * 1024; // 100KB
+      const isLargePayload = payloadString.length > LARGE_PAYLOAD_THRESHOLD;
+
       // chunking
       const chunkedPayloads: string[] = [];
       const chunkCount = Math.ceil(payloadString.length / CHUNK_SIZE);
@@ -69,6 +73,8 @@ const usePostMessageStreaming = create<{
                     step: PostStreamingStatus.BODY,
                     index,
                     part: chunk,
+                    isLargePayload: isLargePayload, // Add flag for hybrid storage
+                    totalSize: payloadString.length, // Add total size for backend decision
                   })
                 );
               });
