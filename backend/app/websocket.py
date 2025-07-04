@@ -373,13 +373,30 @@ def handler(event, context):
 
             full_message = "".join(message_text_parts)
 
+            # Clean up temporary S3 files for large messages
+            s3_keys_to_delete = []
+            for item in message_parts:
+                if item.get("IsLargeMessage", False) and "S3Key" in item:
+                    s3_keys_to_delete.append(item["S3Key"])
+
             # Process the concatenated full message
             chat_input = ChatInput(**json.loads(full_message))
-            return process_chat_input(
+            result = process_chat_input(
                 user=user,
                 chat_input=chat_input,
                 notificator=notificator,
             )
+
+            # Delete temporary S3 files after successful processing
+            if s3_keys_to_delete and LARGE_MESSAGE_BUCKET:
+                try:
+                    for s3_key in s3_keys_to_delete:
+                        s3_client.delete_object(Bucket=LARGE_MESSAGE_BUCKET, Key=s3_key)
+                        logger.info(f"Cleaned up temporary S3 file: {s3_key}")
+                except Exception as e:
+                    logger.warning(f"Failed to cleanup temporary S3 files: {e}")
+
+            return result
 
         else:
             # Store the message part of full message
