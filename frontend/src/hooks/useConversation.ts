@@ -4,11 +4,14 @@ import useConversationApi from './useConversationApi';
 const useConversation = () => {
   const conversationApi = useConversationApi();
 
-  const { data: conversations } = conversationApi.getConversations();
+  const { data: conversations, isLoading: isLoadingConversations } =
+    conversationApi.getConversations();
   const mutate = conversationApi.mutateConversations;
 
   return {
     conversations,
+    isLoadingConversations,
+    mutateConversations: mutate,
     syncConversations: () => {
       return mutate(conversations);
     },
@@ -21,16 +24,28 @@ const useConversation = () => {
       return conversations?.find((c) => c.id === conversationId)?.botId ?? null;
     },
     deleteConversation: (conversationId: string) => {
-      return mutate(async (current) => {
-        await conversationApi.deleteConversation(conversationId);
-
-        return produce(current, (draft) => {
-          const index = draft?.findIndex((c) => c.id === conversationId) ?? -1;
-          if (index > -1) {
-            draft?.splice(index, 1);
+      // Optimistic update: Update UI before deletion
+      mutate(
+        produce(conversations, (draft) => {
+          if (draft) {
+            const index = draft.findIndex((c) => c.id === conversationId);
+            if (index !== -1) {
+              draft.splice(index, 1);
+            }
           }
+        }),
+        { revalidate: false }
+      );
+
+      // Actual API call
+      return conversationApi
+        .deleteConversation(conversationId)
+        .catch((error) => {
+          console.error('Failed to delete conversation:', error);
+          // Revert to original state on error
+          mutate();
+          throw error; // Re-throw error so it can be caught by the caller
         });
-      });
     },
     clearConversations: () => {
       return mutate(async () => {
@@ -39,19 +54,28 @@ const useConversation = () => {
       });
     },
     updateTitle: (conversationId: string, title: string) => {
-      return mutate(async (current) => {
-        await conversationApi.updateTitle(conversationId, title);
-
-        return produce(current, (draft) => {
-          const index = draft?.findIndex((c) => c.id === conversationId) ?? -1;
-          if (index > -1) {
-            draft?.splice(index, 1, {
-              ...draft![index],
-              title: title,
-            });
+      // Optimistic update
+      mutate(
+        produce(conversations, (draft) => {
+          if (draft) {
+            const target = draft.find((c) => c.id === conversationId);
+            if (target) {
+              target.title = title;
+            }
           }
+        }),
+        { revalidate: false }
+      );
+
+      // Actual API call
+      return conversationApi
+        .updateTitle(conversationId, title)
+        .catch((error) => {
+          console.error('Failed to update title:', error);
+          // Revert to original state on error
+          mutate();
+          throw error; // Re-throw error so it can be caught by the caller
         });
-      });
     },
   };
 };

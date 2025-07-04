@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - main
-
+      - v1
+      - v3
 jobs:
   deploy-docs:
     runs-on: ubuntu-latest
@@ -13,13 +14,15 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |
-          pip install -r backend/requirements.txt
+          pip install poetry
+          cd backend
+          poetry install
 
       - name: Set Environment Variables
         run: |
@@ -29,7 +32,7 @@ jobs:
       - name: Start FastAPI server
         run: |
           cd backend
-          uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+          poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
           sleep 10
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
@@ -49,7 +52,10 @@ jobs:
 
       - name: Kill FastAPI server
         run: |
-          pkill uvicorn
+          pids=$(pgrep -f "uvicorn app.main:app")
+          for pid in $pids; do
+              kill $pid
+          done
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

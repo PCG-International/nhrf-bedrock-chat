@@ -7,7 +7,7 @@ import {
   DeleteBotPublicationResponse,
   GetBotPublicationApiKeyResponse,
   GetBotPublicationRequest,
-  GetBotPublicationRespose,
+  GetBotPublicationResponse,
   PublishBotRequest,
   PublishBotResponse,
 } from '../@types/api-publication';
@@ -17,7 +17,7 @@ const useBotPublicationApi = () => {
 
   return {
     getBotPublication: (botId?: string, req?: GetBotPublicationRequest) => {
-      return http.get<GetBotPublicationRespose>(
+      return http.get<GetBotPublicationResponse>(
         botId ? [`/bot/${botId}/publication`, req] : null,
         {
           errorRetryCount: 0,

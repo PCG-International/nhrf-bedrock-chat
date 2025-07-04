@@ -1,4 +1,10 @@
-import { CfnOutput, Duration, Stack } from "aws-cdk-lib";
+import {
+  CfnOutput,
+  Duration,
+  Stack,
+  CustomResource,
+  RemovalPolicy,
+} from "aws-cdk-lib";
 import {
   ProviderAttribute,
   UserPool,
@@ -8,11 +14,14 @@ import {
   CfnUserPoolGroup,
   UserPoolIdentityProviderOidc,
 } from "aws-cdk-lib/aws-cognito";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import * as logs from "aws-cdk-lib/aws-logs";
+import { Runtime, Code, SingletonFunction } from "aws-cdk-lib/aws-lambda";
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
 import { Construct } from "constructs";
 import * as path from "path";
+import * as fs from "fs";
 import { Idp, TIdentityProvider } from "../utils/identity-provider";
 
 export interface AuthProps {
@@ -20,7 +29,9 @@ export interface AuthProps {
   readonly userPoolDomainPrefixKey: string;
   readonly idp: Idp;
   readonly allowedSignUpEmailDomains: string[];
+  readonly autoJoinUserGroups: string[];
   readonly selfSignUpEnabled: boolean;
+  readonly tokenValidity: Duration;
 }
 
 export class Auth extends Construct {
@@ -41,11 +52,12 @@ export class Auth extends Construct {
         username: false,
         email: true,
       },
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
     const clientProps = (() => {
       const defaultProps = {
-        idTokenValidity: Duration.days(1),
+        idTokenValidity: props.tokenValidity,
         authFlows: {
           userPassword: true,
           userSrp: true,
@@ -73,7 +85,7 @@ export class Auth extends Construct {
     ) => {
       const secret = secretsmanager.Secret.fromSecretNameV2(
         this,
-        "Secret",
+        `Secret-${provider.secretName}`,
         provider.secretName
       );
 
@@ -88,7 +100,7 @@ export class Auth extends Construct {
         case "google": {
           const googleProvider = new UserPoolIdentityProviderGoogle(
             this,
-            "GoogleProvider",
+            `GoogleProvider-${provider.secretName}`,
             {
               userPool,
               clientId,
@@ -110,7 +122,7 @@ export class Auth extends Construct {
 
           const oidcProvider = new UserPoolIdentityProviderOidc(
             this,
-            "OidcProvider",
+            `OidcProvider-${provider.secretName}`,
             {
               name: provider.serviceName,
               userPool,
@@ -148,7 +160,7 @@ export class Auth extends Construct {
         this,
         "CheckEmailDomain",
         {
-          runtime: Runtime.PYTHON_3_12,
+          runtime: Runtime.PYTHON_3_13,
           index: "check_email_domain.py",
           entry: path.join(
             __dirname,
@@ -160,6 +172,7 @@ export class Auth extends Construct {
               props.allowedSignUpEmailDomains
             ),
           },
+          logRetention: logs.RetentionDays.THREE_MONTHS,
         }
       );
 
@@ -174,6 +187,15 @@ export class Auth extends Construct {
       userPoolId: userPool.userPoolId,
     });
 
+    const creatingBotAllowedGroup = new CfnUserPoolGroup(
+      this,
+      "CreatingBotAllowedGroup",
+      {
+        groupName: "CreatingBotAllowed",
+        userPoolId: userPool.userPoolId,
+      }
+    );
+
     const publishAllowedGroup = new CfnUserPoolGroup(
       this,
       "PublishAllowedGroup",
@@ -182,6 +204,87 @@ export class Auth extends Construct {
         userPoolId: userPool.userPoolId,
       }
     );
+
+    if (props.autoJoinUserGroups.length >= 1) {
+      /**
+       * Create a Cognito trigger to add a new user to the group specified with `autoJoinUserGroups`.
+       *
+       * Registering a Lambda function that uses a user pool as a trigger of the user pool itself
+       * results circular reference, so CloudFormation cannot do this when creating a user pool.
+       * Additionally, CloudFormation does not provide the functionality to add triggers to existing user pools.
+       * Therefore, use a custom resource implementing that functionality.
+       */
+      const addUserToGroupsFunction = new PythonFunction(
+        this,
+        "AddUserToGroups",
+        {
+          runtime: Runtime.PYTHON_3_13,
+          index: "add_user_to_groups.py",
+          entry: path.join(
+            __dirname,
+            "../../../backend/auth/add_user_to_groups"
+          ),
+          timeout: Duration.minutes(1),
+          environment: {
+            USER_POOL_ID: userPool.userPoolId,
+            AUTO_JOIN_USER_GROUPS: JSON.stringify(props.autoJoinUserGroups),
+          },
+          logRetention: logs.RetentionDays.THREE_MONTHS,
+        }
+      );
+      addUserToGroupsFunction.addPermission("CognitoTrigger", {
+        principal: new iam.ServicePrincipal("cognito-idp.amazonaws.com"),
+        sourceArn: userPool.userPoolArn,
+        scope: userPool,
+      });
+      userPool.grant(
+        addUserToGroupsFunction,
+        "cognito-idp:AdminAddUserToGroup"
+      );
+
+      const cognitoTriggerRegistrationFunction = new SingletonFunction(
+        this,
+        "CognitoTriggerRegistrationFunction",
+        {
+          uuid: "a84c6122-180e-48fc-afaf-f4d65da2b370",
+          lambdaPurpose: "CognitoTriggerRegistrationFunction",
+          code: Code.fromInline(
+            fs.readFileSync(
+              path.join(
+                __dirname,
+                "../../custom-resources/cognito-trigger/index.py"
+              ),
+              "utf8"
+            )
+          ),
+          handler: "index.handler",
+
+          runtime: Runtime.PYTHON_3_13,
+          environment: {
+            USER_POOL_ID: userPool.userPoolId,
+          },
+
+          timeout: Duration.minutes(1),
+        }
+      );
+      userPool.grant(
+        cognitoTriggerRegistrationFunction,
+        "cognito-idp:UpdateUserPool",
+        "cognito-idp:DescribeUserPool"
+      );
+
+      const cognitoTrigger = new CustomResource(this, "CognitoTrigger", {
+        serviceToken: cognitoTriggerRegistrationFunction.functionArn,
+        resourceType: "Custom::CognitoTrigger",
+        properties: {
+          Triggers: {
+            PostConfirmation: addUserToGroupsFunction.functionArn,
+            PostAuthentication: addUserToGroupsFunction.functionArn,
+          },
+        },
+      });
+      cognitoTrigger.node.addDependency(addUserToGroupsFunction);
+    }
 
     this.client = client;
     this.userPool = userPool;

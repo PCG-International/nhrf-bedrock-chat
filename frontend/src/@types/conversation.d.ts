@@ -1,17 +1,89 @@
+import { AVAILABLE_MODEL_KEYS } from '../constants/index';
 export type Role = 'system' | 'assistant' | 'user';
-export type Model =
-  | 'claude-instant-v1'
-  | 'claude-v2'
-  | 'claude-v3-opus'
-  | 'claude-v3-sonnet'
-  | 'claude-v3-haiku'
-  | 'mistral-7b-instruct'
-  | 'mixtral-8x7b-instruct'
-  | 'mistral-large';
-export type Content = {
-  contentType: 'text' | 'image';
+
+export type Model = (typeof AVAILABLE_MODEL_KEYS)[number];
+
+export type Content =
+  | TextContent
+  | ImageContent
+  | AttachmentContent
+  | ReasoningContent
+  | ToolUseContent
+  | ToolResultContent;
+
+export type TextContent = {
+  contentType: 'text';
+  body: string;
+};
+
+export type ImageContent = {
+  contentType: 'image';
   mediaType?: string;
   body: string;
+};
+
+export type AttachmentContent = {
+  contentType: 'attachment';
+  fileName?: string;
+  body: string;
+};
+
+export type ReasoningContent = {
+  contentType: 'reasoning';
+  text: string;
+  signature: string;
+  redactedContent: string;
+};
+
+export type ToolUseContent = {
+  contentType: 'toolUse';
+  body: ToolUseContentBody;
+};
+
+export type ToolResultContent = {
+  contentType: 'toolResult';
+  body: ToolResultContentBody;
+};
+
+export type UsedChunk = {
+  content: string;
+  contentType: 's3' | 'url' | 'youtube';
+  source: string;
+  rank: number;
+};
+
+export type ToolUseContentBody = {
+  toolUseId: string;
+  name: string;
+  input: { [key: string]: any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+};
+
+export type AgentToolResultTextContent = {
+  text: string;
+};
+
+export type AgentToolResultJsonContent = {
+  json: { [key: string]: any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+};
+
+export type AgentToolResultContent =
+  | AgentToolResultTextContent
+  | AgentToolResultJsonContent;
+
+export type ToolResultContentBody = {
+  toolUseId: string;
+  content: AgentToolResultContent[];
+  status: 'success' | 'error';
+};
+
+export type SimpleMessageContent =
+  | TextContent
+  | ToolUseContent
+  | ToolResultContent;
+
+export type SimpleMessage = {
+  role: Role;
+  content: SimpleMessageContent[];
 };
 
 export type MessageContent = {
@@ -19,13 +91,16 @@ export type MessageContent = {
   content: Content[];
   model: Model;
   feedback: null | Feedback;
+  usedChunks: null | UsedChunk[];
+  thinkingLog: null | SimpleMessage[];
 };
 
 export type RelatedDocument = {
-  chunkBody: string;
-  contentType: 's3' | 'url';
-  sourceLink: string;
-  rank: number;
+  content: AgentToolResultContent;
+  sourceId: string;
+  sourceName?: string;
+  sourceLink?: string;
+  pageNumber?: number;
 };
 
 export type DisplayMessageContent = MessageContent & {
@@ -41,6 +116,8 @@ export type PostMessageRequest = {
     parentMessageId: null | string;
   };
   botId?: string;
+  continueGenerate?: boolean;
+  enableReasoning: boolean;
 };
 
 export type PostMessageResponse = {
@@ -49,23 +126,27 @@ export type PostMessageResponse = {
   message: MessageContent;
 };
 
-export type GetRelatedDocumentsRequest = {
-  conversationId: string;
-  message: MessageContent & {
-    parentMessageId: null | string;
-  };
-  botId: string;
+export type SearchHighlightModel = {
+  fieldName: string;  // "Title" or "MessageMap"
+  fragments: string[]; // Text fragments containing the search term
 };
-
-export type GetRelatedDocumentsResponse = RelatedDocument[] | null;
 
 export type ConversationMeta = {
   id: string;
   title: string;
   createTime: number;
-  lastMessageId: string;
+  lastMessageId: string; 
   model: Model;
   botId?: string;
+};
+
+export type ConversationSearchMeta = {
+  id: string;
+  title: string;
+  createTime: number;
+  lastUpdatedTime: number;
+  botId?: string;
+  highlights?: SearchHighlightModel[]; // Optional highlights information
 };
 
 export type MessageMap = {
@@ -77,6 +158,7 @@ export type MessageMap = {
 
 export type Conversation = ConversationMeta & {
   messageMap: MessageMap;
+  shouldContinue: boolean;
 };
 
 export type PutFeedbackRequest = {

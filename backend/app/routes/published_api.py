@@ -56,6 +56,8 @@ def post_message(request: Request, message_input: ChatInputWithoutBotId):
             message_id=response_message_id,
         ),
         bot_id=bot_id,
+        continue_generate=message_input.continue_generate,
+        enable_reasoning=message_input.enable_reasoning,
     )
 
     try:

@@ -1,125 +1,168 @@
-import json
 import logging
-import os
-import re
-from typing import Literal
+from typing import TypedDict, Any
+from urllib.parse import urlparse
 
-import pg8000
-from app.bedrock import calculate_query_embedding
-from app.utils import generate_presigned_url
-from pydantic import BaseModel
+from app.repositories.models.conversation import (
+    RelatedDocumentModel,
+    TextToolResultModel,
+)
+from app.repositories.models.custom_bot import BotModel
+from app.utils import get_bedrock_agent_runtime_client
+from botocore.exceptions import ClientError
+from mypy_boto3_bedrock_agent_runtime.type_defs import (
+    KnowledgeBaseRetrievalResultTypeDef,
+)
+from mypy_boto3_bedrock_runtime.type_defs import GuardrailConverseContentBlockTypeDef
 
 logger = logging.getLogger(__name__)
-
-DB_NAME = os.environ.get("DB_NAME", "postgres")
-DB_HOST = os.environ.get("DB_HOST", "")
-DB_USER = os.environ.get("DB_USER", "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "password")
-DB_PORT = int(os.environ.get("DB_PORT", 5432))
+logger.setLevel(logging.INFO)
+agent_client = get_bedrock_agent_runtime_client()
 
 
-class SearchResult(BaseModel):
+class SearchResult(TypedDict):
     bot_id: str
     content: str
-    source: str
+    source_name: str
+    source_link: str
     rank: int
+    metadata: dict[str, Any]
+    page_number: int | None
 
 
-def filter_used_results(
-    generated_text: str, search_results: list[SearchResult]
-) -> list[SearchResult]:
-    """Filter the search results based on the citations in the generated text.
-    Note that the citations in the generated text are in the format of [^rank].
-    """
-    used_results: list[SearchResult] = []
-
-    try:
-        # Extract citations from the generated text
-        citations = [
-            citation.strip("[]^")
-            for citation in re.findall(r"\[\^(\d+)\]", generated_text)
-        ]
-    except Exception as e:
-        logger.error(f"Error extracting citations from the generated text: {e}")
-        return used_results
-
-    for result in search_results:
-        if str(result.rank) in citations:
-            used_results.append(result)
-
-    return used_results
+def search_result_to_related_document(
+    search_result: SearchResult,
+    source_id_base: str,
+) -> RelatedDocumentModel:
+    return RelatedDocumentModel(
+        content=TextToolResultModel(
+            text=search_result["content"],
+        ),
+        source_id=f"{source_id_base}@{search_result['rank']}",
+        source_name=search_result["source_name"],
+        source_link=search_result["source_link"],
+        page_number=search_result["page_number"],
+    )
 
 
-def get_source_link(source: str) -> tuple[Literal["s3", "url"], str]:
-    if source.startswith("s3://"):
-        s3_path = source[5:]  # Remove "s3://" prefix
-        path_parts = s3_path.split("/", 1)
-        bucket_name = path_parts[0]
-        object_key = path_parts[1] if len(path_parts) > 1 else ""
+def to_guardrails_grounding_source(
+    search_results: list[SearchResult],
+) -> GuardrailConverseContentBlockTypeDef | None:
+    """Convert search results to Guardrails Grounding source format."""
+    return (
+        {
+            "text": {
+                "text": "\n\n".join(x["content"] for x in search_results),
+                "qualifiers": ["grounding_source"],
+            }
+        }
+        if len(search_results) > 0
+        else None
+    )
 
-        source_link = generate_presigned_url(
-            bucket=bucket_name,
-            key=object_key,
-            client_method="get_object",
-        )
-        return "s3", source_link
-    elif source.startswith("http://") or source.startswith("https://"):
-        return "url", source
+
+def _bedrock_knowledge_base_search(bot: BotModel, query: str) -> list[SearchResult]:
+    assert bot.bedrock_knowledge_base is not None
+    assert (
+        bot.bedrock_knowledge_base.knowledge_base_id is not None
+        or bot.bedrock_knowledge_base.exist_knowledge_base_id is not None
+    ), "Either knowledge_base_id or exist_knowledge_base_id must be set"
+
+    if bot.bedrock_knowledge_base.search_params.search_type == "semantic":
+        search_type = "SEMANTIC"
+    elif bot.bedrock_knowledge_base.search_params.search_type == "hybrid":
+        search_type = "HYBRID"
     else:
-        # Assume source is a youtube video id
-        return "url", f"https://www.youtube.com/watch?v={source}"
+        raise ValueError("Invalid search type")
 
-
-def search_related_docs(bot_id: str, limit: int, query: str) -> list[SearchResult]:
-    """Search to fetch top n most related documents from pgvector.
-    Args:
-        bot_id (str): bot id
-        limit (int): number of results to return
-        query (str): query string
-    Returns:
-        list[SearchResult]: list of search results
-    """
-    query_embedding = calculate_query_embedding(query)
-    logger.info(f"query_embedding: {query_embedding}")
-
-    conn = pg8000.connect(
-        database=DB_NAME,
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASSWORD,
+    limit = bot.bedrock_knowledge_base.search_params.max_results
+    # Use exist_knowledge_base_id if available, otherwise use knowledge_base_id
+    knowledge_base_id = (
+        bot.bedrock_knowledge_base.exist_knowledge_base_id
+        if bot.bedrock_knowledge_base.exist_knowledge_base_id is not None
+        else bot.bedrock_knowledge_base.knowledge_base_id
     )
 
     try:
-        with conn.cursor() as cursor:
-            # NOTE: <-> is the KNN by L2 distance in pgvector.
-            # If you want to use inner product or cosine distance, use <#> or <=> respectively.
-            # It's important to choose the same distance metric as the one used for indexing.
-            # Ref: https://github.com/pgvector/pgvector?tab=readme-ov-file#getting-started
-            search_query = """
-SELECT id, botid, content, source, embedding 
-FROM items 
-WHERE botid = %s 
-ORDER BY embedding <-> %s 
-LIMIT %s
-"""
-            cursor.execute(search_query, (bot_id, json.dumps(query_embedding), limit))
-            results = cursor.fetchall()
-    except Exception as e:
-        conn.rollback()
+        response = agent_client.retrieve(
+            knowledgeBaseId=knowledge_base_id,
+            retrievalQuery={"text": query},
+            retrievalConfiguration={
+                "vectorSearchConfiguration": {
+                    "numberOfResults": limit,
+                    "overrideSearchType": search_type,
+                }
+            },
+        )
+
+        def extract_source_from_retrieval_result(
+            retrieval_result: KnowledgeBaseRetrievalResultTypeDef,
+        ) -> tuple[str, str] | None:
+            """Extract source URL/URI from retrieval result based on location type."""
+            location = retrieval_result.get("location", {})
+            location_type = location.get("type")
+
+            if location_type == "WEB":
+                url = location.get("webLocation", {}).get("url", "")
+                return (url, url)
+
+            elif location_type == "S3":
+                uri = location.get("s3Location", {}).get("uri", "")
+                source_name = urlparse(url=uri).path.split("/")[-1]
+                return (source_name, uri)
+
+            elif location_type == "CONFLUENCE":
+                url = location.get("confluenceLocation", {}).get("url", "")
+                return (url, url) if url else None
+
+            elif location_type == "SALESFORCE":
+                url = location.get("salesforceLocation", {}).get("url", "")
+                return (url, url) if url else None
+
+            elif location_type == "SHAREPOINT":
+                url = location.get("sharePointLocation", {}).get("url", "")
+                return (url, url) if url else None
+
+            elif location_type == "KENDRA":
+                url = location.get("kendraDocumentLocation", {}).get("uri", "")
+                return (url, url) if url else None
+
+            return None
+
+        search_results = []
+        for i, retrieval_result in enumerate(response.get("retrievalResults", [])):
+            content = retrieval_result.get("content", {}).get("text", "")
+            source = extract_source_from_retrieval_result(retrieval_result)
+
+            if source is not None:
+                # get page number from metadata
+                metadata = retrieval_result.get("metadata", {})
+                page_number = None
+                if "x-amz-bedrock-kb-document-page-number" in metadata:
+                    try:
+                        page_number = int(
+                            metadata["x-amz-bedrock-kb-document-page-number"]
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+                search_results.append(
+                    SearchResult(
+                        rank=i,
+                        bot_id=bot.id,
+                        content=content,
+                        source_name=source[0],
+                        source_link=source[1],
+                        metadata=metadata,
+                        page_number=page_number,
+                    )
+                )
+
+        return search_results
+
+    except ClientError as e:
+        logger.error(f"Error querying Bedrock Knowledge Base: {e}")
         raise e
-    finally:
-        conn.close()
 
-    logger.info(f"{len(results)} records found.")
 
-    # NOTE: results should be:
-    # [
-    #     ('123', 'bot_1', 'content_1', 'source_1', [0.123, 0.456, 0.789]),
-    #     ('124', 'bot_1', 'content_2', 'source_2', [0.234, 0.567, 0.890]),
-    #     ...
-    # ]
-    return [
-        SearchResult(rank=i, bot_id=r[1], content=r[2], source=r[3])
-        for i, r in enumerate(results)
-    ]
+def search_related_docs(bot: BotModel, query: str) -> list[SearchResult]:
+    return _bedrock_knowledge_base_search(bot, query)

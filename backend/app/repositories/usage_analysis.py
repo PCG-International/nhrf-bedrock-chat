@@ -5,10 +5,13 @@ import re
 import time
 from datetime import date, timedelta
 from functools import partial
+from typing import Any
 
 import boto3
-from app.repositories.custom_bot import find_public_bots_by_ids
+from app.repositories.common import get_bot_table_client
+from app.repositories.models.custom_bot import BotMetaWithStackInfo
 from app.repositories.models.usage_analysis import UsagePerBot, UsagePerUser
+from boto3.dynamodb.conditions import Attr, Key
 
 REGION = os.environ.get("REGION", "us-east-1")
 USAGE_ANALYSIS_DATABASE = os.environ.get(
@@ -57,6 +60,48 @@ async def _find_cognito_users_by_ids(user_ids: list[str]) -> list[dict]:
     ]
     results = await asyncio.gather(*tasks)
     return [result for result in results if result is not None]
+
+
+async def _query_bot_by_id(bot_id: str) -> list[dict]:
+    """Query DynamoDB to find a public bot by bot_id."""
+    table = get_bot_table_client()
+    response = table.query(
+        IndexName="BotIdIndex",
+        KeyConditionExpression=Key("BotId").eq(bot_id),
+    )
+    return response["Items"]
+
+
+async def _find_bots_by_ids(bot_ids: list[str]) -> dict[str, BotMetaWithStackInfo]:
+    """Find bot metadata by a list of bot ids and return a dict keyed by bot_id."""
+    loop = asyncio.get_running_loop()
+
+    tasks = []
+    for bot_id in bot_ids:
+        tasks.append(loop.run_in_executor(None, _query_bot_by_id, bot_id))
+
+    results = await asyncio.gather(*tasks)
+
+    bots_dict = {}
+    for items_result in results:
+        items = await items_result  # Await the coroutine to get the actual items
+        for item in items:
+            bot_obj = BotMetaWithStackInfo(
+                id=item["BotId"],
+                title=item["Title"],
+                description=item["Description"],
+                create_time=float(item["CreateTime"]),
+                last_used_time=float(item.get("LastUsedTime", item["CreateTime"])),
+                sync_status=item["SyncStatus"],
+                owner_user_id=item["PK"],
+                published_api_stack_name=item.get("ApiPublishmentStackName", None),
+                published_api_datetime=item.get("ApiPublishedDatetime", None),
+                shared_scope=item.get("SharedScope", "private"),
+                shared_status=item.get("SharedStatus", "private"),
+            )
+            bots_dict[item["BotId"]] = bot_obj
+
+    return bots_dict
 
 
 async def run_athena_query(
@@ -180,15 +225,14 @@ LIMIT {limit};
     )
     rows = response["ResultSet"]["Rows"][1:]
 
-    # Fetch bot meta data from dynamodb
-    bots = await find_public_bots_by_ids(
-        bot_ids=[
-            item["Data"][0]["VarCharValue"]
-            for item in rows
-            if item["Data"][0].get("VarCharValue", None) is not None
-        ]
-    )
-    bots_dict = {bot.id: bot for bot in bots}
+    bot_ids = [
+        row["Data"][0].get("VarCharValue", "")
+        for row in rows
+        if row["Data"][0].get("VarCharValue", None) is not None
+    ]
+
+    # Fetch bot meta data directly
+    bots_dict = await _find_bots_by_ids(bot_ids)
 
     # Join bot meta data and usage data
     bot_usage = []
@@ -208,6 +252,8 @@ LIMIT {limit};
                     published_api_datetime=bot.published_api_datetime,
                     owner_user_id=bot.owner_user_id,
                     total_price=total_price,
+                    shared_scope=bot.shared_scope,
+                    shared_status=bot.shared_status,
                 )
             )
 

@@ -1,44 +1,30 @@
-import json
 import os
+from typing import Any
 
 import boto3
-import pg8000
-from app.repositories.apigateway import delete_api_key, find_usage_plan_by_id
-from app.repositories.cloudformation import delete_stack_by_bot_id, find_stack_by_bot_id
-from app.repositories.common import RecordNotFoundError, decompose_bot_id
+from app.repositories.api_publication import (
+    delete_api_key,
+    delete_stack_by_bot_id,
+    find_stack_by_bot_id,
+    find_usage_plan_by_id,
+)
+from app.repositories.common import RecordNotFoundError, decompose_sk
+from app.utils import delete_api_key_from_secret_manager
 
-DB_HOST = os.environ.get("DB_HOST", "")
-DB_USER = os.environ.get("DB_USER", "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "password")
-DB_PORT = int(os.environ.get("DB_PORT", 5432))
-DB_NAME = os.environ.get("DB_NAME", "postgres")
 DOCUMENT_BUCKET = os.environ.get("DOCUMENT_BUCKET", "documents")
+BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
 
-s3_client = boto3.client("s3")
+s3_client = boto3.client("s3", BEDROCK_REGION)
 
 
-def delete_from_postgres(bot_id: str):
-    """Delete data related to `bot_id` from vector store (i.e. PostgreSQL)."""
-    conn = pg8000.connect(
-        database=DB_NAME,
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASSWORD,
-    )
-
+def delete_custom_bot_stack_by_bot_id(bot_id: str):
+    client = boto3.client("cloudformation", BEDROCK_REGION)
+    stack_name = f"BrChatKbStack{bot_id}"
     try:
-        with conn.cursor() as cursor:
-            delete_query = "DELETE FROM items WHERE botid = %s"
-            cursor.execute(delete_query, (bot_id,))
-        conn.commit()
-        print(f"Successfully deleted records for bot_id: {bot_id}")
-    except Exception as e:
-        conn.rollback()
-        print(f"Error deleting records for bot_id: {bot_id}")
-        print(e)
-    finally:
-        conn.close()
+        response = client.delete_stack(StackName=stack_name)
+    except client.exceptions.ClientError:
+        raise RecordNotFoundError()
+    return response
 
 
 def delete_from_s3(user_id: str, bot_id: str):
@@ -64,7 +50,7 @@ def delete_from_s3(user_id: str, bot_id: str):
         print(e)
 
 
-def handler(event, context):
+def handler(event: dict, context: Any) -> None:
     """Bot removal handler.
     This function is triggered by dynamodb stream when item is deleted.
     Following resources are deleted asynchronously when bot is deleted:
@@ -80,28 +66,30 @@ def handler(event, context):
 
     pk = record["dynamodb"]["Keys"]["PK"]["S"]
     sk = record["dynamodb"]["Keys"].get("SK", {}).get("S")
-    if not sk or "#BOT#" not in sk:
+    if not sk or "BOT#" not in sk:
         # Ignore non-bot items
         print(f"Skipping event for SK: {sk}")
         return
 
     user_id = pk
-    bot_id = decompose_bot_id(sk)
+    bot_id = decompose_sk(sk)
 
-    delete_from_postgres(bot_id)
     delete_from_s3(user_id, bot_id)
+    delete_custom_bot_stack_by_bot_id(bot_id)
+    delete_api_key_from_secret_manager(user_id, bot_id, "firecrawl")
 
-    # Check if cloudformation stack exists
+    # Check if api published stack exists
     try:
         stack = find_stack_by_bot_id(bot_id)
     except RecordNotFoundError:
-        print(f"Bot {bot_id} cloudformation stack not found. Skipping deletion.")
+        print(f"Bot {bot_id} api published stack not found. Skipping deletion.")
         return
 
     # Before delete cfn stack, delete all api keys
-    usage_plan = find_usage_plan_by_id(stack.api_usage_plan_id)
-    for key_id in usage_plan.key_ids:
-        delete_api_key(key_id)
+    if stack.api_usage_plan_id:  # Add type check
+        usage_plan = find_usage_plan_by_id(stack.api_usage_plan_id)
+        for key_id in usage_plan.key_ids:
+            delete_api_key(key_id)
 
     # Delete `ApiPublishmentStack` by CloudFormation
     delete_stack_by_bot_id(bot_id)

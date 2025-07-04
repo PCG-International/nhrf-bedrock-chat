@@ -1,22 +1,37 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Description: A template to deploy the Bedrock-Claude Chat application with customizable parameters.
 
 Parameters:
   AllowSelfRegister:
     Type: String
     Default: "true"
+  EnableLambdaSnapStart:
+    Type: String
+    Default: "false"
   Ipv4Ranges:
     Type: String
-    Default: '["0.0.0.0/1","128.0.0.0/1"]'  # Set default values based on current config
+    Default: '["0.0.0.0/1","128.0.0.0/1"]' # Set default values based on current config
   Ipv6Ranges:
     Type: String
-    Default: '["0000:0000:0000:0000:0000:0000:0000:0000/1","8000:0000:0000:0000:0000:0000:0000:0000/1"]'  # Set default values based on current config
+    Default: '["0000:0000:0000:0000:0000:0000:0000:0000/1","8000:0000:0000:0000:0000:0000:0000:0000/1"]' # Set default values based on current config
+  DisableIpv6:
+    Type: String
+    Default: "false"
   AllowedSignUpEmailDomains:
     Type: String
-    Default: '[]'
-  Region:
+    Default: "[]"
+  BedrockRegion:
     Type: String
     Default: "us-east-1"
+  CdkJsonOverride:
+    Type: String
+    Default: "{}"
+  RepoUrl:
+    Type: String
+    Default: "https://github.com/aws-samples/bedrock-chat.git"
+  Version:
+    Type: String
+    Default: "v3"
 
 Resources:
   ProjectRole:
@@ -107,14 +122,24 @@ Resources:
         EnvironmentVariables:
           - Name: ALLOW_SELF_REGISTER
             Value: !Ref AllowSelfRegister
+          - Name: ENABLE_LAMBDA_SNAPSTART
+            Value: !Ref EnableLambdaSnapStart
           - Name: IPV4_RANGES
             Value: !Ref Ipv4Ranges
           - Name: IPV6_RANGES
             Value: !Ref Ipv6Ranges
+          - Name: DISABLE_IPV6
+            Value: !Ref DisableIpv6
           - Name: ALLOWED_SIGN_UP_EMAIL_DOMAINS
             Value: !Ref AllowedSignUpEmailDomains
-          - Name: REGION
-            Value: !Ref Region            
+          - Name: BEDROCK_REGION
+            Value: !Ref BedrockRegion
+          - Name: CDK_JSON_OVERRIDE
+            Value: !Ref CdkJsonOverride
+          - Name: REPO_URL
+            Value: !Ref RepoUrl
+          - Name: VERSION
+            Value: !Ref Version
       ServiceRole:
         Fn::GetAtt:
           - ProjectRole
@@ -122,31 +147,31 @@ Resources:
       Source:
         BuildSpec: |-
           {
-            "version": "0.2",
+            "version": 0.2,
             "phases": {
               "install": {
                 "runtime-versions": {
                   "nodejs": "18"
                 },
-                "commands": [
-                  "npm i -g aws-cdk"
-                ],
                 "on-failure": "ABORT"
               },
               "build": {
                 "commands": [
                   "echo 'Build phase...'",
-                  "git clone https://github.com/aws-samples/bedrock-claude-chat.git",
-                  "cd bedrock-claude-chat",
-                  "if [ \"$ALLOW_SELF_REGISTER\" = \"false\" ]; then sed -i 's/\"selfSignUpEnabled\": true,/\"selfSignUpEnabled\": false,/' cdk/cdk.json; fi",
+                  "git clone --branch $VERSION $REPO_URL bedrock-chat",
+                  "cd bedrock-chat",
+                  "if [ \"$ALLOW_SELF_REGISTER\" = \"false\" ]; then sed -i 's/\"selfSignUpEnabled\": true/\"selfSignUpEnabled\": false/' cdk/cdk.json; fi",
+                  "if [ \"$ENABLE_LAMBDA_SNAPSTART\" = \"false\" ]; then sed -i 's/\"enableLambdaSnapStart\": true/\"enableLambdaSnapStart\": false/' cdk/cdk.json; fi",
                   "if [ ! -z \"$IPV4_RANGES\" ]; then jq --arg ipv4 \"$IPV4_RANGES\" '.context.allowedIpV4AddressRanges = ($ipv4 | split(\",\"))' cdk/cdk.json > temp.json && mv temp.json cdk/cdk.json; fi",
-                  "if [ ! -z \"$IPV6_RANGES\" ]; then jq --arg ipv6 \"$IPV6_RANGES\" '.context.allowedIpV6AddressRanges = ($ipv6 | split(\",\"))' cdk/cdk.json > temp.json && mv temp.json cdk/cdk.json; fi",
+                  "if [ \"$DISABLE_IPV6\" = \"true\" ]; then jq '.context.allowedIpV6AddressRanges = []' cdk/cdk.json > temp.json && mv temp.json cdk/cdk.json; elif [ ! -z \"$IPV6_RANGES\" ]; then jq --arg ipv6 \"$IPV6_RANGES\" '.context.allowedIpV6AddressRanges = ($ipv6 | split(\",\"))' cdk/cdk.json > temp.json && mv temp.json cdk/cdk.json; fi",
                   "if [ ! -z \"$ALLOWED_SIGN_UP_EMAIL_DOMAINS\" ]; then jq --arg domains \"$ALLOWED_SIGN_UP_EMAIL_DOMAINS\" '.context.allowedSignUpEmailDomains = ($domains | split(\",\"))' cdk/cdk.json > temp.json && mv temp.json cdk/cdk.json; fi",
-                  "sed -i \"s/\\\"bedrockRegion\\\": \\\"[^\\\"]*\\\"/\\\"bedrockRegion\\\": \\\"${REGION}\\\"/\" cdk/cdk.json",
+                  "sed -i \"s/\\\"bedrockRegion\\\": \\\"[^\\\"]*\\\"/\\\"bedrockRegion\\\": \\\"${BEDROCK_REGION}\\\"/\" cdk/cdk.json",
+                  "echo \"$CDK_JSON_OVERRIDE\" | jq '.' && jq --argjson override \"$CDK_JSON_OVERRIDE\" '. * $override' cdk/cdk.json > temp.json && mv temp.json cdk/cdk.json",
                   "cd cdk",
+                  "cat cdk.json",
                   "npm ci",
-                  "cdk bootstrap",
-                  "cdk deploy --require-approval never --all"
+                  "npx cdk bootstrap",
+                  "npx cdk deploy --require-approval never --all"
                 ]
               }
             }
@@ -156,4 +181,3 @@ Outputs:
   ProjectName:
     Value:
       Ref: Project
-

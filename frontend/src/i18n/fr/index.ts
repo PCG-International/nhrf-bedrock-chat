@@ -1,8 +1,7 @@
 const translation = {
   translation: {
     app: {
-      name: 'Bedrock Claude Chat',
-      nameWithoutClaude: 'Bedrock Chat',
+      name: 'Bedrock Chat',
       inputMessage: 'Envoyer un message',
       starredBots: 'Epingler un bot',
       recentlyUsedBots: 'Bot utilisé récemment',
@@ -54,7 +53,7 @@ const translation = {
         knowledge: {
           overview:
             "En fournissant des connaissances externes au bot, celui-ci devient capable de gérer des données sur lesquelles il n'a pas été pré-entraîné.",
-          url: "Les informations de l'URL spécifiée seront utilisées comme connaissances. Si vous définissez l'URL d'une vidéo YouTube, la transcription de cette vidéo sera utilisée comme connaissance.",
+          url: "Les informations de l'URL spécifiée seront utilisées comme connaissances.",
           sitemap:
             "En spécifiant l'URL du plan du site, les informations obtenues en grattant automatiquement les sites Web qu'il contient seront utilisées comme connaissances.",
           file: 'Les fichiers téléchargés seront utilisés comme connaissances.',
@@ -172,6 +171,7 @@ Comment catégoriseriez-vous cet e-mail ?`,
       signOut: 'Se déconnecter',
       close: 'Fermer',
       add: 'Ajouter',
+      continue: 'Continuer à générer',
     },
     input: {
       hint: {

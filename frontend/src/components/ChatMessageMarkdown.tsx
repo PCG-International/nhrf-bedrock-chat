@@ -5,35 +5,46 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import ButtonDownload from './ButtonDownload';
 import ButtonCopy from './ButtonCopy';
 import { RelatedDocument } from '../@types/conversation';
 import { twMerge } from 'tailwind-merge';
-import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { create } from 'zustand';
 import { produce } from 'immer';
 import rehypeExternalLinks, { Options } from 'rehype-external-links';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
-import "katex/dist/katex.min.css"
+import 'katex/dist/katex.min.css';
 import { onlyText } from 'react-children-utilities';
+import RelatedDocumentViewer from './RelatedDocumentViewer';
 
 type Props = BaseProps & {
   children: string;
+  isStreaming?: boolean;
   relatedDocuments?: RelatedDocument[];
   messageId: string;
 };
 
-const useMarkdownState = create<{
-  isOpenReference: {
-    [key: string]: boolean;
+const useRelatedDocumentsState = create<{
+  relatedDocuments: {
+    [key: string]: RelatedDocument;
   };
-  setIsOpenReference: (key: string, b: boolean) => void;
+  setRelatedDocument: (key: string, relatedDocument: RelatedDocument) => void;
+  resetRelatedDocument: (key: string) => void;
 }>((set, get) => ({
-  isOpenReference: {},
-  setIsOpenReference: (key, b) => {
+  relatedDocuments: {},
+  setRelatedDocument: (key, relatedDocument) => {
     set({
-      isOpenReference: produce(get().isOpenReference, (draft) => {
-        draft[key] = b;
+      relatedDocuments: produce(get().relatedDocuments, (draft) => {
+        draft[key] = relatedDocument;
+      }),
+    });
+  },
+  resetRelatedDocument: (key) => {
+    set({
+      relatedDocuments: produce(get().relatedDocuments, (draft) => {
+        delete draft[key];
       }),
     });
   },
@@ -41,69 +52,36 @@ const useMarkdownState = create<{
 
 const RelatedDocumentLink: React.FC<{
   relatedDocument?: RelatedDocument;
+  sourceId: string;
   linkId: string;
   children: ReactNode;
 }> = (props) => {
-  const { t } = useTranslation();
-  const { isOpenReference, setIsOpenReference } = useMarkdownState();
-
-  const linkUrl = useMemo(() => {
-    const url = props.relatedDocument?.sourceLink;
-    if (url) {
-      if (props.relatedDocument?.contentType === 's3') {
-        return decodeURIComponent(url.split('?')[0].split('/').pop() ?? '');
-      } else {
-        return url;
-      }
-    }
-    return '';
-  }, [props.relatedDocument?.contentType, props.relatedDocument?.sourceLink]);
+  const { relatedDocuments, setRelatedDocument, resetRelatedDocument } = useRelatedDocumentsState();
 
   return (
     <>
       <a
         className={twMerge(
           'mx-0.5 ',
-          props.relatedDocument
-            ? 'cursor-pointer text-aws-sea-blue hover:text-aws-sea-blue-hover'
+          props.relatedDocument != null
+            ? 'cursor-pointer text-aws-sea-blue-light dark:text-aws-sea-blue-dark hover:text-aws-sea-blue-hover-light dark:hover:text-aws-sea-blue-hover-dark'
             : 'cursor-not-allowed text-gray'
         )}
         onClick={() => {
-          setIsOpenReference(props.linkId, !isOpenReference[props.linkId]);
+          if (props.relatedDocument != null) {
+            setRelatedDocument(props.linkId, props.relatedDocument);
+          }
         }}>
         {props.children}
       </a>
 
-      {props.relatedDocument && (
-        <div
-          className={twMerge(
-            isOpenReference[props.linkId] ? 'visible' : 'invisible',
-            'fixed left-0 top-0 z-50 flex h-dvh w-dvw items-center justify-center bg-aws-squid-ink/20 transition duration-1000'
-          )}
+      {relatedDocuments[props.linkId] && (
+        <RelatedDocumentViewer
+          relatedDocument={relatedDocuments[props.linkId]}
           onClick={() => {
-            setIsOpenReference(props.linkId, false);
-          }}>
-          <div
-            className="max-h-[80vh] w-[70vw] max-w-[800px] overflow-y-auto rounded border bg-aws-squid-ink p-1 text-sm text-aws-font-color-white"
-            onClick={(e) => {
-              e.stopPropagation();
-            }}>
-            {props.relatedDocument.chunkBody.split('\n').map((s, idx) => (
-              <div key={idx}>{s}</div>
-            ))}
-
-            <div className="my-1 border-t pt-1 italic">
-              {t('bot.label.referenceLink')}:
-              <span
-                className="ml-1 cursor-pointer underline"
-                onClick={() => {
-                  window.open(props.relatedDocument?.sourceLink, '_blank');
-                }}>
-                {linkUrl}
-              </span>
-            </div>
-          </div>
-        </div>
+            resetRelatedDocument(props.linkId);
+          }}
+        />
       )}
     </>
   );
@@ -112,31 +90,68 @@ const RelatedDocumentLink: React.FC<{
 const ChatMessageMarkdown: React.FC<Props> = ({
   className,
   children,
+  isStreaming,
   relatedDocuments,
   messageId,
 }) => {
+  const sourceIds = useMemo(() => (
+    [...new Set(Array.from(
+      children.matchAll(/\[\^(?<sourceId>[\w!?/+\-_~=;.,*&@#$%]+?)\]/g),
+      match => match.groups!.sourceId,
+    ))]
+  ), [children]);
+
+  const chatWaitingSymbol = useMemo(() => i18next.t('app.chatWaitingSymbol'), []);
   const text = useMemo(() => {
-    const results = children.match(/\[\^(?<number>[\d])+?\]/g);
+    const textRemovedIncompleteCitation = children.replace(/\[\^[^\]]*?$/, '[^');
+    let textReplacedSourceId = textRemovedIncompleteCitation.replace(
+      /\[\^(?<sourceId>[\w!?/+\-_~=;.,*&@#$%]+?)\]/g,
+      (_, sourceId) => {
+        const index = sourceIds.indexOf(sourceId);
+        if (index === -1) {
+          return '';
+        }
+        return `[^${index + 1}]`
+      },
+    );
+
+    // Simple approach: only allow $$ for math, escape single $ that are not part of valid math
+    // This regex looks for $ that are not followed by another $ and not preceded by another $
+    // Examples:
+    // - "$5.99" becomes "\$5.99" (not processed as math)
+    // - "$x + y$" becomes "\$x + y\$" (not processed as math)
+    // - "$$x + y$$" stays "$$x + y$$" (processed as block math)
+    textReplacedSourceId = textReplacedSourceId.replace(
+      /(?<!\$)\$(?!\$)/g,
+      '\\$'
+    );
+
+    if (isStreaming) {
+      textReplacedSourceId += chatWaitingSymbol;
+    }
+
     // Default Footnote link is not shown, so set dummy
-    return results
-      ? `${children}\n${results.map((result) => `${result}: dummy`).join('\n')}`
-      : children;
-  }, [children]);
+    if (sourceIds.length > 0) {
+      textReplacedSourceId += `\n${sourceIds.map((_, index) => `[^${index + 1}]: dummy`).join('\n')}`;
+    }
+
+    return textReplacedSourceId;
+  }, [children, isStreaming, sourceIds, chatWaitingSymbol]);
 
   const remarkPlugins = useMemo(() => {
-    return [remarkGfm, remarkBreaks, remarkMath]
-  }, [])
+    return [remarkGfm, remarkBreaks, remarkMath];
+  }, []);
   const rehypePlugins = useMemo(() => {
     const rehypeExternalLinksOptions: Options = {
       target: '_blank',
-      properties: { style: "word-break: break-all;", }
-    }
-    return [rehypeKatex, [rehypeExternalLinks, rehypeExternalLinksOptions]]
-  }, [])
+      properties: { style: 'word-break: break-word;' },
+    };
+    return [rehypeKatex, [rehypeExternalLinks, rehypeExternalLinksOptions]];
+  }, []);
 
   return (
     <ReactMarkdown
-      className={`${className ?? ''} prose max-w-full`}
+      className={twMerge(className, 'prose dark:prose-invert max-w-full break-words')}
       children={text}
       remarkPlugins={remarkPlugins}
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -157,9 +172,15 @@ const ChatMessageMarkdown: React.FC<Props> = ({
                 children={codeText}
                 style={vscDarkPlus}
                 language={match[1]}
-                x
                 PreTag="div"
                 wrapLongLines={true}
+                customStyle={{
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  maxWidth: '100%'
+                }}
+                className="code-block-wrap"
               />
             </CopyToClipboard>
           ) : (
@@ -188,9 +209,10 @@ const ChatMessageMarkdown: React.FC<Props> = ({
                       const docNo = Number.parseInt(
                         href.replace('#user-content-fn-', '')
                       );
-                      const doc = relatedDocuments?.filter(
-                        (doc) => doc.rank === docNo
-                      )[0];
+                      const sourceId = sourceIds[docNo - 1];
+                      const relatedDocument = relatedDocuments?.find(document => (
+                        document.sourceId === sourceId || document.sourceId === `${messageId}@${sourceId}`
+                      ));
 
                       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                       // @ts-ignore
@@ -199,14 +221,17 @@ const ChatMessageMarkdown: React.FC<Props> = ({
                         <RelatedDocumentLink
                           key={`${idx}-${docNo}`}
                           linkId={`${messageId}-${idx}-${docNo}`}
-                          relatedDocument={doc}>
+                          relatedDocument={relatedDocument}
+                          sourceId={sourceId}
+                        >
                           [{refNo}]
                         </RelatedDocumentLink>
                       );
                     }
                   }
                   return child;
-                })}
+                })
+              }
             </sup>
           );
         },
@@ -235,9 +260,12 @@ const CopyToClipboard = ({
   codeText: string;
 }) => {
   return (
-    <div className="relative">
+    <div className="relative max-w-full overflow-hidden">
       {children}
-      <ButtonCopy text={codeText} className="absolute right-2 top-2" />
+      <div className="absolute right-2 top-2 flex gap-0">
+        <ButtonDownload text={codeText} />
+        <ButtonCopy text={codeText} />
+      </div>
     </div>
   );
 };

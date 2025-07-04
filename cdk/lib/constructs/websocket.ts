@@ -1,35 +1,30 @@
 import { Construct } from "constructs";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { WebSocketLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import * as python from "@aws-cdk/aws-lambda-python-alpha";
-import {
-  DockerImageCode,
-  DockerImageFunction,
-  IFunction,
-} from "aws-cdk-lib/aws-lambda";
+
+import { IFunction, Runtime, SnapStartConf } from "aws-cdk-lib/aws-lambda";
 import * as path from "path";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { CfnOutput, Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
-import { Platform } from "aws-cdk-lib/aws-ecr-assets";
-import * as sns from "aws-cdk-lib/aws-sns";
-import { SnsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Auth } from "./auth";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { CfnRouteResponse } from "aws-cdk-lib/aws-apigatewayv2";
-import * as ec2 from "aws-cdk-lib/aws-ec2";
-import { DbConfig } from "./embedding";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import { excludeDockerImage } from "../constants/docker";
+import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
+import { Database } from "./database";
 
 export interface WebSocketProps {
-  readonly vpc: ec2.IVpc;
-  readonly database: ITable;
-  readonly dbConfig: DbConfig;
+  readonly database: Database;
   readonly auth: Auth;
   readonly bedrockRegion: string;
-  readonly tableAccessRole: iam.IRole;
+  readonly documentBucket: s3.IBucket;
   readonly websocketSessionTable: ITable;
   readonly largeMessageBucket: s3.IBucket;
+  readonly accessLogBucket?: s3.Bucket;
+  readonly enableBedrockCrossRegionInference: boolean;
+  readonly enableLambdaSnapStart: boolean;
 }
 
 export class WebSocket extends Construct {
@@ -40,7 +35,8 @@ export class WebSocket extends Construct {
   constructor(scope: Construct, id: string, props: WebSocketProps) {
     super(scope, id);
 
-    const { database, tableAccessRole } = props;
+    const { database } = props;
+    const { tableAccessRole } = database;
 
     // Bucket for SNS large payload support
     // See: https://docs.aws.amazon.com/sns/latest/dg/extended-client-library-python.html
@@ -54,12 +50,19 @@ export class WebSocket extends Construct {
         removalPolicy: RemovalPolicy.DESTROY,
         objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
         autoDeleteObjects: true,
+        serverAccessLogsBucket: props.accessLogBucket,
+        serverAccessLogsPrefix: "LargePayloadSupportBucket",
       }
     );
 
     const handlerRole = new iam.Role(this, "HandlerRole", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
     });
+    handlerRole.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName(
+        "service-role/AWSLambdaBasicExecutionRole"
+      )
+    );
     handlerRole.addToPolicy(
       // Assume the table access role for row-level access control.
       new iam.PolicyStatement({
@@ -73,25 +76,42 @@ export class WebSocket extends Construct {
         resources: ["*"],
       })
     );
-    handlerRole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        "service-role/AWSLambdaVPCAccessExecutionRole"
-      )
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["cognito-idp:AdminListGroupsForUser"],
+        resources: [props.auth.userPool.userPoolArn],
+      })
     );
+
+    // get api key from secrets manager
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:firecrawl/*/*`,
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:firecrawl/*/*`,
+        ],
+      })
+    );
+
     largePayloadSupportBucket.grantRead(handlerRole);
     props.websocketSessionTable.grantReadWriteData(handlerRole);
     props.largeMessageBucket.grantReadWrite(handlerRole);
+    props.documentBucket.grantRead(handlerRole);
 
-    const handler = new DockerImageFunction(this, "Handler", {
-      code: DockerImageCode.fromImageAsset(
-        path.join(__dirname, "../../../backend"),
-        {
-          platform: Platform.LINUX_AMD64,
-          file: "websocket.Dockerfile",
-        }
-      ),
-      vpc: props.vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+    const handler = new PythonFunction(this, "HandlerV2", {
+      entry: path.join(__dirname, "../../../backend"),
+      index: "app/websocket.py",
+      bundling: {
+        assetExcludes: [...excludeDockerImage],
+        buildArgs: { POETRY_VERSION: "1.8.3" },
+      },
+      runtime: Runtime.PYTHON_3_13,
       memorySize: 512,
       timeout: Duration.minutes(15),
       environment: {
@@ -100,32 +120,34 @@ export class WebSocket extends Construct {
         USER_POOL_ID: props.auth.userPool.userPoolId,
         CLIENT_ID: props.auth.client.userPoolClientId,
         BEDROCK_REGION: props.bedrockRegion,
-        TABLE_NAME: database.tableName,
+        CONVERSATION_TABLE_NAME: database.conversationTable.tableName,
+        BOT_TABLE_NAME: database.botTable.tableName,
         TABLE_ACCESS_ROLE_ARN: tableAccessRole.roleArn,
         LARGE_MESSAGE_BUCKET: props.largeMessageBucket.bucketName,
-        DB_NAME: props.dbConfig.database,
-        DB_HOST: props.dbConfig.host,
-        DB_USER: props.dbConfig.username,
-        DB_PASSWORD: props.dbConfig.password,
-        DB_PORT: props.dbConfig.port.toString(),
         LARGE_PAYLOAD_SUPPORT_BUCKET: largePayloadSupportBucket.bucketName,
         WEBSOCKET_SESSION_TABLE_NAME: props.websocketSessionTable.tableName,
+        ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
+          props.enableBedrockCrossRegionInference.toString(),
       },
       role: handlerRole,
+      snapStart: props.enableLambdaSnapStart
+        ? SnapStartConf.ON_PUBLISHED_VERSIONS
+        : undefined,
+      logRetention: logs.RetentionDays.THREE_MONTHS,
     });
 
     const webSocketApi = new apigwv2.WebSocketApi(this, "WebSocketApi", {
       connectRouteOptions: {
         integration: new WebSocketLambdaIntegration(
           "ConnectIntegration",
-          handler
+          handler.currentVersion
         ),
       },
     });
     const route = webSocketApi.addRoute("$default", {
       integration: new WebSocketLambdaIntegration(
         "DefaultIntegration",
-        handler
+        handler.currentVersion
       ),
     });
     new apigwv2.WebSocketStage(this, "WebSocketStage", {

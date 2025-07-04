@@ -7,20 +7,21 @@ import {
   MessageMap,
   Model,
   PostMessageRequest,
-  RelatedDocument,
   Conversation,
   PutFeedbackRequest,
+  TextContent,
+  Content,
 } from '../@types/conversation';
 import useConversation from './useConversation';
 import { create } from 'zustand';
 import usePostMessageStreaming from './usePostMessageStreaming';
-import useSnackbar from './useSnackbar';
-import { useNavigate } from 'react-router-dom';
 import { ulid } from 'ulid';
 import { convertMessageMapToArray } from '../utils/MessageUtils';
-import { useTranslation } from 'react-i18next';
 import useModel from './useModel';
 import useFeedbackApi from './useFeedbackApi';
+import { useMachine } from '@xstate/react';
+import { agentThinkingState } from '../features/agent/xstates/agentThink';
+import { reasoningState } from '../features/reasoning/xstates/reasoningState';
 
 type ChatStateType = {
   [id: string]: MessageMap;
@@ -29,7 +30,20 @@ type ChatStateType = {
 type BotInputType = {
   botId: string;
   hasKnowledge: boolean;
+  hasAgent: boolean;
 };
+
+export type AttachmentType = {
+  fileName: string;
+  fileType: string;
+  extractedContent: string;
+};
+
+export type ThinkingAction =
+  | {
+      type: 'doing';
+    }
+  | { type: 'init' };
 
 const NEW_MESSAGE_ID = {
   USER: 'new-message',
@@ -38,15 +52,19 @@ const NEW_MESSAGE_ID = {
 const USE_STREAMING: boolean =
   import.meta.env.VITE_APP_USE_STREAMING === 'true';
 
+const getTextContentBody = (content: Content[]): string => {
+  const textContent = content.find(
+    (c): c is TextContent => c.contentType === 'text'
+  );
+  return textContent?.body || '';
+};
+
 const useChatState = create<{
   conversationId: string;
   setConversationId: (s: string) => void;
   postingMessage: boolean;
   setPostingMessage: (b: boolean) => void;
   chats: ChatStateType;
-  relatedDocuments: {
-    [messageId: string]: RelatedDocument[];
-  };
   setMessages: (id: string, messageMap: MessageMap) => void;
   copyMessages: (fromId: string, toId: string) => void;
   pushMessage: (
@@ -61,17 +79,17 @@ const useChatState = create<{
     id: string,
     currentMessageId: string
   ) => DisplayMessageContent[];
-  setRelatedDocuments: (
-    messageId: string,
-    documents: RelatedDocument[]
-  ) => void;
-  moveRelatedDocuments: (fromMessageId: string, toMessageId: string) => void;
   currentMessageId: string;
   setCurrentMessageId: (s: string) => void;
   isGeneratedTitle: boolean;
   setIsGeneratedTitle: (b: boolean) => void;
   getPostedModel: () => Model;
   shouldUpdateMessages: (currentConversation: Conversation) => boolean;
+  shouldCotinue: boolean;
+  setShouldContinue: (b: boolean) => void;
+  getShouldContinue: () => boolean;
+  reasoningEnabled: boolean;
+  setReasoningEnabled: (enabled: boolean) => void;
 }>((set, get) => {
   return {
     conversationId: '',
@@ -89,7 +107,6 @@ const useChatState = create<{
       }));
     },
     chats: {},
-    relatedDocuments: {},
     setMessages: (id: string, messageMap: MessageMap) => {
       set((state) => ({
         chats: produce(state.chats, (draft) => {
@@ -141,7 +158,12 @@ const useChatState = create<{
     editMessage: (id: string, messageId: string, content: string) => {
       set(() => ({
         chats: produce(get().chats, (draft) => {
-          draft[id][messageId].content[0].body = content;
+          const textContent = draft[id][messageId].content.find(
+            (c) => c.contentType === 'text'
+          );
+          if (textContent && 'body' in textContent) {
+            (textContent as TextContent).body = content;
+          }
         }),
       }));
     },
@@ -173,21 +195,6 @@ const useChatState = create<{
     getMessages: (id: string, currentMessageId: string) => {
       return convertMessageMapToArray(get().chats[id] ?? {}, currentMessageId);
     },
-    setRelatedDocuments: (messageId, documents) => {
-      set((state) => ({
-        relatedDocuments: produce(state.relatedDocuments, (draft) => {
-          draft[messageId] = documents;
-        }),
-      }));
-    },
-    moveRelatedDocuments: (fromId, toId) => {
-      set(() => ({
-        relatedDocuments: produce(get().relatedDocuments, (draft) => {
-          draft[toId] = get().relatedDocuments[fromId];
-          draft[fromId] = [];
-        }),
-      }));
-    },
     currentMessageId: '',
     setCurrentMessageId: (s: string) => {
       set(() => ({
@@ -215,11 +222,24 @@ const useChatState = create<{
         get().currentMessageId !== currentConversation.lastMessageId
       );
     },
+    getShouldContinue: () => {
+      return get().shouldCotinue;
+    },
+    setShouldContinue: (b) => {
+      set(() => ({
+        shouldCotinue: b,
+      }));
+    },
+    shouldCotinue: false,
+    reasoningEnabled: false,
+    setReasoningEnabled: (enabled) => set({ reasoningEnabled: enabled }),
   };
 });
 
 const useChat = () => {
-  const { t } = useTranslation();
+  const [agentThinking, agentSend] = useMachine(agentThinkingState);
+  const [reasoningThinking, reasoningSend] = useMachine(reasoningState);
+
   const {
     chats,
     conversationId,
@@ -237,16 +257,15 @@ const useChat = () => {
     isGeneratedTitle,
     setIsGeneratedTitle,
     getPostedModel,
-    relatedDocuments,
-    setRelatedDocuments,
-    moveRelatedDocuments,
     shouldUpdateMessages,
+    getShouldContinue,
+    setShouldContinue,
+    reasoningEnabled,
+    setReasoningEnabled,
   } = useChatState();
-  const { open: openSnackbar } = useSnackbar();
-  const navigate = useNavigate();
 
   const { post: postStreaming } = usePostMessageStreaming();
-  const { modelId, setModelId } = useModel();
+  const { modelId, setModelId, availableModels } = useModel();
 
   const conversationApi = useConversationApi();
   const feedbackApi = useFeedbackApi();
@@ -254,9 +273,16 @@ const useChat = () => {
     data,
     mutate,
     isLoading: loadingConversation,
-    error,
+    error: conversationError,
   } = conversationApi.getConversation(conversationId);
   const { syncConversations } = useConversation();
+
+  const {
+    data: relatedDocuments,
+    mutate: reloadRelatedDocuments,
+    isLoading: loadingRelatedDocuments,
+    error: relatedDocumentsError,
+  } = conversationApi.getRelatedDocuments(conversationId);
 
   const messages = useMemo(() => {
     return getMessages(conversationId, currentMessageId);
@@ -268,26 +294,16 @@ const useChat = () => {
     setMessages('', {});
   }, [setConversationId, setMessages]);
 
-  // Error Handling
-  useEffect(() => {
-    if (error?.response?.status === 404) {
-      openSnackbar(t('error.notFoundConversation'));
-      navigate('');
-      newChat();
-    } else if (error) {
-      openSnackbar(error?.message ?? '');
-    }
-  }, [error, navigate, newChat, openSnackbar, t]);
-
   // when updated messages
   useEffect(() => {
     if (data && shouldUpdateMessages(data)) {
       setMessages(conversationId, data.messageMap);
       setCurrentMessageId(data.lastMessageId);
       setModelId(getPostedModel());
-      if ((relatedDocuments[NEW_MESSAGE_ID.ASSISTANT]?.length ?? 0) > 0) {
-        moveRelatedDocuments(NEW_MESSAGE_ID.ASSISTANT, data.lastMessageId);
-      }
+      reloadRelatedDocuments();
+    }
+    if (data && data.shouldContinue !== getShouldContinue()) {
+      setShouldContinue(data.shouldContinue);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, data]);
@@ -296,6 +312,24 @@ const useChat = () => {
     setIsGeneratedTitle(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
+
+  const supportReasoning = useMemo(() => {
+    // If existing conversation data, use that model
+    const postedModel = getPostedModel();
+    // Before data is obtained, use the currently selected model
+    const effectiveModel = postedModel || modelId;
+    // Check if the model supports reasoning
+    return availableModels.some(
+      (m) => m.modelId === effectiveModel && m.supportReasoning
+    );
+  }, [modelId, availableModels, getPostedModel]);
+
+  useEffect(() => {
+    // If the model does not support reasoning, disable reasoning
+    if (!supportReasoning) {
+      setReasoningEnabled(false);
+    }
+  }, [supportReasoning, setReasoningEnabled]);
 
   // 画面に即時反映させるために、Stateを更新する処理
   const pushNewMessage = (
@@ -322,16 +356,20 @@ const useChat = () => {
         ],
         model: messageContent.model,
         feedback: messageContent.feedback,
+        usedChunks: messageContent.usedChunks,
+        thinkingLog: messageContent.thinkingLog,
       }
     );
   };
 
   const postChat = (params: {
     content: string;
+    enableReasoning: boolean;
     base64EncodedImages?: string[];
+    attachments?: AttachmentType[];
     bot?: BotInputType;
   }) => {
-    const { content, bot, base64EncodedImages } = params;
+    const { content, bot, base64EncodedImages, attachments } = params;
     const isNewChat = conversationId ? false : true;
     const newConversationId = ulid();
 
@@ -360,8 +398,21 @@ const useChat = () => {
         mediaType: result!.groups!.mediaType,
       };
     });
+
+    const attachContents: MessageContent['content'] = (attachments ?? []).map(
+      (attachment) => {
+        return {
+          body: attachment.extractedContent,
+          contentType: 'attachment',
+          mediaType: attachment.fileType,
+          fileName: attachment.fileName,
+        };
+      }
+    );
+
     const messageContent: MessageContent = {
       content: [
+        ...attachContents,
         ...imageContents,
         {
           body: content,
@@ -371,6 +422,8 @@ const useChat = () => {
       model: modelToPost,
       role: 'user',
       feedback: null,
+      usedChunks: null,
+      thinkingLog: null,
     };
     const input: PostMessageRequest = {
       conversationId: isNewChat ? newConversationId : conversationId,
@@ -379,6 +432,7 @@ const useChat = () => {
         parentMessageId: parentMessageId,
       },
       botId: bot?.botId,
+      enableReasoning: params.enableReasoning,
     };
     const createNewConversation = () => {
       // Copy State to prevent screen flicker
@@ -404,11 +458,18 @@ const useChat = () => {
     // post message
     const postPromise: Promise<string> = new Promise((resolve, reject) => {
       if (USE_STREAMING) {
+        agentSend({ type: 'wakeup' });
+        reasoningSend({ type: 'start' });
         postStreaming({
           input,
-          hasKnowledge: bot?.hasKnowledge,
           dispatch: (c: string) => {
             editMessage(conversationId, NEW_MESSAGE_ID.ASSISTANT, c);
+          },
+          thinkingDispatch: (event) => {
+            agentSend(event);
+          },
+          reasoningDispatch: (event) => {
+            reasoningSend(event);
           },
         })
           .then((message) => {
@@ -421,12 +482,9 @@ const useChat = () => {
         conversationApi
           .postMessage(input)
           .then((res) => {
-            editMessage(
-              conversationId,
-              NEW_MESSAGE_ID.ASSISTANT,
-              res.data.message.content[0].body
-            );
-            resolve(res.data.message.content[0].body);
+            const textBody = getTextContentBody(res.data.message.content);
+            editMessage(conversationId, NEW_MESSAGE_ID.ASSISTANT, textBody);
+            resolve(textBody);
           })
           .catch((e) => {
             reject(e);
@@ -449,23 +507,62 @@ const useChat = () => {
       .finally(() => {
         setPostingMessage(false);
       });
+  };
 
-    // get related document (for RAG)
-    const documents: RelatedDocument[] = [];
-    if (input.botId) {
-      conversationApi
-        .getRelatedDocuments({
-          botId: input.botId,
-          conversationId: input.conversationId!,
-          message: input.message,
-        })
-        .then((res) => {
-          if (res.data) {
-            documents.push(...res.data);
-            setRelatedDocuments(NEW_MESSAGE_ID.ASSISTANT, documents);
-          }
-        });
-    }
+  /**
+   * Continue to generate
+   */
+  const continueGenerate = (params?: {
+    messageId?: string;
+    bot?: BotInputType;
+  }) => {
+    setPostingMessage(true);
+
+    const messageContent: MessageContent = {
+      content: [],
+      model: getPostedModel(),
+      role: 'user',
+      feedback: null,
+      usedChunks: null,
+      thinkingLog: null,
+    };
+    const input: PostMessageRequest = {
+      conversationId: conversationId,
+      message: {
+        ...messageContent,
+        parentMessageId: messages[messages.length - 1].id,
+      },
+      botId: params?.bot?.botId,
+      continueGenerate: true,
+      enableReasoning: false,
+    };
+
+    const lastMessage = messages[messages.length - 1];
+    const currentContentBody = getTextContentBody(lastMessage.content);
+    const currentMessage = messages[messages.length - 1];
+
+    // WARNING: Non-streaming is not supported from the UI side as it is planned to be DEPRICATED.
+    postStreaming({
+      input,
+      dispatch: (c: string) => {
+        editMessage(conversationId, currentMessage.id, currentContentBody + c);
+      },
+      thinkingDispatch: (event) => {
+        agentSend(event);
+      },
+      reasoningDispatch: (event) => {
+        reasoningSend(event);
+      },
+    })
+      .then(() => {
+        mutate();
+      })
+      .catch((e) => {
+        console.error(e);
+      })
+      .finally(() => {
+        setPostingMessage(false);
+      });
   };
 
   /**
@@ -473,6 +570,7 @@ const useChat = () => {
    * @param props content: 内容を上書きしたい場合に設定  messageId: 再生成対象のmessageId  botId: ボットの場合は設定する
    */
   const regenerate = (props?: {
+    enableReasoning: boolean;
     content?: string;
     messageId?: string;
     bot?: BotInputType;
@@ -492,7 +590,12 @@ const useChat = () => {
 
     const parentMessage = produce(messages[index], (draft) => {
       if (props?.content) {
-        draft.content[0].body = props.content;
+        const textIndex = draft.content.findIndex(
+          (content) => content.contentType === 'text'
+        );
+        if (textIndex >= 0) {
+          (draft.content[textIndex] as TextContent).body = props.content;
+        }
       }
     });
 
@@ -508,6 +611,7 @@ const useChat = () => {
         parentMessageId: parentMessage.parent,
       },
       botId: props?.bot?.botId,
+      enableReasoning: props?.enableReasoning ?? false,
     };
 
     if (input.message.parentMessageId === null) {
@@ -532,6 +636,8 @@ const useChat = () => {
           ],
           model: messages[index].model,
           feedback: messages[index].feedback,
+          usedChunks: messages[index].usedChunks,
+          thinkingLog: messages[index].thinkingLog,
         }
       );
     } else {
@@ -540,10 +646,17 @@ const useChat = () => {
 
     setCurrentMessageId(NEW_MESSAGE_ID.ASSISTANT);
 
+    agentSend({ type: 'wakeup' });
     postStreaming({
       input,
       dispatch: (c: string) => {
         editMessage(conversationId, NEW_MESSAGE_ID.ASSISTANT, c);
+      },
+      thinkingDispatch: (event) => {
+        agentSend(event);
+      },
+      reasoningDispatch: (event) => {
+        reasoningSend(event);
       },
     })
       .then(() => {
@@ -557,23 +670,6 @@ const useChat = () => {
       .finally(() => {
         setPostingMessage(false);
       });
-
-    // get related document (for RAG)
-    const documents: RelatedDocument[] = [];
-    if (input.botId) {
-      conversationApi
-        .getRelatedDocuments({
-          botId: input.botId,
-          conversationId: input.conversationId!,
-          message: input.message,
-        })
-        .then((res) => {
-          if (res.data) {
-            documents.push(...res.data);
-            setRelatedDocuments(NEW_MESSAGE_ID.ASSISTANT, documents);
-          }
-        });
-    }
   };
 
   const hasError = useMemo(() => {
@@ -582,10 +678,13 @@ const useChat = () => {
   }, [messages]);
 
   return {
+    agentThinking,
+    reasoningThinking,
     hasError,
     setConversationId,
     conversationId,
     loadingConversation,
+    conversationError,
     postingMessage: postingMessage || loadingConversation,
     isGeneratedTitle,
     setIsGeneratedTitle,
@@ -595,8 +694,17 @@ const useChat = () => {
     postChat,
     regenerate,
     getPostedModel,
+    getShouldContinue,
+    continueGenerate,
+    reasoningEnabled,
+    setReasoningEnabled,
+    supportReasoning,
     // エラーのリトライ
-    retryPostChat: (params: { content?: string; bot?: BotInputType }) => {
+    retryPostChat: (params: {
+      enableReasoning: boolean;
+      content?: string;
+      bot?: BotInputType;
+    }) => {
       const length_ = messages.length;
       if (length_ === 0) {
         return;
@@ -606,26 +714,33 @@ const useChat = () => {
         // 通常のメッセージ送信時
         // エラー発生時の最新のメッセージはユーザ入力;
         removeMessage(conversationId, latestMessage.id);
+
+        const latestMessageBody = getTextContentBody(latestMessage.content);
         postChat({
-          content: params.content ?? latestMessage.content[0].body,
+          content: params.content ?? latestMessageBody,
+          enableReasoning: params.enableReasoning,
           bot: params.bot
             ? {
                 botId: params.bot.botId,
                 hasKnowledge: params.bot.hasKnowledge,
+                hasAgent: params.bot.hasAgent,
               }
             : undefined,
         });
       } else {
         // 再生成時
+        const latestMessageBody = getTextContentBody(latestMessage.content);
         regenerate({
-          content: params.content ?? latestMessage.content[0].body,
+          enableReasoning: params.enableReasoning,
+          content: params.content ?? latestMessageBody,
           bot: params.bot,
         });
       }
     },
-    getRelatedDocuments: (messageId: string) => {
-      return relatedDocuments[messageId] ?? [];
-    },
+    relatedDocuments,
+    reloadRelatedDocuments,
+    loadingRelatedDocuments,
+    relatedDocumentsError,
     giveFeedback: (messageId: string, feedback: PutFeedbackRequest) => {
       return feedbackApi
         .putFeedback(conversationId, messageId, feedback)

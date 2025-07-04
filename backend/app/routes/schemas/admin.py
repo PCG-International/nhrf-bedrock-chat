@@ -1,5 +1,8 @@
+from typing import Literal
+
 from app.routes.schemas.base import BaseSchema
 from app.routes.schemas.bot import Knowledge, type_sync_status
+from app.repositories.custom_bot import type_shared_scope
 from pydantic import Field
 
 
@@ -10,6 +13,8 @@ class PublishedBotOutput(BaseSchema):
     published_stack_name: str | None
     published_datetime: int | None
     owner_user_id: str
+    shared_scope: type_shared_scope
+    shared_status: str
 
 
 class PublishedBotOutputsWithNextToken(BaseSchema):
@@ -23,6 +28,8 @@ class UsagePerBotOutput(BaseSchema):
     description: str
     is_published: bool
     published_datetime: int | None
+    shared_scope: type_shared_scope
+    shared_status: str
     owner_user_id: str
     # model_id: str
     total_price: float
@@ -46,3 +53,19 @@ class PublicBotOutput(BaseSchema):
     sync_status: type_sync_status
     sync_status_reason: str
     sync_last_exec_id: str
+    shared_scope: type_shared_scope
+    shared_status: str
+    allowed_cognito_groups: list[str]
+    allowed_cognito_users: list[str]
+
+
+class PushBotInputPinned(BaseSchema):
+    to_pinned: Literal[True]
+    order: int
+
+
+class PushBotInputUnpinned(BaseSchema):
+    to_pinned: Literal[False]
+
+
+PushBotInput = PushBotInputPinned | PushBotInputUnpinned

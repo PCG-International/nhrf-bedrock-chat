@@ -10,6 +10,13 @@ import zhhant from './zh-hant';
 import fr from './fr';
 import de from './de';
 import it from './it';
+import nb from './nb';
+import th from './th';
+import id from './id';
+import ms from './ms';
+import vi from './vi';
+import pl from './pl';
+import ptbr from './pt-br';
 
 export const LANGUAGES: {
   value: string;
@@ -51,6 +58,34 @@ export const LANGUAGES: {
     value: 'it',
     label: 'Italian',
   },
+  {
+    value: 'nb',
+    label: 'Norsk (Bokmål)',
+  },
+  {
+    value: 'th',
+    label: 'ไทย',
+  },
+  {
+    value: 'id',
+    label: 'Bahasa Indonesia',
+  },
+  {
+    value: 'ms',
+    label: 'Bahasa Melayu',
+  },
+  {
+    value: 'vi',
+    label: 'Tiếng Việt',
+  },
+  {
+    value: 'pl',
+    label: 'Polski',
+  },
+	{
+		value: 'ptbr',
+		label: 'Português (Brasil)',
+	},
 ];
 
 const resources = {
@@ -63,6 +98,13 @@ const resources = {
   it,
   zhhans,
   zhhant,
+  nb,
+  th,
+  id,
+  ms,
+  vi,
+  pl,
+	ptbr,
 };
 
 // Settings i18n

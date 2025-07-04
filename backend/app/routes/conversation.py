@@ -3,6 +3,8 @@ from app.repositories.conversation import (
     delete_conversation_by_id,
     delete_conversation_by_user_id,
     find_conversation_by_user_id,
+    find_related_document_by_id,
+    find_related_documents_by_conversation_id,
     update_feedback,
 )
 from app.repositories.models.conversation import FeedbackModel
@@ -11,17 +13,19 @@ from app.routes.schemas.conversation import (
     ChatOutput,
     Conversation,
     ConversationMetaOutput,
+    ConversationSearchResult,
     FeedbackInput,
     FeedbackOutput,
     NewTitleInput,
     ProposedTitle,
-    RelatedDocumentsOutput,
+    RelatedDocument,
 )
 from app.usecases.chat import (
     chat,
+    chat_output_from_message,
     fetch_conversation,
-    fetch_related_documents,
     propose_conversation_title,
+    search_conversations as search_conversations_usecase,
 )
 from app.user import User
 from fastapi import APIRouter, Request
@@ -40,24 +44,44 @@ def post_message(request: Request, chat_input: ChatInput):
     """Send chat message"""
     current_user: User = request.state.current_user
 
-    output = chat(user_id=current_user.id, chat_input=chat_input)
+    conversation, message = chat(user=current_user, chat_input=chat_input)
+    output = chat_output_from_message(conversation=conversation, message=message)
     return output
 
 
-@router.post(
-    "/conversation/related-documents",
-    response_model=list[RelatedDocumentsOutput] | None,
+@router.get(
+    "/conversation/{conversation_id}/related-documents",
+    response_model=list[RelatedDocument],
 )
 def get_related_documents(
-    request: Request, chat_input: ChatInput
-) -> list[RelatedDocumentsOutput] | None:
-    """Get related documents
-    NOTE: POST method is used to avoid query string length limit.
-    If the bot prohibits displaying related documents, it will return `None`.
-    """
+    request: Request, conversation_id: str
+) -> list[RelatedDocument]:
+    """Get related documents"""
     current_user: User = request.state.current_user
-    output = fetch_related_documents(user_id=current_user.id, chat_input=chat_input)
-    return output
+
+    related_documents = find_related_documents_by_conversation_id(
+        user_id=current_user.id,
+        conversation_id=conversation_id,
+    )
+    return [related_document.to_schema() for related_document in related_documents]
+
+
+@router.get(
+    "/conversation/{conversation_id}/related-documents/{source_id}",
+    response_model=RelatedDocument,
+)
+def get_related_document(
+    request: Request, conversation_id: str, source_id: str
+) -> RelatedDocument:
+    """Get a related document"""
+    current_user: User = request.state.current_user
+
+    related_document = find_related_document_by_id(
+        user_id=current_user.id,
+        conversation_id=conversation_id,
+        source_id=source_id,
+    )
+    return related_document.to_schema()
 
 
 @router.get("/conversation/{conversation_id}", response_model=Conversation)
@@ -99,11 +123,17 @@ def get_all_conversations(
 
 
 @router.delete("/conversations")
-def remove_all_conversations(
-    request: Request,
-):
+def remove_all_conversations(request: Request):
     """Delete all conversations"""
     delete_conversation_by_user_id(request.state.current_user.id)
+
+
+@router.get("/conversations/search", response_model=list[ConversationSearchResult])
+def search_conversations(request: Request, query: str):
+    """Search conversations by keyword"""
+    current_user: User = request.state.current_user
+    output = search_conversations_usecase(query, current_user)
+    return output
 
 
 @router.patch("/conversation/{conversation_id}/title")

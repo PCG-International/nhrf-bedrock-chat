@@ -15,6 +15,7 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(security)):
         return User(
             id=decoded["sub"],
             name=decoded["cognito:username"],
+            email=decoded["email"],
             groups=decoded.get("cognito:groups", []),
         )
     except (IndexError, JWTError):
@@ -30,6 +31,14 @@ def check_admin(user: User = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admin can access this API.",
+        )
+
+
+def check_creating_bot_allowed(user: User = Depends(get_current_user)):
+    if not user.is_creating_bot_allowed():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not allowed to create bot.",
         )
 
 

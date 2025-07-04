@@ -1,5 +1,6 @@
 import React, { ReactNode, useState } from 'react';
 import { PiCaretDown } from 'react-icons/pi';
+import { twMerge } from 'tailwind-merge';
 
 type Props = {
   className?: string;
@@ -15,7 +16,7 @@ const ExpandableDrawerGroup: React.FC<Props> = ({
   const [isShow, setIsShow] = useState(isDefaultShow);
 
   return (
-    <div className={`${props.className ?? ''}`}>
+    <div className={twMerge(props.className)}>
       <div
         className="flex w-full cursor-pointer items-center transition hover:brightness-75"
         onClick={() => {

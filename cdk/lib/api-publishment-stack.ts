@@ -7,27 +7,17 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as path from "path";
 import { Platform } from "aws-cdk-lib/aws-ecr-assets";
-import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as wafv2 from "aws-cdk-lib/aws-wafv2";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as logs from "aws-cdk-lib/aws-logs";
+import { excludeDockerImage } from "./constants/docker";
 
-export interface VpcConfig {
-  vpcId: string;
-  availabilityZones: string[];
-  publicSubnetIds: string[];
-  privateSubnetIds: string[];
-  isolatedSubnetIds: string[];
-}
 interface ApiPublishmentStackProps extends StackProps {
   readonly bedrockRegion: string;
-  readonly vpcConfig: VpcConfig;
-  readonly dbConfigHostname: string;
-  readonly dbConfigPort: number;
-  readonly dbConfigSecretArn: string;
-  readonly dbSecurityGroupId: string;
+  readonly enableBedrockCrossRegionInference: boolean;
   readonly conversationTableName: string;
+  readonly botTableName: string;
   readonly tableAccessRoleArn: string;
   readonly webAclArn: string;
   readonly usagePlan: apigateway.UsagePlanProps;
@@ -43,22 +33,27 @@ export class ApiPublishmentStack extends Stack {
 
     console.log(`usagePlan: ${JSON.stringify(props.usagePlan)}`); // DEBUG
 
-    const dbSecret = secretsmanager.Secret.fromSecretCompleteArn(
-      this,
-      "DbSecret",
-      props.dbConfigSecretArn
-    );
-
     const deploymentStage = props.deploymentStage ?? "dev";
-    const vpc = ec2.Vpc.fromVpcAttributes(this, "Vpc", props.vpcConfig);
 
+    const chatQueueDLQ = new sqs.Queue(this, "ChatQueueDlq", {
+      retentionPeriod: cdk.Duration.days(14),
+    });
     const chatQueue = new sqs.Queue(this, "ChatQueue", {
       visibilityTimeout: cdk.Duration.minutes(30),
+      deadLetterQueue: {
+        maxReceiveCount: 2, // one retry
+        queue: chatQueueDLQ,
+      },
     });
 
     const handlerRole = new iam.Role(this, "HandlerRole", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
     });
+    handlerRole.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName(
+        "service-role/AWSLambdaBasicExecutionRole"
+      )
+    );
     handlerRole.addToPolicy(
       // Assume the table access role for row-level access control.
       new iam.PolicyStatement({
@@ -71,11 +66,6 @@ export class ApiPublishmentStack extends Stack {
         actions: ["bedrock:*"],
         resources: ["*"],
       })
-    );
-    handlerRole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        "service-role/AWSLambdaVPCAccessExecutionRole"
-      )
     );
     const largeMessageBucket = s3.Bucket.fromBucketName(
       this,
@@ -91,16 +81,16 @@ export class ApiPublishmentStack extends Stack {
         {
           platform: Platform.LINUX_AMD64,
           file: "Dockerfile",
+          exclude: [...excludeDockerImage],
         }
       ),
-      vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       memorySize: 1024,
       timeout: cdk.Duration.minutes(15),
       environment: {
         PUBLISHED_API_ID: id.replace("ApiPublishmentStack", ""),
         QUEUE_URL: chatQueue.queueUrl,
-        TABLE_NAME: props.conversationTableName,
+        CONVERSATION_TABLE_NAME: props.conversationTableName,
+        BOT_TABLE_NAME: props.botTableName,
         CORS_ALLOW_ORIGINS: (props.corsOptions?.allowOrigins ?? ["*"]).join(
           ","
         ),
@@ -109,22 +99,9 @@ export class ApiPublishmentStack extends Stack {
         BEDROCK_REGION: props.bedrockRegion,
         LARGE_MESSAGE_BUCKET: props.largeMessageBucketName,
         TABLE_ACCESS_ROLE_ARN: props.tableAccessRoleArn,
-        DB_NAME: dbSecret
-          .secretValueFromJson("dbname")
-          .unsafeUnwrap()
-          .toString(),
-        DB_HOST: props.dbConfigHostname,
-        DB_USER: dbSecret
-          .secretValueFromJson("username")
-          .unsafeUnwrap()
-          .toString(),
-        DB_PASSWORD: dbSecret
-          .secretValueFromJson("password")
-          .unsafeUnwrap()
-          .toString(),
-        DB_PORT: cdk.Token.asString(props.dbConfigPort),
       },
       role: handlerRole,
+      logRetention: logs.RetentionDays.THREE_MONTHS,
     });
 
     // Handler for SQS consumer
@@ -136,41 +113,29 @@ export class ApiPublishmentStack extends Stack {
           path.join(__dirname, "../../backend"),
           {
             platform: Platform.LINUX_AMD64,
-            file: "websocket.Dockerfile",
+            file: "lambda.Dockerfile",
             cmd: ["app.sqs_consumer.handler"],
+            exclude: [...excludeDockerImage],
           }
         ),
-        vpc,
-        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         memorySize: 1024,
         timeout: cdk.Duration.minutes(15),
         environment: {
           PUBLISHED_API_ID: id.replace("ApiPublishmentStack", ""),
           QUEUE_URL: chatQueue.queueUrl,
-          TABLE_NAME: props.conversationTableName,
+          CONVERSATION_TABLE_NAME: props.conversationTableName,
+          BOT_TABLE_NAME: props.botTableName,
           CORS_ALLOW_ORIGINS: (props.corsOptions?.allowOrigins ?? ["*"]).join(
             ","
           ),
           ACCOUNT: Stack.of(this).account,
           REGION: Stack.of(this).region,
+          ENABLE_BEDROCK_CROSS_REGION_INFERENCE: props.enableBedrockCrossRegionInference.toString(),
           BEDROCK_REGION: props.bedrockRegion,
           TABLE_ACCESS_ROLE_ARN: props.tableAccessRoleArn,
-          DB_NAME: dbSecret
-            .secretValueFromJson("dbname")
-            .unsafeUnwrap()
-            .toString(),
-          DB_HOST: props.dbConfigHostname,
-          DB_USER: dbSecret
-            .secretValueFromJson("username")
-            .unsafeUnwrap()
-            .toString(),
-          DB_PASSWORD: dbSecret
-            .secretValueFromJson("password")
-            .unsafeUnwrap()
-            .toString(),
-          DB_PORT: cdk.Token.asString(props.dbConfigPort),
         },
         role: handlerRole,
+        logRetention: logs.RetentionDays.THREE_MONTHS,
       }
     );
     sqsConsumeHandler.addEventSource(
@@ -178,17 +143,6 @@ export class ApiPublishmentStack extends Stack {
     );
     chatQueue.grantSendMessages(apiHandler);
     chatQueue.grantConsumeMessages(sqsConsumeHandler);
-
-    // Allow the handler to access the pgvector.
-    const dbSg = ec2.SecurityGroup.fromSecurityGroupId(
-      this,
-      "DbSecurityGroup",
-      props.dbSecurityGroupId
-    );
-    dbSg.connections.allowFrom(
-      sqsConsumeHandler,
-      ec2.Port.tcp(props.dbConfigPort)
-    );
 
     const api = new apigateway.LambdaRestApi(this, "Api", {
       restApiName: id,

@@ -1,5 +1,6 @@
 from typing import Literal
 
+from app.repositories.custom_bot import type_shared_scope
 from pydantic import BaseModel
 
 
@@ -11,6 +12,8 @@ class UsagePerBot(BaseModel):
     published_api_datetime: int | None
     owner_user_id: str
     total_price: float
+    shared_scope: type_shared_scope
+    shared_status: str
 
 
 class UsagePerUser(BaseModel):

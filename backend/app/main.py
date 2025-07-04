@@ -12,8 +12,10 @@ from app.repositories.common import (
 from app.routes.admin import router as admin_router
 from app.routes.api_publication import router as api_publication_router
 from app.routes.bot import router as bot_router
+from app.routes.bot_store import router as bot_store_router
 from app.routes.conversation import router as conversation_router
 from app.routes.published_api import router as published_api_router
+from app.routes.user import router as user_router
 from app.user import User
 from app.utils import is_running_on_lambda
 from fastapi import Depends, FastAPI, Request
@@ -39,11 +41,13 @@ if not is_published_api:
         {"name": "bot", "description": "Bot API"},
         {"name": "api_publication", "description": "API Publication API"},
         {"name": "admin", "description": "Admin API"},
+        {"name": "user", "description": "User API (cognito)"},
+        {"name": "bot_store", "description": "Bot Store API"},
     ]
-    title = "Bedrock Claude Chat"
+    title = "Bedrock Chat"
 else:
     openapi_tags = [{"name": "published_api", "description": "Published API"}]
-    title = "Bedrock Claude Chat Published API"
+    title = "Bedrock Chat Published API"
 
 
 app = FastAPI(
@@ -57,6 +61,8 @@ if not is_published_api:
     app.include_router(bot_router)
     app.include_router(api_publication_router)
     app.include_router(admin_router)
+    app.include_router(user_router)
+    app.include_router(bot_store_router)
 else:
     app.include_router(published_api_router)
 
@@ -103,13 +109,18 @@ def add_current_user_to_request(request: Request, call_next: ASGIApp):
                 )
                 request.state.current_user = get_current_user(token)
         else:
-            request.state.current_user = User(
-                id=f"PUBLISHED_API#{PUBLISHED_API_ID}",
-                name=PUBLISHED_API_ID,  # type: ignore
-                groups=[],
-            )
+            assert PUBLISHED_API_ID is not None, "PUBLISHED_API_ID is not set."
+            request.state.current_user = User.from_published_api_id(PUBLISHED_API_ID)
     else:
-        request.state.current_user = User(id="test_user", name="test_user", groups=[])
+        authorization = request.headers.get("Authorization")
+        if authorization:
+            token_str = authorization.split(" ")[1]
+            token = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token_str)
+            request.state.current_user = get_current_user(token)
+        else:
+            request.state.current_user = User(
+                id="test_user", name="test_user", email="user@example.com", groups=[]
+            )
 
     response = call_next(request)  # type: ignore
     return response

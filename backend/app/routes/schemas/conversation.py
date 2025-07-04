@@ -1,29 +1,66 @@
-from typing import Literal
+from typing import Annotated, Literal
 
+from app.repositories.models.common import Base64EncodedBytes
 from app.routes.schemas.base import BaseSchema
-from pydantic import Field, root_validator, validator
+from mypy_boto3_bedrock_runtime.literals import DocumentFormatType, ImageFormatType
+from pydantic import Discriminator, Field, JsonValue, root_validator
 
 type_model_name = Literal[
-    "claude-instant-v1",
-    "claude-v2",
-    "claude-v3-sonnet",
+    "claude-v4-opus",
+    "claude-v4-sonnet",
+    "claude-v3.5-sonnet",
+    "claude-v3.5-sonnet-v2",
+    "claude-v3.7-sonnet",
+    "claude-v3.5-haiku",
     "claude-v3-haiku",
     "claude-v3-opus",
+    # Mistral
     "mistral-7b-instruct",
     "mixtral-8x7b-instruct",
     "mistral-large",
+    "mistral-large-2",
+    # New Amazon Nova models
+    "amazon-nova-pro",
+    "amazon-nova-lite",
+    "amazon-nova-micro",
+    # DeepSeek models
+    "deepseek-r1",
+    # Meta Llama 3 models
+    "llama3-3-70b-instruct",
+    "llama3-2-1b-instruct",
+    "llama3-2-3b-instruct",
+    "llama3-2-11b-instruct",
+    "llama3-2-90b-instruct",
 ]
 
 
-class Content(BaseSchema):
-    content_type: Literal["text", "image"] = Field(
+class TextContent(BaseSchema):
+    content_type: Literal["text"] = Field(
         ..., description="Content type. Note that image is only available for claude 3."
     )
-    media_type: str | None = Field(
-        None,
+    body: str = Field(..., description="Content body.")
+
+
+class ImageContent(BaseSchema):
+    content_type: Literal["image"] = Field(
+        ..., description="Content type. Note that image is only available for claude 3."
+    )
+    media_type: str = Field(
+        ...,
         description="MIME type of the image. Must be specified if `content_type` is `image`.",
     )
-    body: str = Field(..., description="Content body. Text or base64 encoded image.")
+    body: Base64EncodedBytes = Field(..., description="Content body.")
+
+
+class AttachmentContent(BaseSchema):
+    content_type: Literal["attachment"] = Field(
+        ..., description="Content type. Note that image is only available for claude 3."
+    )
+    file_name: str = Field(
+        ...,
+        description="File name of the attachment. Must be specified if `content_type` is `attachment`.",
+    )
+    body: Base64EncodedBytes = Field(..., description="Content body.")
 
 
 class FeedbackInput(BaseSchema):
@@ -52,8 +89,84 @@ class FeedbackOutput(BaseSchema):
 
 class Chunk(BaseSchema):
     content: str
+    content_type: str
     source: str
     rank: int
+
+
+class ToolUseContentBody(BaseSchema):
+    tool_use_id: str
+    name: str
+    input: dict[str, JsonValue]
+
+
+class ToolUseContent(BaseSchema):
+    content_type: Literal["toolUse"] = Field(
+        ..., description="Content type. Note that image is only available for claude 3."
+    )
+    body: ToolUseContentBody
+
+
+class TextToolResult(BaseSchema):
+    text: str
+
+
+class JsonToolResult(BaseSchema):
+    json_: dict[str, JsonValue] = Field(
+        alias="json"
+    )  # `json` is a reserved keyword on pydantic
+
+
+class ImageToolResult(BaseSchema):
+    format: ImageFormatType
+    image: Base64EncodedBytes
+
+
+class DocumentToolResult(BaseSchema):
+    format: DocumentFormatType
+    name: str
+    document: Base64EncodedBytes
+
+
+ToolResult = TextToolResult | JsonToolResult | ImageToolResult | DocumentToolResult
+
+
+class ToolResultContentBody(BaseSchema):
+    tool_use_id: str
+    content: list[ToolResult]
+    status: Literal["error", "success"]
+
+
+class ToolResultContent(BaseSchema):
+    content_type: Literal["toolResult"] = Field(
+        ..., description="Content type. Note that image is only available for claude 3."
+    )
+    body: ToolResultContentBody
+
+
+class ReasoningContent(BaseSchema):
+    content_type: Literal["reasoning"] = Field(
+        ..., description="Content type. Note that image is only available for claude 3."
+    )
+    text: str
+    signature: str
+    redacted_content: Base64EncodedBytes
+
+
+Content = Annotated[
+    TextContent
+    | ImageContent
+    | AttachmentContent
+    | ToolUseContent
+    | ToolResultContent
+    | ReasoningContent,
+    Discriminator("content_type"),
+]
+
+
+class SimpleMessage(BaseSchema):
+    role: str
+    content: list[Content]
 
 
 class MessageInput(BaseSchema):
@@ -74,16 +187,15 @@ class MessageOutput(BaseSchema):
     feedback: FeedbackOutput | None
     used_chunks: list[Chunk] | None
     parent: str | None
+    thinking_log: list[SimpleMessage] | None
 
 
 class ChatInput(BaseSchema):
     conversation_id: str
     message: MessageInput
     bot_id: str | None = Field(None)
-
-
-class ChatInputWithToken(ChatInput):
-    token: str
+    continue_generate: bool = Field(False)
+    enable_reasoning: bool = Field(False)
 
 
 class ChatOutput(BaseSchema):
@@ -93,11 +205,19 @@ class ChatOutput(BaseSchema):
     create_time: float
 
 
-class RelatedDocumentsOutput(BaseSchema):
-    chunk_body: str
-    content_type: Literal["s3", "url"]
-    source_link: str
-    rank: int
+class RelatedDocument(BaseSchema):
+    content: ToolResult
+    source_id: str
+    source_name: str | None = None
+    source_link: str | None = None
+    page_number: int | None = None
+
+
+class SearchHighlight(BaseSchema):
+    """Schema representing highlight information for search results"""
+
+    field_name: str  # "Title" or "MessageMap"
+    fragments: list[str]  # Text fragments containing the search term
 
 
 class ConversationMetaOutput(BaseSchema):
@@ -108,6 +228,14 @@ class ConversationMetaOutput(BaseSchema):
     bot_id: str | None
 
 
+class ConversationSearchResult(BaseSchema):
+    id: str
+    title: str
+    last_updated_time: float
+    bot_id: str | None
+    highlights: list[SearchHighlight] | None = None
+
+
 class Conversation(BaseSchema):
     id: str
     title: str
@@ -115,6 +243,7 @@ class Conversation(BaseSchema):
     message_map: dict[str, MessageOutput]
     last_message_id: str
     bot_id: str | None
+    should_continue: bool
 
 
 class NewTitleInput(BaseSchema):

@@ -1,33 +1,40 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Button from './Button';
-import { PiList, PiSignOut, PiTranslate, PiTrash } from 'react-icons/pi';
+import {
+  PiList,
+  PiSidebar,
+  PiSignOut,
+  PiTranslate,
+  PiTrash,
+} from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';
-import DialogSelectLanguage from './DialogSelectLanguage';
 import { BaseProps } from '../@types/common';
-import DialogConfirmClearConversations from './DialogConfirmClearConversations';
-import useConversation from '../hooks/useConversation';
-import { useNavigate } from 'react-router-dom';
+import { twMerge } from 'tailwind-merge';
+import useLoginUser from '../hooks/useLoginUser';
+import { IoMoonSharp, IoSunnyOutline } from 'react-icons/io5';
+import useLocalStorage from '../hooks/useLocalStorage';
+import Toggle from './Toggle';
 
 type Props = BaseProps & {
   onSignOut: () => void;
+  onSelectLanguage: () => void;
+  onClickDrawerOptions: () => void;
+  onClearConversations: () => void;
 };
 
-// 認証時に表示するメニューコンポーネント
-const Menu: React.FC<Props> = (props) => {
+const MenuSettings: React.FC<Props> = (props) => {
   const { t } = useTranslation();
+  const { userGroups, userName } = useLoginUser();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isOpenLangage, setIsOpenLangage] = useState(false);
-  const [isOpenClearConversation, setIsOpenClearConversation] = useState(false);
-
-  const { clearConversations: clear } = useConversation();
-  const navigate = useNavigate();
+  // If you want to add a theme, change the type from boolean to string and change the UI from pulldown.
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [theme, setTheme] = useLocalStorage('theme', 'light');
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // メニューの外側をクリックした際のハンドリング
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleClickOutside = (event: any) => {
       // メニューボタンとメニュー以外をクリックしていたらメニューを閉じる
@@ -39,30 +46,38 @@ const Menu: React.FC<Props> = (props) => {
         setIsOpen(false);
       }
     };
-    // イベントリスナーを設定
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      // 後処理でイベントリスナーを削除
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [menuRef]);
 
-  const clearConversations = useCallback(
-    () => {
-      clear().then(() => {
-        navigate('');
-        setIsOpenClearConversation(false);
-      });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
+  useEffect(() => {
+    if (theme === 'dark') {
+      setIsDarkTheme(true);
+    }
+  }, [theme]);
+
+  const changeTheme = (isDarkTheme: boolean) => {
+    setIsDarkTheme(isDarkTheme);
+    if (isDarkTheme) {
+      document.documentElement.className = 'dark';
+      setTheme('dark');
+    } else {
+      document.documentElement.className = 'light';
+      setTheme('light');
+    }
+  };
 
   return (
     <>
       <Button
         ref={buttonRef}
-        className="relative bg-aws-squid-ink"
+        className={twMerge(
+          'relative bg-aws-squid-ink-light dark:bg-aws-squid-ink-dark',
+          props.className
+        )}
         text
         icon={<PiList />}
         onClick={() => {
@@ -74,49 +89,74 @@ const Menu: React.FC<Props> = (props) => {
       {isOpen && (
         <div
           ref={menuRef}
-          className="absolute bottom-10 left-2 w-60 rounded border border-aws-font-color-white bg-aws-sea-blue text-aws-font-color-white">
+          className="absolute bottom-10 left-2 w-60 rounded border border-aws-font-color-white-light bg-aws-sea-blue-light text-aws-font-color-white-light dark:border-aws-font-color-white-dark dark:bg-aws-ui-color-dark dark:text-aws-font-color-white-dark">
+          <div className="flex flex-col gap-1 border-b p-2">
+            <div className="font-bold">{userName}</div>
+            <div className="">
+              <div className="italic">{t('app.userGroups')}</div>
+              <ul className="list-disc pl-5">
+                {userGroups.map((group) => (
+                  <li key={group}>{group}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
           <div
-            className="flex w-full cursor-pointer items-center p-2 hover:bg-aws-sea-blue-hover"
+            className="flex w-full cursor-pointer items-center p-2 hover:bg-aws-sea-blue-hover-light dark:hover:bg-aws-paper-dark"
             onClick={() => {
               setIsOpen(false);
-              setIsOpenLangage(true);
+              props.onClickDrawerOptions();
+            }}>
+            <PiSidebar className="mr-2" />
+            {t('button.drawerOption')}
+          </div>
+
+          <div
+            className="flex w-full cursor-pointer items-center p-2 hover:bg-aws-sea-blue-hover-light dark:hover:bg-aws-paper-dark"
+            onClick={() => {
+              setIsOpen(false);
+              props.onSelectLanguage();
             }}>
             <PiTranslate className="mr-2" />
             {t('button.language')}
           </div>
+
+          <div className="flex w-full items-center px-2 hover:bg-aws-sea-blue-hover-light dark:hover:bg-aws-paper-dark">
+            {isDarkTheme ? (
+              <IoMoonSharp className="mr-2" />
+            ) : (
+              <IoSunnyOutline className="mr-2" />
+            )}
+            <div className="flex w-full items-center justify-between">
+              <span>{t('button.mode')}</span>
+              <Toggle
+                value={isDarkTheme}
+                onChange={(isDarkTheme) => {
+                  changeTheme(isDarkTheme);
+                }}
+              />
+            </div>
+          </div>
           <div
-            className="flex w-full cursor-pointer items-center p-2 hover:bg-aws-sea-blue-hover"
+            className="flex w-full cursor-pointer items-center border-t p-2 hover:bg-aws-sea-blue-hover-light dark:hover:bg-aws-paper-dark"
             onClick={() => {
               setIsOpen(false);
-              setIsOpenClearConversation(true);
+              props.onClearConversations();
             }}>
             <PiTrash className="mr-2" />
             {t('button.clearConversation')}
           </div>
           <div
-            className="flex w-full cursor-pointer items-center border-t p-2 hover:bg-aws-sea-blue-hover"
+            className="flex w-full cursor-pointer items-center border-t p-2 hover:bg-aws-sea-blue-hover-light dark:hover:bg-aws-paper-dark"
             onClick={props.onSignOut}>
             <PiSignOut className="mr-2" />
             {t('button.signOut')}
           </div>
         </div>
       )}
-
-      <DialogSelectLanguage
-        isOpen={isOpenLangage}
-        onClose={() => {
-          setIsOpenLangage(false);
-        }}
-      />
-      <DialogConfirmClearConversations
-        isOpen={isOpenClearConversation}
-        onClose={() => {
-          setIsOpenClearConversation(false);
-        }}
-        onDelete={clearConversations}
-      />
     </>
   );
 };
 
-export default Menu;
+export default MenuSettings;

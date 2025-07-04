@@ -1,16 +1,43 @@
 import * as cdk from "aws-cdk-lib";
 import { BedrockChatStack } from "../lib/bedrock-chat-stack";
 import { Template } from "aws-cdk-lib/assertions";
+import { AwsPrototypingChecks } from "@aws-prototyping-sdk/pdk-nag";
+import {
+  getEmbeddingModel,
+  getChunkingStrategy,
+  getAnalyzer,
+} from "../lib/utils/bedrock-knowledge-base-args";
+import { BedrockCustomBotStack } from "../lib/bedrock-custom-bot-stack";
+import { BedrockRegionResourcesStack } from "../lib/bedrock-region-resources";
+import { Analyzer } from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/opensearch-vectorindex";
+import { Match } from "aws-cdk-lib/assertions";
 
-describe("Fine-grained Assertions Test", () => {
+describe("Bedrock Chat Stack Test", () => {
   test("Identity Provider Generation", () => {
     const app = new cdk.App();
+
     const domainPrefix = "test-domain";
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
 
     const hasGoogleProviderStack = new BedrockChatStack(
       app,
       "IdentityProviderGenerateStack",
       {
+        env: {
+          region: "us-west-2",
+        },
+        envName: "test",
+        envPrefix: "test-",
         bedrockRegion: "us-east-1",
         crossRegionReferences: true,
         webAclId: "",
@@ -24,14 +51,17 @@ describe("Fine-grained Assertions Test", () => {
         publishedApiAllowedIpV4AddressRanges: [""],
         publishedApiAllowedIpV6AddressRanges: [""],
         allowedSignUpEmailDomains: [],
-        rdsSchedules: {
-          stop: {},
-          start: {},
-        },
-        enableMistral: false,
-	selfSignUpEnabled: true,
-        embeddingContainerVcpu: 1024,
-        embeddingContainerMemory: 2048,
+        autoJoinUserGroups: [],
+        selfSignUpEnabled: true,
+        enableIpV6: true,
+        documentBucket: bedrockRegionResourcesStack.documentBucket,
+        enableRagReplicas: false,
+        enableBedrockCrossRegionInference: false,
+        enableLambdaSnapStart: true,
+        enableBotStore: true,
+        enableBotStoreReplicas: false,
+        botStoreLanguage: "en",
+        tokenValidMinutes: 60,
       }
     );
     const hasGoogleProviderTemplate = Template.fromStack(
@@ -62,10 +92,27 @@ describe("Fine-grained Assertions Test", () => {
   test("Custom OIDC Provider Generation", () => {
     const app = new cdk.App();
     const domainPrefix = "test-domain";
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
+
     const hasOidcProviderStack = new BedrockChatStack(
       app,
       "OidcProviderGenerateStack",
       {
+        env: {
+          region: "us-west-2",
+        },
+        envName: "test",
+        envPrefix: "test-",
         bedrockRegion: "us-east-1",
         crossRegionReferences: true,
         webAclId: "",
@@ -80,14 +127,17 @@ describe("Fine-grained Assertions Test", () => {
         publishedApiAllowedIpV4AddressRanges: [""],
         publishedApiAllowedIpV6AddressRanges: [""],
         allowedSignUpEmailDomains: [],
-        rdsSchedules: {
-          stop: {},
-          start: {},
-        },
-        enableMistral: false,
-	selfSignUpEnabled: true,
-        embeddingContainerVcpu: 1024,
-        embeddingContainerMemory: 2048,
+        autoJoinUserGroups: [],
+        selfSignUpEnabled: true,
+        enableIpV6: true,
+        documentBucket: bedrockRegionResourcesStack.documentBucket,
+        enableRagReplicas: false,
+        enableBedrockCrossRegionInference: false,
+        enableLambdaSnapStart: true,
+        enableBotStore: true,
+        enableBotStoreReplicas: false,
+        botStoreLanguage: "en",
+        tokenValidMinutes: 60,
       }
     );
     const hasOidcProviderTemplate = Template.fromStack(hasOidcProviderStack);
@@ -115,8 +165,26 @@ describe("Fine-grained Assertions Test", () => {
 
   test("default stack", () => {
     const app = new cdk.App();
+    // Security check
+    cdk.Aspects.of(app).add(new AwsPrototypingChecks());
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
 
     const stack = new BedrockChatStack(app, "MyTestStack", {
+      env: {
+        region: "us-west-2",
+      },
+      envName: "test",
+      envPrefix: "test-",
       bedrockRegion: "us-east-1",
       crossRegionReferences: true,
       webAclId: "",
@@ -125,91 +193,562 @@ describe("Fine-grained Assertions Test", () => {
       publishedApiAllowedIpV4AddressRanges: [""],
       publishedApiAllowedIpV6AddressRanges: [""],
       allowedSignUpEmailDomains: [],
-      rdsSchedules: {
-        stop: {},
-        start: {},
-      },
-      enableMistral: false,
+      autoJoinUserGroups: [],
       selfSignUpEnabled: true,
-      embeddingContainerVcpu: 1024,
-      embeddingContainerMemory: 2048,
+      enableIpV6: true,
+      documentBucket: bedrockRegionResourcesStack.documentBucket,
+      enableRagReplicas: false,
+      enableBedrockCrossRegionInference: false,
+      enableLambdaSnapStart: true,
+      enableBotStore: true,
+      enableBotStoreReplicas: false,
+      botStoreLanguage: "en",
+      tokenValidMinutes: 60,
     });
     const template = Template.fromStack(stack);
 
     template.resourceCountIs("AWS::Cognito::UserPoolIdentityProvider", 0);
-    // verify the stack has environment variable VITE_APP_ENABLE_MISTRAL is set to "false"
-    template.hasResourceProperties("Custom::CDKNodejsBuild", {
-      environment: {
-        VITE_APP_ENABLE_MISTRAL: "false",
+  });
+
+  test("custom domain configuration", () => {
+    const app = new cdk.App();
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
+
+    const customDomainStack = new BedrockChatStack(app, "CustomDomainStack", {
+      env: {
+        region: "us-east-1",
+      },
+      envName: "test",
+      envPrefix: "test-",
+      bedrockRegion: "us-east-1",
+      crossRegionReferences: true,
+      webAclId: "",
+      identityProviders: [],
+      userPoolDomainPrefix: "",
+      publishedApiAllowedIpV4AddressRanges: [""],
+      publishedApiAllowedIpV6AddressRanges: [""],
+      allowedSignUpEmailDomains: [],
+      autoJoinUserGroups: [],
+      selfSignUpEnabled: true,
+      enableIpV6: true,
+      documentBucket: bedrockRegionResourcesStack.documentBucket,
+      enableRagReplicas: false,
+      enableBedrockCrossRegionInference: false,
+      enableLambdaSnapStart: true,
+      alternateDomainName: "chat.example.com",
+      hostedZoneId: "Z0123456789ABCDEF",
+      enableBotStore: true,
+      enableBotStoreReplicas: false,
+      botStoreLanguage: "en",
+      tokenValidMinutes: 60,
+    });
+
+    const template = Template.fromStack(customDomainStack);
+
+    // Verify CloudFront distribution has alternate domain name
+    template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: {
+        Aliases: ["chat.example.com"],
+      },
+    });
+
+    // Verify Route53 record is created
+    template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "chat.example.com.",
+      Type: "A",
+      AliasTarget: {
+        DNSName: {
+          "Fn::GetAtt": [Match.anyValue(), "DomainName"],
+        },
+        HostedZoneId: Match.anyValue(),
+      },
+      HostedZoneId: "Z0123456789ABCDEF",
+    });
+
+    // Verify AAAA record for IPv6
+    template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "chat.example.com.",
+      Type: "AAAA",
+      AliasTarget: {
+        DNSName: {
+          "Fn::GetAtt": [Match.anyValue(), "DomainName"],
+        },
+        HostedZoneId: Match.anyValue(),
+      },
+      HostedZoneId: "Z0123456789ABCDEF",
+    });
+  });
+
+  test("no custom domain configuration", () => {
+    const app = new cdk.App();
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
+
+    const noDomainStack = new BedrockChatStack(app, "NoDomainStack", {
+      env: {
+        region: "us-east-1",
+      },
+      envName: "test",
+      envPrefix: "test-",
+      bedrockRegion: "us-east-1",
+      crossRegionReferences: true,
+      webAclId: "",
+      identityProviders: [],
+      userPoolDomainPrefix: "",
+      publishedApiAllowedIpV4AddressRanges: [""],
+      publishedApiAllowedIpV6AddressRanges: [""],
+      allowedSignUpEmailDomains: [],
+      autoJoinUserGroups: [],
+      selfSignUpEnabled: true,
+      enableIpV6: true,
+      documentBucket: bedrockRegionResourcesStack.documentBucket,
+      enableRagReplicas: false,
+      enableBedrockCrossRegionInference: false,
+      enableLambdaSnapStart: true,
+      alternateDomainName: "",
+      hostedZoneId: "",
+      enableBotStore: true,
+      enableBotStoreReplicas: false,
+      botStoreLanguage: "en",
+      tokenValidMinutes: 60,
+    });
+
+    const template = Template.fromStack(noDomainStack);
+
+    // Verify no Route53 records are created
+    template.resourceCountIs("AWS::Route53::RecordSet", 0);
+
+    // Verify no ACM certificate is created
+    template.resourceCountIs("AWS::CertificateManager::Certificate", 0);
+
+    // Verify CloudFront distribution has no aliases
+    template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: {
+        Aliases: Match.absent(),
+      },
+    });
+  });
+
+  test("custom domain configuration", () => {
+    const app = new cdk.App();
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
+
+    const customDomainStack = new BedrockChatStack(app, "CustomDomainStack", {
+      env: {
+        region: "us-east-1",
+      },
+      envName: "test",
+      envPrefix: "test-",
+      bedrockRegion: "us-east-1",
+      crossRegionReferences: true,
+      webAclId: "",
+      identityProviders: [],
+      userPoolDomainPrefix: "",
+      publishedApiAllowedIpV4AddressRanges: [""],
+      publishedApiAllowedIpV6AddressRanges: [""],
+      allowedSignUpEmailDomains: [],
+      autoJoinUserGroups: [],
+      selfSignUpEnabled: true,
+      enableIpV6: true,
+      documentBucket: bedrockRegionResourcesStack.documentBucket,
+      enableRagReplicas: false,
+      enableBedrockCrossRegionInference: false,
+      enableLambdaSnapStart: true,
+      alternateDomainName: "chat.example.com",
+      hostedZoneId: "Z0123456789ABCDEF",
+      enableBotStore: true,
+      enableBotStoreReplicas: false,
+      botStoreLanguage: "en",
+      tokenValidMinutes: 60,
+    });
+
+    const template = Template.fromStack(customDomainStack);
+
+    // Verify CloudFront distribution has alternate domain name
+    template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: {
+        Aliases: ["chat.example.com"],
+      },
+    });
+
+    // Verify Route53 record is created
+    template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "chat.example.com.",
+      Type: "A",
+      AliasTarget: {
+        DNSName: {
+          "Fn::GetAtt": [Match.anyValue(), "DomainName"],
+        },
+        HostedZoneId: Match.anyValue(),
+      },
+      HostedZoneId: "Z0123456789ABCDEF",
+    });
+
+    // Verify AAAA record for IPv6
+    template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "chat.example.com.",
+      Type: "AAAA",
+      AliasTarget: {
+        DNSName: {
+          "Fn::GetAtt": [Match.anyValue(), "DomainName"],
+        },
+        HostedZoneId: Match.anyValue(),
+      },
+      HostedZoneId: "Z0123456789ABCDEF",
+    });
+  });
+
+  test("no custom domain configuration", () => {
+    const app = new cdk.App();
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
+
+    const noDomainStack = new BedrockChatStack(app, "NoDomainStack", {
+      env: {
+        region: "us-east-1",
+      },
+      envName: "test",
+      envPrefix: "test-",
+      bedrockRegion: "us-east-1",
+      crossRegionReferences: true,
+      webAclId: "",
+      identityProviders: [],
+      userPoolDomainPrefix: "",
+      publishedApiAllowedIpV4AddressRanges: [""],
+      publishedApiAllowedIpV6AddressRanges: [""],
+      allowedSignUpEmailDomains: [],
+      autoJoinUserGroups: [],
+      selfSignUpEnabled: true,
+      enableIpV6: true,
+      documentBucket: bedrockRegionResourcesStack.documentBucket,
+      enableRagReplicas: false,
+      enableBedrockCrossRegionInference: false,
+      enableLambdaSnapStart: true,
+      alternateDomainName: "",
+      hostedZoneId: "",
+      enableBotStore: true,
+      enableBotStoreReplicas: false,
+      botStoreLanguage: "en",
+      tokenValidMinutes: 60,
+    });
+
+    const template = Template.fromStack(noDomainStack);
+
+    // Verify no Route53 records are created
+    template.resourceCountIs("AWS::Route53::RecordSet", 0);
+
+    // Verify no ACM certificate is created
+    template.resourceCountIs("AWS::CertificateManager::Certificate", 0);
+
+    // Verify CloudFront distribution has no aliases
+    template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: {
+        Aliases: Match.absent(),
       },
     });
   });
 });
 
-describe("Scheduler Test", () => {
-  test("has schedules", () => {
+describe("Bedrock Knowledge Base Stack", () => {
+  const setupStack = (params: any = {}) => {
     const app = new cdk.App();
-    const hasScheduleStack = new BedrockChatStack(app, "HasSchedulesStack", {
-      bedrockRegion: "us-east-1",
-      crossRegionReferences: true,
-      webAclId: "",
-      identityProviders: [],
-      userPoolDomainPrefix: "",
-      publishedApiAllowedIpV4AddressRanges: [""],
-      publishedApiAllowedIpV6AddressRanges: [""],
-      allowedSignUpEmailDomains: [],
-      rdsSchedules: {
-        stop: {
-          minute: "00",
-          hour: "22",
-          day: "*",
-          month: "*",
-          year: "*",
-        },
-        start: {
-          minute: "00",
-          hour: "7",
-          day: "*",
-          month: "*",
-          year: "*",
+    // Security check
+    cdk.Aspects.of(app).add(new AwsPrototypingChecks());
+
+    const PK: string = "test-user-id";
+    const SK: string = "test-user-id#BOT#test-bot-id";
+    const KNOWLEDGE = {
+      sitemap_urls: {
+        L: [],
+      },
+      filenames: {
+        L: [
+          {
+            S: "test-filename.pdf",
+          },
+        ],
+      },
+      source_urls: {
+        L: [
+          {
+            S: "https://example.com",
+          },
+        ],
+      },
+      s3_urls: params.s3Urls !== undefined ? params.s3Urls : { L: [] },
+    };
+
+    const BEDROCK_KNOWLEDGE_BASE = {
+      chunking_strategy: {
+        S: "fixed_size",
+      },
+      max_tokens:
+        params.maxTokens !== undefined
+          ? { N: String(params.maxTokens) }
+          : undefined,
+      instruction:
+        params.instruction !== undefined
+          ? { S: params.instruction }
+          : undefined,
+      overlap_percentage:
+        params.overlapPercentage !== undefined
+          ? { N: String(params.overlapPercentage) }
+          : undefined,
+      open_search: {
+        M: {
+          analyzer:
+            params.analyzer !== undefined
+              ? JSON.parse(params.analyzer)
+              : {
+                  character_filters: {
+                    L: [
+                      {
+                        S: "icu_normalizer",
+                      },
+                    ],
+                  },
+                  token_filters: {
+                    L: [
+                      {
+                        S: "kuromoji_baseform",
+                      },
+                      {
+                        S: "kuromoji_part_of_speech",
+                      },
+                    ],
+                  },
+                  tokenizer: {
+                    S: "kuromoji_tokenizer",
+                  },
+                },
         },
       },
-      enableMistral: false,
-      selfSignUpEnabled: true,
-      embeddingContainerVcpu: 1024,
-      embeddingContainerMemory: 2048,
-    });
-    const template = Template.fromStack(hasScheduleStack);
-    template.hasResourceProperties("AWS::Scheduler::Schedule", {
-      ScheduleExpression: "cron(00 22 * * ? *)",
+      embeddings_model: {
+        S: "titan_v2",
+      },
+    };
+
+    const BEDROCK_CLAUDE_CHAT_DOCUMENT_BUCKET_NAME =
+      "test-document-bucket-name";
+
+    const ownerUserId: string = PK;
+    const botId: string = SK.split("#")[2];
+    const knowledgeBase = BEDROCK_KNOWLEDGE_BASE;
+    const knowledge = KNOWLEDGE;
+    const existingS3Urls: string[] = knowledge.s3_urls.L.map(
+      (s3Url: any) => s3Url.S
+    );
+
+    const embeddingsModel = getEmbeddingModel(knowledgeBase.embeddings_model.S);
+    const chunkingStrategy = getChunkingStrategy(
+      knowledgeBase.chunking_strategy.S,
+      knowledgeBase.embeddings_model.S
+    );
+    const maxTokens: number | undefined = knowledgeBase.max_tokens
+      ? Number(knowledgeBase.max_tokens.N)
+      : undefined;
+    const instruction: string | undefined = knowledgeBase.instruction
+      ? knowledgeBase.instruction.S
+      : undefined;
+    const analyzer = knowledgeBase.open_search.M.analyzer
+      ? getAnalyzer(knowledgeBase.open_search.M.analyzer)
+      : undefined;
+    const overlapPercentage: number | undefined =
+      knowledgeBase.overlap_percentage
+        ? Number(knowledgeBase.overlap_percentage.N)
+        : undefined;
+
+    const stack = new BedrockCustomBotStack(app, "BedrockCustomBotStackStack", {
+      ownerUserId,
+      botId,
+      embeddingsModel,
+      bedrockClaudeChatDocumentBucketName:
+        BEDROCK_CLAUDE_CHAT_DOCUMENT_BUCKET_NAME,
+      chunkingStrategy,
+      existingS3Urls,
+      maxTokens,
+      instruction,
+      analyzer,
+      overlapPercentage,
+      sourceUrls: knowledge.source_urls.L.map((sourceUrl: any) => sourceUrl.S),
+      existKnowledgeBaseId: undefined,
     });
 
-    template.hasResourceProperties("AWS::Scheduler::Schedule", {
-      ScheduleExpression: "cron(00 7 * * ? *)",
-    });
-  });
-  test("has'nt schedules", () => {
-    const app = new cdk.App();
-    const defaultStack = new BedrockChatStack(app, "DefaultStack", {
-      bedrockRegion: "us-east-1",
-      crossRegionReferences: true,
-      webAclId: "",
-      identityProviders: [],
-      userPoolDomainPrefix: "",
-      publishedApiAllowedIpV4AddressRanges: [""],
-      publishedApiAllowedIpV6AddressRanges: [""],
-      allowedSignUpEmailDomains: [],
-      rdsSchedules: {
-        stop: {},
-        start: {},
+    return Template.fromStack(stack);
+  };
+
+  test("default kb stack", () => {
+    const template = setupStack({
+      s3Urls: {
+        L: [
+          {
+            S: "s3://test-bucket/test-key",
+          },
+        ],
       },
-      enableMistral: false,
-      selfSignUpEnabled: true,
-      embeddingContainerVcpu: 1024,
-      embeddingContainerMemory: 2048,
+      maxTokens: 500,
+      instruction: "This is an example instruction.",
+      overlapPercentage: 10,
+      analyzer: `{
+        "character_filters": {
+          "L": [
+            {
+              "S": "icu_normalizer"
+            }
+          ]
+        },
+        "token_filters": {
+          "L": [
+            {
+              "S": "kuromoji_baseform"
+            },
+            {
+              "S": "kuromoji_part_of_speech"
+            }
+          ]
+        },
+        "tokenizer": {
+          "S": "kuromoji_tokenizer"
+        }
+      }`,
     });
-    const template = Template.fromStack(defaultStack);
-    // The stack should have only 1 rule for exporting the data from ddb to s3
-    template.resourceCountIs("AWS::Events::Rule", 1);
+    expect(template).toBeDefined();
+  });
+
+  test("kb stack without maxTokens", () => {
+    const template = setupStack({
+      instruction: "This is an example instruction.",
+      overlapPercentage: 10,
+      analyzer: `{
+        "character_filters": {
+          "L": [
+            {
+              "S": "icu_normalizer"
+            }
+          ]
+        },
+        "token_filters": {
+          "L": [
+            {
+              "S": "kuromoji_baseform"
+            },
+            {
+              "S": "kuromoji_part_of_speech"
+            }
+          ]
+        },
+        "tokenizer": {
+          "S": "kuromoji_tokenizer"
+        }
+      }`,
+    });
+    expect(template).toBeDefined();
+  });
+
+  test("kb stack without instruction", () => {
+    const template = setupStack({
+      maxTokens: 500,
+      overlapPercentage: 10,
+      analyzer: `{
+        "character_filters": {
+          "L": [
+            {
+              "S": "icu_normalizer"
+            }
+          ]
+        },
+        "token_filters": {
+          "L": [
+            {
+              "S": "kuromoji_baseform"
+            },
+            {
+              "S": "kuromoji_part_of_speech"
+            }
+          ]
+        },
+        "tokenizer": {
+          "S": "kuromoji_tokenizer"
+        }
+      }`,
+    });
+    expect(template).toBeDefined();
+  });
+
+  test("kb stack without analyzer", () => {
+    const template = setupStack({
+      maxTokens: 500,
+      instruction: "This is an example instruction.",
+      overlapPercentage: 10,
+    });
+    expect(template).toBeDefined();
+  });
+
+  test("kb stack without overlapPercentage", () => {
+    const template = setupStack({
+      maxTokens: 500,
+      instruction: "This is an example instruction.",
+      analyzer: `{
+        "character_filters": {
+          "L": [
+            {
+              "S": "icu_normalizer"
+            }
+          ]
+        },
+        "token_filters": {
+          "L": [
+            {
+              "S": "kuromoji_baseform"
+            },
+            {
+              "S": "kuromoji_part_of_speech"
+            }
+          ]
+        },
+        "tokenizer": {
+          "S": "kuromoji_tokenizer"
+        }
+      }`,
+    });
+    expect(template).toBeDefined();
   });
 });

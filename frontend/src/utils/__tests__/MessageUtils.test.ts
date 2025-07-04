@@ -7,7 +7,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -17,24 +17,27 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
             contentType: 'text',
           },
         ],
-
         parent: null,
         children: [],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '1');
@@ -45,7 +48,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -55,10 +58,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -68,13 +73,15 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -85,11 +92,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2',
@@ -100,6 +109,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '2');
@@ -110,7 +121,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -120,10 +131,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -133,10 +146,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: ['3'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '3': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -146,13 +161,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -163,11 +180,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2',
@@ -178,11 +197,13 @@ describe('convertMessageMapToArray', () => {
         children: ['3'],
         sibling: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '3',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-3',
@@ -193,6 +214,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['3'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '3');
@@ -203,7 +226,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -213,10 +236,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -226,10 +251,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -239,13 +266,15 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -256,11 +285,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-1', '2-2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-1',
@@ -271,6 +302,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '2-1');
@@ -281,7 +314,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -291,10 +324,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -304,10 +339,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -317,13 +354,15 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -334,11 +373,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-1', '2-2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2',
@@ -349,6 +390,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '2-2');
@@ -359,7 +402,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -369,10 +412,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -382,10 +427,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -395,10 +442,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: ['2-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -408,13 +457,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2-2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -425,11 +476,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-1', '2-2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2',
@@ -440,11 +493,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-2-1'],
         sibling: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2-1',
@@ -455,6 +510,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '2-2-1');
@@ -465,7 +522,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -475,10 +532,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -488,10 +547,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -501,10 +562,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: ['2-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -514,13 +577,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2-2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -531,11 +596,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-1', '2-2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2',
@@ -546,11 +613,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-2-1'],
         sibling: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2-1',
@@ -561,6 +630,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '2-2');
@@ -571,7 +642,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -581,10 +652,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -594,10 +667,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -607,10 +682,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: ['2-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -620,10 +697,12 @@ describe('convertMessageMapToArray', () => {
         parent: '2-2',
         children: ['2-2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -633,10 +712,12 @@ describe('convertMessageMapToArray', () => {
         parent: '2-2-1',
         children: ['2-2-2-1', '2-2-2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2-2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -646,10 +727,12 @@ describe('convertMessageMapToArray', () => {
         parent: '2-2-2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2-2-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -659,13 +742,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2-2-2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -676,11 +761,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-1', '2-2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2',
@@ -691,11 +778,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-2-1'],
         sibling: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2-1',
@@ -706,11 +795,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-2-2'],
         sibling: ['2-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2-2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2-2',
@@ -721,11 +812,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-2-2-1', '2-2-2-2'],
         sibling: ['2-2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-2-2-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-2-2-1',
@@ -736,6 +829,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2-2-2-1', '2-2-2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '2-2');
@@ -746,7 +841,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       system: {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -756,10 +851,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -769,10 +866,12 @@ describe('convertMessageMapToArray', () => {
         parent: 'system',
         children: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -782,13 +881,15 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -799,11 +900,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2',
@@ -814,6 +917,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '2');
@@ -824,7 +929,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       system: {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -834,10 +939,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['1-1', '1-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -847,10 +954,12 @@ describe('convertMessageMapToArray', () => {
         parent: 'system',
         children: ['1-1-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -860,10 +969,12 @@ describe('convertMessageMapToArray', () => {
         parent: 'system',
         children: ['1-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-1-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -873,10 +984,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1-1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -886,13 +999,15 @@ describe('convertMessageMapToArray', () => {
         parent: '1-2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1-1',
@@ -903,11 +1018,13 @@ describe('convertMessageMapToArray', () => {
         children: ['1-1-1'],
         sibling: ['1-1', '1-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '1-1-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1-1-1',
@@ -918,6 +1035,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['1-1-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '1-1');
@@ -928,7 +1047,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       system: {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -938,10 +1057,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['1-1', '1-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -951,10 +1072,12 @@ describe('convertMessageMapToArray', () => {
         parent: 'system',
         children: ['1-1-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -964,10 +1087,12 @@ describe('convertMessageMapToArray', () => {
         parent: 'system',
         children: ['1-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-1-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -977,10 +1102,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1-1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -990,13 +1117,15 @@ describe('convertMessageMapToArray', () => {
         parent: '1-2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1-2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1-2',
@@ -1007,11 +1136,13 @@ describe('convertMessageMapToArray', () => {
         children: ['1-2-1'],
         sibling: ['1-1', '1-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '1-2-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1-2-1',
@@ -1022,6 +1153,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['1-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '1-2');
@@ -1032,7 +1165,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       system: {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1042,10 +1175,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['1-1', '1-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1055,10 +1190,12 @@ describe('convertMessageMapToArray', () => {
         parent: 'system',
         children: ['1-1-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1068,10 +1205,12 @@ describe('convertMessageMapToArray', () => {
         parent: 'system',
         children: ['1-2-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-1-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1081,10 +1220,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1-1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '1-2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1094,13 +1235,15 @@ describe('convertMessageMapToArray', () => {
         parent: '1-2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1-1',
@@ -1111,11 +1254,13 @@ describe('convertMessageMapToArray', () => {
         children: ['1-1-1'],
         sibling: ['1-1', '1-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '1-1-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1-1-1',
@@ -1126,6 +1271,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['1-1-1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
     const actual = convertMessageMapToArray(data, '999');
@@ -1143,7 +1290,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1153,10 +1300,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1166,10 +1315,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: ['3-1', '3-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1179,10 +1330,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '3-1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1192,10 +1345,12 @@ describe('convertMessageMapToArray', () => {
         parent: '2-1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '3-2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1205,13 +1360,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2-1',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -1222,11 +1379,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2-1', '2-2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2-1',
@@ -1237,11 +1396,13 @@ describe('convertMessageMapToArray', () => {
         children: ['3-1', '3-2'],
         sibling: ['2-1', '2-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '3-1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-3-1',
@@ -1252,6 +1413,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['3-1', '3-2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
 
@@ -1263,7 +1426,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1273,10 +1436,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1286,10 +1451,12 @@ describe('convertMessageMapToArray', () => {
         parent: 'dummy',
         children: ['3'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '3': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1299,13 +1466,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2',
@@ -1316,11 +1485,13 @@ describe('convertMessageMapToArray', () => {
         children: ['3'],
         sibling: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '3',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-3',
@@ -1331,6 +1502,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['3'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
 
@@ -1342,7 +1515,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1352,10 +1525,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1365,10 +1540,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: ['4'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '3': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1378,13 +1555,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -1395,11 +1574,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2',
@@ -1410,6 +1591,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
 
@@ -1421,7 +1604,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1431,10 +1614,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['3'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1444,10 +1629,12 @@ describe('convertMessageMapToArray', () => {
         parent: '3',
         children: ['3'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '3': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1457,13 +1644,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2',
@@ -1474,11 +1663,13 @@ describe('convertMessageMapToArray', () => {
         children: ['3'],
         sibling: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '3',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-3',
@@ -1489,6 +1680,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['3'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
 
@@ -1500,7 +1693,7 @@ describe('convertMessageMapToArray', () => {
     const data: MessageMap = {
       '1': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1510,10 +1703,12 @@ describe('convertMessageMapToArray', () => {
         parent: null,
         children: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '2': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1523,10 +1718,12 @@ describe('convertMessageMapToArray', () => {
         parent: '1',
         children: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       '3': {
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             contentType: 'text',
@@ -1536,13 +1733,15 @@ describe('convertMessageMapToArray', () => {
         parent: '2',
         children: [],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     };
     const expected: DisplayMessageContent[] = [
       {
         id: '1',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-1',
@@ -1553,11 +1752,13 @@ describe('convertMessageMapToArray', () => {
         children: ['2'],
         sibling: ['1'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
       {
         id: '2',
         role: 'user',
-        model: 'claude-v2',
+        model: 'claude-v3-haiku',
         content: [
           {
             body: 'message-2',
@@ -1568,6 +1769,8 @@ describe('convertMessageMapToArray', () => {
         children: [],
         sibling: ['2'],
         feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
       },
     ];
 

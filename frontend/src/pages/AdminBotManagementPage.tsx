@@ -3,7 +3,12 @@ import { Trans, useTranslation } from 'react-i18next';
 import InputText from '../components/InputText';
 import Button from '../components/Button';
 import { useParams } from 'react-router-dom';
-import { PiArrowSquareOut, PiCaretLeft, PiFile } from 'react-icons/pi';
+import {
+  PiArrowSquareOut,
+  PiCaretLeft,
+  PiFile,
+  PiUserCircle,
+} from 'react-icons/pi';
 import Textarea from '../components/Textarea';
 
 import ButtonIcon from '../components/ButtonIcon';
@@ -16,6 +21,10 @@ import useSnackbar from '../hooks/useSnackbar';
 import ButtonCopy from '../components/ButtonCopy';
 import Skeleton from '../components/Skeleton';
 import Alert from '../components/Alert';
+import IconPinnedBot from '../components/IconPinnedBot';
+import { getShareText } from '../utils/shareUtils';
+import IconShareBot from '../components/IconShareBot';
+import useUser from '../hooks/useUser';
 
 const AdminBotManagementPage: React.FC = () => {
   const { t } = useTranslation();
@@ -32,6 +41,10 @@ const AdminBotManagementPage: React.FC = () => {
 
   const hasSourceUrls = useMemo(() => {
     return bot ? bot.knowledge.sourceUrls.length > 0 : false;
+  }, [bot]);
+
+  const hasS3Urls = useMemo(() => {
+    return bot ? bot.knowledge.s3Urls.length > 0 : false;
   }, [bot]);
 
   const hasFiles = useMemo(() => {
@@ -83,6 +96,8 @@ const AdminBotManagementPage: React.FC = () => {
     history.back();
   }, []);
 
+  const { user, isLoading: isLoadingUser } = useUser(bot?.ownerUserId);
+
   return (
     <>
       <DialogConfirmDeleteApi
@@ -110,27 +125,65 @@ const AdminBotManagementPage: React.FC = () => {
             {!isLoadingBot && (
               <>
                 <div className="mt-3 flex flex-col gap-1">
-                  <div className="text-lg font-bold">{bot?.title}</div>
+                  <div className="flex items-center text-lg font-bold">
+                    {bot?.title}
+                    <IconPinnedBot
+                      className="ml-2 text-aws-aqua"
+                      botSharedStatus={bot?.sharedStatus}
+                    />
+                  </div>
                   {bot?.description ? (
-                    <div className="text-sm text-aws-font-color/50">
+                    <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                       {bot?.description}
                     </div>
                   ) : (
-                    <div className="text-sm font-light italic text-aws-font-color/50">
+                    <div className="text-sm font-light italic text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                       {t('bot.label.noDescription')}
                     </div>
                   )}
 
-                  <div className="flex items-center text-sm text-dark-gray">
+                  <div className="flex items-center text-sm text-dark-gray dark:text-light-gray">
                     {t('admin.botManagement.label.sharedUrl')}:
                     <div
-                      className="flex cursor-pointer items-center text-aws-sea-blue underline hover:text-aws-sea-blue-hover"
+                      className="flex cursor-pointer items-center text-aws-sea-blue-light underline hover:text-aws-sea-blue-hover-light dark:text-aws-sea-blue-dark dark:hover:text-aws-sea-blue-hover-dark"
                       onClick={() => {
                         window.open(getBotUrl(bot?.id ?? ''), '_blank');
                       }}>
                       <div className="mx-1">{getBotUrl(bot?.id ?? '')} </div>
                       <PiArrowSquareOut />
                     </div>
+                  </div>
+
+                  <div className="text-sm text-dark-gray dark:text-light-gray">
+                    <div className="flex flex-col items-start gap-1">
+                      <div className="font-bold">
+                        <div className="flex items-center gap-1">
+                          <IconShareBot
+                            sharedScope={bot?.sharedScope ?? 'private'}
+                          />
+                          {bot?.sharedScope === 'all' &&
+                            t('admin.botManagement.label.sharedAllUsers')}
+                          {bot?.sharedScope === 'partial' &&
+                            getShareText(
+                              bot?.allowedCognitoUsers.length ?? 0,
+                              bot?.allowedCognitoGroups.length ?? 0
+                            )}
+                          {bot?.sharedScope === 'private' &&
+                            t('admin.botManagement.label.privateBot')}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <PiUserCircle />
+                        <div>{t('admin.botManagement.label.owner')}:</div>
+                        {isLoadingUser ? (
+                          <Skeleton className="w-32" />
+                        ) : (
+                          user?.email
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="ml-2"></div>
                   </div>
 
                   <div className="mt-2">
@@ -147,15 +200,15 @@ const AdminBotManagementPage: React.FC = () => {
                   <div className="text-base font-bold">
                     {t('bot.label.knowledge')}
                   </div>
-                  {!hasSourceUrls && !hasFiles && (
-                    <div className="italic text-dark-gray">
+                  {!hasSourceUrls && !hasS3Urls && !hasFiles && (
+                    <div className="italic text-dark-gray dark:text-light-gray">
                       {t('admin.botManagement.label.noKnowledge')}
                     </div>
                   )}
 
                   {hasSourceUrls && (
                     <div>
-                      <div className="text-sm text-dark-gray">
+                      <div className="text-sm text-dark-gray dark:text-light-gray">
                         {t('bot.label.url')}
                       </div>
                       <div className="flex w-full flex-col gap-1">
@@ -168,7 +221,7 @@ const AdminBotManagementPage: React.FC = () => {
                               value={url}
                             />
                             <ButtonIcon
-                              className="text-aws-sea-blue"
+                              className="text-aws-sea-blue-light dark:text-aws-sea-blue-dark"
                               onClick={() => {
                                 window.open(url, '_blank');
                               }}>
@@ -182,7 +235,7 @@ const AdminBotManagementPage: React.FC = () => {
 
                   {hasFiles && (
                     <div>
-                      <div className="text-sm text-dark-gray">
+                      <div className="text-sm text-dark-gray dark:text-light-gray">
                         {t('bot.label.file')}
                       </div>
                       <div className="flex w-full flex-col gap-1">
@@ -196,6 +249,26 @@ const AdminBotManagementPage: React.FC = () => {
                                 <div>{filename}</div>
                               </div>
                             </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {hasS3Urls && (
+                    <div>
+                      <div className="text-sm text-dark-gray dark:text-light-gray">
+                        {t('bot.label.s3url')}
+                      </div>
+                      <div className="flex w-full flex-col gap-1">
+                        {bot?.knowledge.s3Urls.map((s3url, idx) => (
+                          <div className="flex w-full gap-2" key={idx}>
+                            <InputText
+                              className="w-full"
+                              type="text"
+                              disabled
+                              value={s3url}
+                            />
                           </div>
                         ))}
                       </div>
@@ -220,7 +293,7 @@ const AdminBotManagementPage: React.FC = () => {
                 </div>
 
                 {!botPublication && (
-                  <div className="italic text-dark-gray">
+                  <div className="italic text-dark-gray dark:text-light-gray">
                     {t('admin.botManagement.label.notPublishApi')}
                   </div>
                 )}
@@ -266,7 +339,7 @@ const AdminBotManagementPage: React.FC = () => {
                       <div className="text-base font-bold">
                         {t('bot.apiSettings.label.apiKeys')}
                       </div>
-                      <div className="text-sm text-aws-font-color/50">
+                      <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                         {t('bot.apiSettings.help.apiKeys')}
                       </div>
 
@@ -295,11 +368,11 @@ const AdminBotManagementPage: React.FC = () => {
                       <div className="text-base font-bold">
                         {t('bot.apiSettings.label.usagePlan')}
                       </div>
-                      <div className="text-sm text-aws-font-color/50">
+                      <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                         {t('bot.apiSettings.help.usagePlan')}
                       </div>
 
-                      <div className="mt-1 rounded border border-aws-font-color/50 p-2">
+                      <div className="mt-1 rounded border border-aws-font-color-light/50 p-2 dark:border-aws-font-color-dark/50">
                         <div className="flex text-sm">
                           {t('bot.apiSettings.item.throttling')}:
                           <div className="ml-1 font-bold">
@@ -336,7 +409,7 @@ const AdminBotManagementPage: React.FC = () => {
                           </ul>
                         )}
 
-                        <div className="my-2 border-t border-aws-font-color/50"></div>
+                        <div className="my-2 border-t border-aws-font-color-light/50 dark:border-aws-font-color-dark/50"></div>
 
                         <div className="flex text-sm">
                           {t('bot.apiSettings.item.quota')}:
@@ -371,7 +444,7 @@ const AdminBotManagementPage: React.FC = () => {
                         <div className="text-base font-bold">
                           {t('bot.apiSettings.label.allowOrigins')}
                         </div>
-                        <div className="text-sm text-aws-font-color/50">
+                        <div className="text-sm text-aws-font-color-light/50 dark:border-aws-font-color-dark/50">
                           <div>{t('bot.apiSettings.help.allowOrigins')}</div>
                         </div>
                       </div>
@@ -386,7 +459,7 @@ const AdminBotManagementPage: React.FC = () => {
                               value={url}
                             />
                             <ButtonIcon
-                              className="text-aws-sea-blue"
+                              className="text-aws-sea-blue-light dark:text-aws-sea-blue-dark"
                               onClick={() => {
                                 window.open(url, '_blank');
                               }}>

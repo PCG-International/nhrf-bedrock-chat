@@ -21,6 +21,9 @@ import DialogConfirmAddApiKey from '../components/DialogConfirmAddApiKey';
 import Help from '../components/Help';
 import DialogConfirmDeleteApi from '../components/DialogConfirmDeleteApi';
 import useSnackbar from '../hooks/useSnackbar';
+import DialogShareBot from '../components/DialogShareBot';
+import useShareBot from '../hooks/useShareBot';
+import IconPinnedBot from '../components/IconPinnedBot';
 
 const PERIOD_OPTIONS: {
   label: string;
@@ -50,7 +53,6 @@ const BotApiSettingsPage: React.FC = () => {
     botPublication,
     isLoadingBotPublication,
     isUnpublishedBot,
-    shareBot,
     publishBot,
     createApiKey,
     mutateBotPublication,
@@ -58,26 +60,18 @@ const BotApiSettingsPage: React.FC = () => {
   } = useBotApiSettings(botId ?? '');
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingShare, setIsLoadingShare] = useState(false);
-
-  const onClickShare = useCallback(() => {
-    setIsLoadingShare(true);
-    shareBot().finally(() => {
-      setIsLoadingShare(false);
-    });
-  }, [shareBot]);
 
   const isDeploying = useMemo(() => {
     return botPublication?.codebuildStatus === 'IN_PROGRESS';
   }, [botPublication?.codebuildStatus]);
 
   const hasShared = useMemo(() => {
-    return !!myBot?.isPublic;
-  }, [myBot?.isPublic]);
+    return myBot?.sharedScope === 'all';
+  }, [myBot?.sharedScope]);
 
   const [hasCreated, setHasCreated] = useState(false);
 
-  const [enabledThtottle, setEnabledThtottle] = useState(true);
+  const [enabledThrottle, setEnabledThrottle] = useState(true);
   const [enabledQuota, setEnabledQuota] = useState(true);
 
   const [rateLimit, setRateLimit] = useState<null | number>(null);
@@ -124,7 +118,7 @@ const BotApiSettingsPage: React.FC = () => {
       return;
     }
     setHasCreated(true);
-    setEnabledThtottle(!!botPublication.throttle);
+    setEnabledThrottle(!!botPublication.throttle);
     setEnabledQuota(!!botPublication.quota);
     setRateLimit(botPublication.throttle.rateLimit);
     setBurstLimit(botPublication.throttle.burstLimit);
@@ -135,7 +129,7 @@ const BotApiSettingsPage: React.FC = () => {
 
   const clearApiSettings = useCallback(() => {
     setHasCreated(false);
-    setEnabledThtottle(true);
+    setEnabledThrottle(true);
     setEnabledQuota(true);
     setRateLimit(null);
     setBurstLimit(null);
@@ -164,11 +158,11 @@ const BotApiSettingsPage: React.FC = () => {
     clearErrorMessages();
 
     let hasError = false;
-    if (enabledThtottle && !rateLimit) {
+    if (enabledThrottle && !rateLimit) {
       setErrorMessage('rateLimit', t('input.validationError.required'));
       hasError = true;
     }
-    if (enabledThtottle && !burstLimit) {
+    if (enabledThrottle && !burstLimit) {
       setErrorMessage('burstLimit', t('input.validationError.required'));
       hasError = true;
     }
@@ -202,7 +196,7 @@ const BotApiSettingsPage: React.FC = () => {
               period,
             }
           : undefined,
-        throttle: enabledThtottle
+        throttle: enabledThrottle
           ? {
               burstLimit: burstLimit!,
               rateLimit: rateLimit!,
@@ -220,7 +214,7 @@ const BotApiSettingsPage: React.FC = () => {
     burstLimit,
     clearErrorMessages,
     enabledQuota,
-    enabledThtottle,
+    enabledThrottle,
     mutateBotPublication,
     origins,
     period,
@@ -275,8 +269,30 @@ const BotApiSettingsPage: React.FC = () => {
     });
   }, [clearApiSettings, deleteBotPublication, fillApiSettings, open, t]);
 
+  const { updateSharedScope, updateSharedUsersAndGroups } = useShareBot({
+    botId,
+  });
+  const [isOpenShareDialog, setIsOpenShareDialog] = useState(false);
+
   return (
     <>
+      <DialogShareBot
+        isOpen={isOpenShareDialog}
+        botId={myBot?.id}
+        sharedStatus={myBot?.sharedStatus}
+        sharedScope={myBot?.sharedScope}
+        allowedGroupIds={myBot?.allowedCognitoGroups}
+        allowedUserIds={myBot?.allowedCognitoUsers}
+        onChangeSharedScope={(scope) => {
+          updateSharedScope(scope);
+        }}
+        onUpdateAllowedUserAndGroup={(userIds, groupIds) => {
+          updateSharedUsersAndGroups(userIds, groupIds);
+        }}
+        onClose={() => {
+          setIsOpenShareDialog(false);
+        }}
+      />
       <DialogConfirmAddApiKey
         isOpen={isOpenAddApiKeyDialog}
         loading={isAddingApiKey}
@@ -311,13 +327,19 @@ const BotApiSettingsPage: React.FC = () => {
               ) : (
                 <>
                   <div className="flex flex-col gap-1">
-                    <div className="text-lg font-bold">{myBot?.title}</div>
+                    <div className="flex items-center gap-1 text-lg font-bold">
+                      <IconPinnedBot
+                        botSharedStatus={myBot?.sharedStatus}
+                        className="text-aws-aqua"
+                      />
+                      <div>{myBot?.title}</div>
+                    </div>
                     {myBot?.description ? (
-                      <div className="text-sm text-aws-font-color/50">
+                      <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                         {myBot?.description}
                       </div>
                     ) : (
-                      <div className="text-sm font-light italic text-aws-font-color/50">
+                      <div className="text-sm font-light italic text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                         {t('bot.label.noDescription')}
                       </div>
                     )}
@@ -360,7 +382,7 @@ const BotApiSettingsPage: React.FC = () => {
                           {t('bot.apiSettings.label.endpoint')}
                           <Help message={t('bot.apiSettings.help.endpoint')} />
                         </div>
-                        <div className="text-sm text-aws-font-color/50">
+                        <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                           {t('bot.apiSettings.label.endpoint')}
                         </div>
                         <div className="flex">
@@ -376,7 +398,7 @@ const BotApiSettingsPage: React.FC = () => {
                         <div className="text-lg font-bold">
                           {t('bot.apiSettings.label.apiKeys')}
                         </div>
-                        <div className="text-sm text-aws-font-color/50">
+                        <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                           {t('bot.apiSettings.help.apiKeys')}
                         </div>
 
@@ -398,27 +420,27 @@ const BotApiSettingsPage: React.FC = () => {
                     </>
                   )}
 
-                  {myBot?.isPublic && !hasFailedDeploy && (
+                  {myBot?.sharedScope === 'all' && !hasFailedDeploy && (
                     <div className="flex flex-col gap-1">
                       <div className="text-lg font-bold">
                         {t('bot.apiSettings.label.usagePlan')}
                       </div>
-                      <div className="text-sm text-aws-font-color/50">
+                      <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                         {t('bot.apiSettings.help.usagePlan')}
                       </div>
 
                       <Toggle
                         label={t('bot.apiSettings.item.throttling')}
                         hint={t('bot.apiSettings.help.throttling')}
-                        value={enabledThtottle}
+                        value={enabledThrottle}
                         disabled={disabledCreate}
-                        onChange={setEnabledThtottle}
+                        onChange={setEnabledThrottle}
                       />
 
                       <div
                         className={twMerge(
                           '-mt-3 origin-top transition-all',
-                          enabledThtottle
+                          enabledThrottle
                             ? 'visible '
                             : 'invisible h-0 scale-y-0'
                         )}>
@@ -491,7 +513,7 @@ const BotApiSettingsPage: React.FC = () => {
                         <div className="text-lg font-bold">
                           {t('bot.apiSettings.label.allowOrigins')}
                         </div>
-                        <div className="text-sm text-aws-font-color/50">
+                        <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
                           <div>{t('bot.apiSettings.help.allowOrigins')}</div>
                           <div>
                             {t('bot.apiSettings.help.allowOriginsExample')}
@@ -548,12 +570,14 @@ const BotApiSettingsPage: React.FC = () => {
                   {t('button.back')}
                 </Button>
                 {!hasShared && !isInitialLoading && (
-                  <Button loading={isLoadingShare} onClick={onClickShare}>
+                  <Button
+                    onClick={() => {
+                      setIsOpenShareDialog(true);
+                    }}>
                     {t('bot.button.share')}
                   </Button>
                 )}
-                {!isLoadingShare &&
-                  !hasCreated &&
+                {!hasCreated &&
                   !isDeploying &&
                   hasShared &&
                   !hasFailedDeploy && (

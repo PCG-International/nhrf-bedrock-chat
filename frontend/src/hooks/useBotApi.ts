@@ -7,12 +7,13 @@ import {
   GetPresignedUrlResponse,
   RegisterBotRequest,
   RegisterBotResponse,
-  UpdateBotPinnedRequest,
-  UpdateBotPinnedResponse,
+  UpdateBotStarredRequest,
+  UpdateBotStarredResponse,
   UpdateBotRequest,
   UpdateBotResponse,
-  UpdateBotVisibilityRequest,
-  UpdateBotVisibilityResponse,
+  GetPinnedBotResponse,
+  UpdateBotSharedScopeRequest,
+  UpdateBotSharedScopeResponse,
 } from '../@types/bot';
 import useHttp from './useHttp';
 
@@ -34,6 +35,9 @@ const useBotApi = () => {
     getMyBot: (botId?: string) => {
       return http.get<GetMyBotResponse>(botId ? `bot/private/${botId}` : null);
     },
+    getPinnedBots: () => {
+      return http.get<GetPinnedBotResponse>('bot/pinned');
+    },
     botSummary: (botId?: string) => {
       return http.get<GetBotSummaryResponse>(
         botId ? `bot/summary/${botId}` : null,
@@ -47,6 +51,8 @@ const useBotApi = () => {
             }
             return 0;
           },
+          // Errors will unavailable bot automatically without retry
+          shouldRetryOnError: false,
         }
       );
     },
@@ -56,20 +62,26 @@ const useBotApi = () => {
     updateBot: (botId: string, params: UpdateBotRequest) => {
       return http.patch<UpdateBotResponse>(`bot/${botId}`, params);
     },
-    updateBotPinned: (botId: string, params: UpdateBotPinnedRequest) => {
-      return http.patch<UpdateBotPinnedResponse>(`bot/${botId}/pinned`, params);
+    updateBotStarred: (botId: string, params: UpdateBotStarredRequest) => {
+      return http.patch<UpdateBotStarredResponse>(
+        `bot/${botId}/starred`,
+        params
+      );
     },
-    updateBotVisibility: (
+    updateBotSharedScope: (
       botId: string,
-      params: UpdateBotVisibilityRequest
+      params: UpdateBotSharedScopeRequest
     ) => {
-      return http.patch<UpdateBotVisibilityResponse>(
+      return http.patch<UpdateBotSharedScopeResponse>(
         `bot/${botId}/visibility`,
         params
       );
     },
     deleteBot: (botId: string) => {
       return http.delete(`bot/${botId}`);
+    },
+    removeFromRecentlyUsed: (botId: string) => {
+      return http.delete(`bot/${botId}/recently-used`);
     },
     getPresignedUrl: (botId: string, file: File) => {
       return http.getOnce<GetPresignedUrlResponse>(

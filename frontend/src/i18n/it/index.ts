@@ -6,7 +6,7 @@ const translation = {
       },
     },
     app: {
-      name: 'Bedrock Claude Chat',
+      name: 'Bedrock Chat',
       inputMessage: 'Inviare un messaggio',
       starredBots: 'Bot preferiti',
       recentlyUsedBots: 'Bot utilizzati di recente',
@@ -60,7 +60,7 @@ const translation = {
         knowledge: {
           overview:
             'Fornendo conoscenza esterna al Bot, il Bot diventa in grado di gestire dati su cui non è stato pre-addestrato.',
-          url: "Le informazioni dall'URL specificato verranno utilizzate come Apprendimento. Se imposti l'URL di un video di YouTube, la trascrizione di quel video verrà utilizzata come Apprendimento.",
+          url: "Le informazioni dall'URL specificato verranno utilizzate come Apprendimento.",
           sitemap:
             "Specificando l'URL della mappa del sito, le informazioni ottenute attraverso lo scraping automatico dei siti Web al suo interno verranno utilizzate come Apprendimento.",
           file: 'I file caricati verranno utilizzati come Apprendimento.',
@@ -152,7 +152,8 @@ Come classificheresti questa email?`,
           endpoint: 'Il client può utilizzare il Bot da questo endpoint.',
           usagePlan:
             "I piani di utilizzo specificano il numero o la frequenza di richieste che la tua API accetta da un client. Associa un'API a un piano di utilizzo per tenere traccia delle richieste ricevute dalla tua API.",
-          throttling: 'Limita la frequenza con cui gli utenti possono chiamare la tua API.',
+          throttling:
+            'Limita la frequenza con cui gli utenti possono chiamare la tua API.',
           rateLimit:
             'Inserisci la velocità, in richieste al secondo, con cui i client possono chiamare la tua API.',
           burstLimit:
@@ -239,11 +240,11 @@ Come classificheresti questa email?`,
       },
     },
     admin: {
-      sharedBotAnalytics: {
+      botAnalytics: {
         label: {
           pageTitle: 'Analisi dei Bot condivisi',
-          noPublicBotUsages:
-            'Durante il Periodo di Calcolo non sono stati utilizzati Bot pubblici.',
+          noBotUsages:
+            'Durante il Periodo di Calcolo non sono stati utilizzati Bot.',
           published: "L'API è pubblicata.",
           SearchCondition: {
             title: 'Periodo di calcolo',
@@ -254,7 +255,7 @@ Come classificheresti questa email?`,
         },
         help: {
           overview:
-            'Monitora lo stato di utilizzo dei bot condivisi e delle API dei bot pubblicati.',
+            'Monitora lo stato di utilizzo dei bot e delle API dei bot pubblicati.',
           calculationPeriod:
             'Se il periodo di calcolo non è impostato, verrà visualizzato il costo per oggi.',
         },
@@ -314,7 +315,7 @@ Come classificheresti questa email?`,
     button: {
       newChat: 'Nuova Chat',
       botConsole: 'Console del Bot',
-      sharedBotAnalytics: 'Analisi dei Bot condivisi',
+      botAnalytics: 'Analisi dei Bot',
       apiManagement: "Gestione dell'API",
       userUsages: 'Usi degli utenti',
       SaveAndSubmit: 'Salva & invia',
@@ -332,6 +333,7 @@ Come classificheresti questa email?`,
       signOut: 'Disconnessione',
       close: 'Chiudi',
       add: 'Aggiungi',
+      continue: 'Continuare a generare',
     },
     input: {
       hint: {
@@ -387,7 +389,8 @@ Come classificheresti questa email?`,
         message: 'Il valore massimo che può essere impostato è {{size}}',
       },
       chunkOverlapLessThanChunkSize: {
-        message: 'La sovrapposizione dei blocchi deve essere impostata su un valore inferiore alla dimensione del blocco',
+        message:
+          'La sovrapposizione dei blocchi deve essere impostata su un valore inferiore alla dimensione del blocco',
       },
     },
   },

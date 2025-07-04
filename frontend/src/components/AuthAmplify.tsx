@@ -1,11 +1,9 @@
 import React, { ReactNode, cloneElement, ReactElement } from 'react';
 import { BaseProps } from '../@types/common';
 import { Authenticator } from '@aws-amplify/ui-react';
-import { SocialProvider } from '@aws-amplify/ui';
 import { useTranslation } from 'react-i18next';
 import { useAuthenticator } from '@aws-amplify/ui-react';
-
-const MISTRAL_ENABLED: boolean = import.meta.env.VITE_APP_ENABLE_MISTRAL === 'true';
+import { SocialProvider } from '../@types/auth';
 
 type Props = BaseProps & {
   socialProviders: SocialProvider[];
@@ -21,8 +19,8 @@ const AuthAmplify: React.FC<Props> = ({ socialProviders, children }) => {
       socialProviders={socialProviders}
       components={{
         Header: () => (
-          <div className="mb-5 mt-10 flex justify-center text-3xl text-aws-font-color">
-            {!MISTRAL_ENABLED ? t('app.name') : t('app.nameWithoutClaude')}
+          <div className="mb-5 mt-10 flex justify-center text-3xl text-aws-font-color-light">
+            {t('app.name')}
           </div>
         ),
       }}>

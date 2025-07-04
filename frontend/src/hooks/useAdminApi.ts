@@ -4,7 +4,7 @@ import {
   ListPublicBotsRequest,
   ListPublicBotsResponse,
 } from '../@types/api-publication';
-import { GetPublicBotResponse } from '../@types/bot';
+import { GetPublicBotResponse, UpdateBotPushedRequest } from '../@types/bot';
 import useHttp from './useHttp';
 
 const useAdminApi = () => {
@@ -21,6 +21,9 @@ const useAdminApi = () => {
     },
     getPublicBot: (botId: string) => {
       return http.get<GetPublicBotResponse>(`/admin/bot/public/${botId}`);
+    },
+    updatePinnedBot: (botId: string, params: UpdateBotPushedRequest) => {
+      return http.patch<null>(`/admin/bot/${botId}/pushed`, params);
     },
   };
 };

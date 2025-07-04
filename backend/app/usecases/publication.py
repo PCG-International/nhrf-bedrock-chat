@@ -13,8 +13,7 @@ from app.repositories.api_publication import (
 from app.repositories.common import RecordNotFoundError, ResourceConflictError
 from app.repositories.custom_bot import (
     delete_bot_publication,
-    find_private_bot_by_id,
-    find_public_bot_by_id,
+    find_bot_by_id,
     update_bot_publication,
 )
 from app.repositories.models.custom_bot import BotModel
@@ -34,20 +33,10 @@ REGION = os.environ.get("REGION", "us-east-1")
 
 
 def _fetch_bot_with_permission_check(user: User, bot_id: str) -> BotModel:
-    if user.is_admin():
-        # If admin, fetch public (shared) bot
-        try:
-            bot = find_public_bot_by_id(bot_id)
-        except RecordNotFoundError:
-            raise RecordNotFoundError(f"Bot {bot_id} is not found or shared.")
-        return bot
-
-    # If not admin, fetch private bot
-    try:
-        bot = find_private_bot_by_id(user.id, bot_id)
-    except RecordNotFoundError:
-        raise RecordNotFoundError(
-            f"Bot {bot_id} is not published or not owned by user {user.id}."
+    bot = find_bot_by_id(bot_id)
+    if not bot.is_accessible_by_user(user):
+        raise PermissionError(
+            f"User {user.id} is not authorized to access bot {bot_id}"
         )
     return bot
 
@@ -55,13 +44,14 @@ def _fetch_bot_with_permission_check(user: User, bot_id: str) -> BotModel:
 def create_bot_publication(user: User, bot_id: str, bot_publish_input: BotPublishInput):
     """Publish an API for the bot."""
     # Check existence and permission of the bot
-    try:
-        bot = find_private_bot_by_id(user.id, bot_id)
-    except RecordNotFoundError:
-        raise RecordNotFoundError(f"Bot {bot_id} is not found.")
+    bot = find_bot_by_id(bot_id)
+    if not bot.is_editable_by_user(user):
+        raise PermissionError(
+            f"User {user.id} is not authorized to access bot {bot_id}"
+        )
 
-    if bot.public_bot_id is None:
-        raise ValueError(f"Bot {bot_id} is not shared. Cannot publish.")
+    if bot.shared_scope != "all":
+        raise ValueError(f"Bot {bot_id} is not shared for all users. Cannot publish.")
 
     if bot.published_api_codebuild_id is not None:
         codebuild_status = find_build_status_by_build_id(bot.published_api_codebuild_id)
@@ -81,7 +71,6 @@ def create_bot_publication(user: User, bot_id: str, bot_publish_input: BotPublis
     environment_variables["PUBLISHED_API_ID"] = published_api_id
 
     # Set environment variables.
-    # NOTE: default values are set in `cdk/lib/constructs/api-publish-codebuild.ts`
     if bot_publish_input.throttle.rate_limit is not None:
         environment_variables["PUBLISHED_API_THROTTLE_RATE_LIMIT"] = str(
             bot_publish_input.throttle.rate_limit

@@ -1,61 +1,56 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '../components/Button';
-import {
-  PiGlobe,
-  PiLink,
-  PiLockKey,
-  PiPlus,
-  PiStar,
-  PiStarFill,
-  PiTrash,
-  PiTrashBold,
-  PiUsers,
-} from 'react-icons/pi';
+import { PiLink, PiPlus } from 'react-icons/pi';
 import { useNavigate } from 'react-router-dom';
 import useBot from '../hooks/useBot';
-import { BotMeta } from '../@types/bot';
+import { BotListItem, BotMeta } from '../@types/bot';
 import DialogConfirmDeleteBot from '../components/DialogConfirmDeleteBot';
-import DialogConfirmShareBot from '../components/DialogShareBot';
+import DialogShareBot from '../components/DialogShareBot';
 import ButtonIcon from '../components/ButtonIcon';
-import PopoverMenu from '../components/PopoverMenu';
-import PopoverItem from '../components/PopoverItem';
 import useChat from '../hooks/useChat';
-import Help from '../components/Help';
 import StatusSyncBot from '../components/StatusSyncBot';
-import useUser from '../hooks/useUser';
+import useLoginUser from '../hooks/useLoginUser';
 import ListItemBot from '../components/ListItemBot';
+import useShareBot from '../hooks/useShareBot';
+import useBotPinning from '../hooks/useBotPinning';
+import { isPinnedBot, canBePinned } from '../utils/BotUtils';
+import { produce } from 'immer';
+import ListPageLayout from '../layouts/ListPageLayout';
+import IconShareBot from '../components/IconShareBot';
+import ButtonStar from '../components/ButtonStar';
+import MenuBot from '../components/MenuBot';
 
 const BotExplorePage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { isAllowApiSettings } = useUser();
-
+  const { isAllowCreatingBot, isAllowApiSettings, isAdmin } = useLoginUser();
   const [isOpenDeleteDialog, setIsOpenDeleteDialog] = useState(false);
   const [isOpenShareDialog, setIsOpenShareDialog] = useState(false);
   const [targetDelete, setTargetDelete] = useState<BotMeta>();
-  const [targetShareIndex, setTargetShareIndex] = useState<number>();
+  const [openedShareDialogBotId, setOpenedShareDialogBotId] = useState<
+    string | undefined
+  >();
+  const { pinBot, unpinBot } = useBotPinning();
 
   const { newChat } = useChat();
-  const {
-    myBots,
-    recentlyUsedSharedBots,
-    deleteMyBot,
-    deleteRecentlyUsedBot,
-    updateBotSharing,
-    updateMyBotStarred,
-    updateSharedBotStarred,
-  } = useBot(true);
+  const { myBots, deleteMyBot, updateStarred, mutateMyBots, isLoadingMyBots } =
+    useBot(true);
 
-  const targetShareBot = useMemo(() => {
-    if (myBots) {
-      if ((targetShareIndex ?? -1) < 0) {
-        return undefined;
-      }
-      return myBots[targetShareIndex!];
-    }
-    return undefined;
-  }, [myBots, targetShareIndex]);
+  const {
+    isPublication,
+    sharedStatus,
+    sharedScope,
+    allowedGroupIds,
+    allowedUserIds,
+    isLoading: isLoadingShareBot,
+    updateSharedScope,
+    updateSharedUsersAndGroups,
+  } = useShareBot({
+    botId: openedShareDialogBotId,
+    myBots: myBots ?? [],
+    mutateMyBots,
+  });
 
   const onClickNewBot = useCallback(() => {
     navigate('/bot/new');
@@ -82,9 +77,9 @@ const BotExplorePage: React.FC = () => {
     }
   }, [deleteMyBot, targetDelete]);
 
-  const onClickShare = useCallback((targetIndex: number) => {
+  const onClickShare = useCallback((botId: string) => {
     setIsOpenShareDialog(true);
-    setTargetShareIndex(targetIndex);
+    setOpenedShareDialogBotId(botId);
   }, []);
 
   const onClickApiSettings = useCallback(
@@ -94,18 +89,41 @@ const BotExplorePage: React.FC = () => {
     [navigate]
   );
 
-  const onToggleShare = useCallback(() => {
-    if (targetShareBot) {
-      updateBotSharing(targetShareBot.id, !targetShareBot.isPublic);
-    }
-  }, [targetShareBot, updateBotSharing]);
-
   const onClickBot = useCallback(
     (botId: string) => {
       newChat();
       navigate(`/bot/${botId}`);
     },
     [navigate, newChat]
+  );
+
+  const togglePinBot = useCallback(
+    (bot: BotListItem) => {
+      mutateMyBots(
+        produce(myBots, (draft) => {
+          if (draft) {
+            const target = draft.find((b) => b.id === bot.id);
+            if (target) {
+              target.sharedStatus = isPinnedBot(bot.sharedStatus)
+                ? 'shared'
+                : 'pinned@000';
+            }
+          }
+        }),
+        {
+          revalidate: false,
+        }
+      );
+
+      isPinnedBot(bot.sharedStatus)
+        ? unpinBot(bot.id).finally(() => {
+            mutateMyBots();
+          })
+        : pinBot(bot.id, 0).finally(() => {
+            mutateMyBots();
+          });
+    },
+    [mutateMyBots, myBots, pinBot, unpinBot]
   );
 
   return (
@@ -118,183 +136,124 @@ const BotExplorePage: React.FC = () => {
           setIsOpenDeleteDialog(false);
         }}
       />
-      <DialogConfirmShareBot
+      <DialogShareBot
         isOpen={isOpenShareDialog}
-        target={targetShareBot}
-        onToggleShare={onToggleShare}
+        isPublication={isPublication}
+        botId={openedShareDialogBotId}
+        sharedStatus={sharedStatus}
+        sharedScope={sharedScope}
+        allowedGroupIds={allowedGroupIds}
+        allowedUserIds={allowedUserIds}
+        isLoading={isLoadingShareBot}
+        onChangeSharedScope={(scope) => {
+          updateSharedScope(scope);
+        }}
+        onUpdateAllowedUserAndGroup={(userIds, groupIds) => {
+          updateSharedUsersAndGroups(userIds, groupIds);
+        }}
         onClose={() => {
           setIsOpenShareDialog(false);
         }}
       />
-      <div className="flex h-full justify-center">
-        <div className="w-2/3">
-          <div className="h-1/2 w-full pt-8">
-            <div className="flex items-end justify-between">
-              <div className="flex items-center gap-2">
-                <div className="text-xl font-bold">{t('bot.label.myBots')}</div>
-                <Help direction="right" message={t('bot.help.overview')} />
+      <ListPageLayout
+        pageTitle={t('bot.label.myBots')}
+        pageTitleHelp={t('bot.help.overview')}
+        pageTitleActions={
+          <Button
+            className="text-sm"
+            disabled={!isAllowCreatingBot}
+            outlined
+            icon={<PiPlus />}
+            onClick={onClickNewBot}>
+            {t('bot.button.newBot')}
+          </Button>
+        }
+        isLoading={isLoadingMyBots}
+        isEmpty={myBots?.length === 0}
+        emptyMessage={t('bot.label.noBots')}>
+        {myBots?.map((bot) => (
+          <ListItemBot key={bot.id} bot={bot} onClick={onClickBot}>
+            <div className="flex items-center">
+              {bot.owned && (
+                <StatusSyncBot
+                  className="mr-5"
+                  syncStatus={bot.syncStatus}
+                  onClickError={() => {
+                    navigate(`/bot/edit/${bot.id}`);
+                  }}
+                />
+              )}
+
+              <div className="mr-5 flex justify-end">
+                {bot.sharedScope === 'all' || bot.sharedScope === 'partial' ? (
+                  <div className="flex items-center">
+                    <IconShareBot
+                      sharedScope={bot.sharedScope}
+                      className="mr-1"
+                    />
+                    <ButtonIcon
+                      className="-mr-3"
+                      onClick={() => {
+                        onClickShare(bot.id);
+                      }}>
+                      <PiLink />
+                    </ButtonIcon>
+                  </div>
+                ) : (
+                  <div className="ml-7">
+                    <IconShareBot sharedScope={bot.sharedScope} />
+                  </div>
+                )}
+              </div>
+
+              <div className="mr-5">
+                <ButtonStar
+                  isStarred={bot.isStarred}
+                  disabled={!bot.available}
+                  onClick={() => {
+                    updateStarred(bot.id, !bot.isStarred);
+                  }}
+                />
               </div>
 
               <Button
-                className=" text-sm"
+                className="mr-2 h-8 text-sm font-semibold"
                 outlined
-                icon={<PiPlus />}
-                onClick={onClickNewBot}>
-                {t('bot.button.newBot')}
+                onClick={() => {
+                  onClickEditBot(bot.id);
+                }}>
+                {t('bot.button.edit')}
               </Button>
+              <div className="relative">
+                <MenuBot
+                  onClickShare={() => {
+                    onClickShare(bot.id);
+                  }}
+                  onClickDelete={() => {
+                    onClickDelete(bot);
+                  }}
+                  {...(isAllowApiSettings && {
+                    onClickApiSettings: () => {
+                      onClickApiSettings(bot.id);
+                    },
+                  })}
+                  {...(isAdmin && canBePinned(bot.sharedScope)
+                    ? {
+                        onClickSwitchPinned: () => {
+                          togglePinBot(bot);
+                        },
+                        isPinned: isPinnedBot(bot.sharedStatus),
+                      }
+                    : {
+                        onClickSwitchPinned: undefined,
+                        isPinned: undefined,
+                      })}
+                />
+              </div>
             </div>
-            <div className="mt-2 border-b border-gray"></div>
-
-            <div className="h-4/5 overflow-x-hidden overflow-y-scroll border-b border-gray pr-1 scrollbar-thin scrollbar-thumb-aws-font-color/20 ">
-              {myBots?.length === 0 && (
-                <div className="flex h-full w-full items-center justify-center italic text-dark-gray">
-                  {t('bot.label.noBots')}
-                </div>
-              )}
-              {myBots?.map((bot, idx) => (
-                <ListItemBot
-                  key={bot.id}
-                  bot={bot}
-                  onClick={onClickBot}
-                  className="last:border-b-0">
-                  <div className="flex items-center">
-                    {bot.owned && (
-                      <StatusSyncBot
-                        className="mr-5"
-                        syncStatus={bot.syncStatus}
-                        onClickError={() => {
-                          navigate(`/bot/edit/${bot.id}`);
-                        }}
-                      />
-                    )}
-
-                    <div className="mr-5 flex justify-end">
-                      {bot.isPublic ? (
-                        <div className="flex items-center">
-                          <PiUsers className="mr-1" />
-                          <ButtonIcon
-                            className="-mr-3"
-                            onClick={() => {
-                              onClickShare(idx);
-                            }}>
-                            <PiLink />
-                          </ButtonIcon>
-                        </div>
-                      ) : (
-                        <div className="ml-7">
-                          <PiLockKey />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mr-5">
-                      {bot.isPinned ? (
-                        <ButtonIcon
-                          disabled={!bot.available}
-                          onClick={() => {
-                            updateMyBotStarred(bot.id, false);
-                          }}>
-                          <PiStarFill className="text-aws-aqua" />
-                        </ButtonIcon>
-                      ) : (
-                        <ButtonIcon
-                          disabled={!bot.available}
-                          onClick={() => {
-                            updateMyBotStarred(bot.id, true);
-                          }}>
-                          <PiStar />
-                        </ButtonIcon>
-                      )}
-                    </div>
-
-                    <Button
-                      className="mr-2 h-8 text-sm font-semibold"
-                      outlined
-                      onClick={() => {
-                        onClickEditBot(bot.id);
-                      }}>
-                      {t('bot.button.edit')}
-                    </Button>
-                    <div className="relative">
-                      <PopoverMenu className="h-8" target="bottom-right">
-                        <PopoverItem
-                          onClick={() => {
-                            onClickShare(idx);
-                          }}>
-                          <PiUsers />
-                          {t('bot.button.share')}
-                        </PopoverItem>
-                        {isAllowApiSettings && (
-                          <PopoverItem
-                            onClick={() => {
-                              onClickApiSettings(bot.id);
-                            }}>
-                            <PiGlobe />
-                            {t('bot.button.apiSettings')}
-                          </PopoverItem>
-                        )}
-                        <PopoverItem
-                          className="font-bold text-red"
-                          onClick={() => {
-                            onClickDelete(bot);
-                          }}>
-                          <PiTrashBold />
-                          {t('bot.button.delete')}
-                        </PopoverItem>
-                      </PopoverMenu>
-                    </div>
-                  </div>
-                </ListItemBot>
-              ))}
-            </div>
-          </div>
-          <div className="h-1/2 w-full">
-            <div className="text-xl font-bold">
-              {t('bot.label.recentlyUsedBots')}
-            </div>
-            <div className="mt-2 border-b border-gray"></div>
-            <div className="h-4/5 overflow-y-scroll border-b border-gray  pr-1 scrollbar-thin scrollbar-thumb-aws-font-color/20">
-              {recentlyUsedSharedBots?.length === 0 && (
-                <div className="flex h-full w-full items-center justify-center italic text-dark-gray">
-                  {t('bot.label.noBotsRecentlyUsed')}
-                </div>
-              )}
-              {recentlyUsedSharedBots?.map((bot) => (
-                <ListItemBot
-                  key={bot.id}
-                  bot={bot}
-                  onClick={onClickBot}
-                  className="last:border-b-0">
-                  {bot.isPinned ? (
-                    <ButtonIcon
-                      disabled={!bot.available}
-                      onClick={() => {
-                        updateSharedBotStarred(bot.id, false);
-                      }}>
-                      <PiStarFill className="text-aws-aqua" />
-                    </ButtonIcon>
-                  ) : (
-                    <ButtonIcon
-                      disabled={!bot.available}
-                      onClick={() => {
-                        updateSharedBotStarred(bot.id, true);
-                      }}>
-                      <PiStar />
-                    </ButtonIcon>
-                  )}
-                  <ButtonIcon
-                    className="text-red"
-                    onClick={() => {
-                      deleteRecentlyUsedBot(bot.id);
-                    }}>
-                    <PiTrash />
-                  </ButtonIcon>
-                </ListItemBot>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+          </ListItemBot>
+        ))}
+      </ListPageLayout>
     </>
   );
 };

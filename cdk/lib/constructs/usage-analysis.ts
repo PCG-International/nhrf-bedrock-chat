@@ -11,9 +11,12 @@ import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { aws_glue } from "aws-cdk-lib";
 import { Database } from "./database";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as logs from "aws-cdk-lib/aws-logs";
 
 export interface UsageAnalysisProps {
+  envPrefix: string;
   sourceDatabase: Database;
+  accessLogBucket?: s3.Bucket;
 }
 
 export class UsageAnalysis extends Construct {
@@ -26,10 +29,14 @@ export class UsageAnalysis extends Construct {
   constructor(scope: Construct, id: string, props: UsageAnalysisProps) {
     super(scope, id);
 
-    const GLUE_DATABASE_NAME = `${Stack.of(
-      this
-    ).stackName.toLowerCase()}_usage_analysis`;
-    const DDB_EXPORT_TABLE_NAME = "ddb_export";
+    const safeStackName = Stack.of(this)
+      .stackName.toLowerCase()
+      .replace("-", "_");
+
+    const GLUE_DATABASE_NAME = `${safeStackName}_usage_analysis`;
+
+    const sepUnderscore = props.envPrefix ? "_" : "";
+    const DDB_EXPORT_TABLE_NAME = `${props.envPrefix}${sepUnderscore}ddb_export`;
 
     // Bucket to export DynamoDB data
     const ddbBucket = new s3.Bucket(this, "DdbBucket", {
@@ -39,6 +46,8 @@ export class UsageAnalysis extends Construct {
       removalPolicy: RemovalPolicy.DESTROY,
       objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
       autoDeleteObjects: true,
+      serverAccessLogsBucket: props.accessLogBucket,
+      serverAccessLogsPrefix: "DdbBucket",
     });
 
     // Bucket for Athena query results
@@ -49,11 +58,13 @@ export class UsageAnalysis extends Construct {
       removalPolicy: RemovalPolicy.DESTROY,
       objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
       autoDeleteObjects: true,
+      serverAccessLogsBucket: props.accessLogBucket,
+      serverAccessLogsPrefix: "QueryResultBucket",
     });
 
     // Workgroup for Athena
     const wg = new athena.CfnWorkGroup(this, "Wg", {
-      name: `${Stack.of(this).stackName.toLowerCase()}_wg`,
+      name: `${safeStackName}_wg`,
       description: "Workgroup for Athena",
       recursiveDeleteOption: true,
       workGroupConfiguration: {
@@ -119,7 +130,7 @@ export class UsageAnalysis extends Construct {
         type: glue.Schema.struct([{ name: "S", type: glue.Schema.STRING }]),
       },
       {
-        name: "IsPinned",
+        name: "IsStarred",
         type: glue.Schema.struct([{ name: "BOOL", type: glue.Schema.BOOLEAN }]),
       },
       {
@@ -229,16 +240,17 @@ export class UsageAnalysis extends Construct {
 
     const exportHandler = new python.PythonFunction(this, "ExportHandler", {
       entry: path.join(__dirname, "../../../backend/s3_exporter/"),
-      runtime: Runtime.PYTHON_3_11,
+      runtime: Runtime.PYTHON_3_13,
       environment: {
         BUCKET_NAME: ddbBucket.bucketName,
-        TABLE_ARN: props.sourceDatabase.table.tableArn,
+        TABLE_ARN: props.sourceDatabase.conversationTable.tableArn,
       },
+      logRetention: logs.RetentionDays.THREE_MONTHS,
     });
     exportHandler.role?.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ["dynamodb:ExportTableToPointInTime"],
-        resources: [props.sourceDatabase.table.tableArn],
+        resources: [props.sourceDatabase.conversationTable.tableArn],
       })
     );
     ddbBucket.grantReadWrite(exportHandler);
