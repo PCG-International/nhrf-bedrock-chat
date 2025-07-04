@@ -75,7 +75,8 @@
     "userPoolDomainPrefix": "nhrf",
     "allowedSignUpEmailDomains": [],
     "autoJoinUserGroups": [
-      "CreatingBotAllowed"
+      "CreatingBotAllowed",
+      "PublishAllowed"
     ],
     "selfSignUpEnabled": false,
     "publishedApiAllowedIpV4AddressRanges": [
