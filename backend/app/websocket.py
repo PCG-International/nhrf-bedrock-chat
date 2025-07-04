@@ -348,7 +348,7 @@ def handler(event, context):
 
             logger.info(f"Number of message chunks: {len(message_parts)}")
             message_parts.sort(key=lambda x: x["MessagePartId"])
-            
+
             # Assemble message from both DynamoDB and S3 sources
             message_text_parts = []
             for item in message_parts:
@@ -357,16 +357,20 @@ def handler(event, context):
                     try:
                         s3_key = item["S3Key"]
                         logger.info(f"Retrieving large message part from S3: {s3_key}")
-                        s3_response = s3_client.get_object(Bucket=LARGE_MESSAGE_BUCKET, Key=s3_key)
-                        part_content = s3_response["Body"].read().decode('utf-8')
+                        s3_response = s3_client.get_object(
+                            Bucket=LARGE_MESSAGE_BUCKET, Key=s3_key
+                        )
+                        part_content = s3_response["Body"].read().decode("utf-8")
                         message_text_parts.append(part_content)
                     except Exception as e:
-                        logger.error(f"Failed to retrieve large message part from S3: {e}")
+                        logger.error(
+                            f"Failed to retrieve large message part from S3: {e}"
+                        )
                         raise e
                 else:
                     # Get regular message part from DynamoDB
                     message_text_parts.append(item["MessagePart"])
-            
+
             full_message = "".join(message_text_parts)
 
             # Process the concatenated full message
@@ -382,20 +386,24 @@ def handler(event, context):
             # Zero is reserved for user id, so start from 1
             part_index = body["index"] + 1
             message_part = body["part"]
-            
+
             # Check if this is a large payload that should be stored in S3
             is_large_payload = body.get("isLargePayload", False)
             total_size = body.get("totalSize", 0)
-            
-            if is_large_payload and total_size > LARGE_PAYLOAD_THRESHOLD and LARGE_MESSAGE_BUCKET:
+
+            if (
+                is_large_payload
+                and total_size > LARGE_PAYLOAD_THRESHOLD
+                and LARGE_MESSAGE_BUCKET
+            ):
                 # Store large message parts in S3
                 s3_key = f"websocket-large/{connection_id}/part-{part_index:05d}.txt"
                 try:
                     s3_client.put_object(
                         Bucket=LARGE_MESSAGE_BUCKET,
                         Key=s3_key,
-                        Body=message_part.encode('utf-8'),
-                        ContentType='text/plain'
+                        Body=message_part.encode("utf-8"),
+                        ContentType="text/plain",
                     )
                     # Store S3 reference in DynamoDB instead of content
                     table.put_item(
@@ -408,7 +416,9 @@ def handler(event, context):
                             "expire": expire,
                         }
                     )
-                    logger.info(f"Stored large message part {part_index} in S3: {s3_key}")
+                    logger.info(
+                        f"Stored large message part {part_index} in S3: {s3_key}"
+                    )
                 except Exception as e:
                     logger.error(f"Failed to store large message part in S3: {e}")
                     # Fallback to DynamoDB (might still cause throttling, but better than total failure)

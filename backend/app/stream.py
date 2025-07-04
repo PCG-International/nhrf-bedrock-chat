@@ -204,7 +204,7 @@ class ConverseApiStreamHandler:
                     messages=messages,
                     message_for_continue_generate=message_for_continue_generate,
                 )
-            
+
             # Create payload to invoke Bedrock (original converse API)
             args = compose_args_for_converse_api(
                 messages=messages,
@@ -509,11 +509,11 @@ class ConverseApiStreamHandler:
                 chunk = event.get("chunk")
                 if chunk:
                     chunk_data = json.loads(chunk["bytes"].decode())
-                    
+
                     if chunk_data.get("type") == "message_start":
                         usage = chunk_data.get("message", {}).get("usage", {})
                         input_token_count = usage.get("input_tokens", 0)
-                    
+
                     elif chunk_data.get("type") == "content_block_delta":
                         delta = chunk_data.get("delta", {})
                         if delta.get("type") == "text_delta":
@@ -521,7 +521,7 @@ class ConverseApiStreamHandler:
                             current_text += text
                             if self.on_stream:
                                 self.on_stream(text)
-                    
+
                     elif chunk_data.get("type") == "message_delta":
                         delta = chunk_data.get("delta", {})
                         if "stop_reason" in delta:
