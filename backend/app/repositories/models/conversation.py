@@ -224,25 +224,14 @@ class AttachmentContentModel(BaseModel):
 
     def to_contents_for_invoke(self) -> list[dict[str, Any]]:
         """Convert to Claude 4 invoke API format for document attachments"""
-        # Handle Base64-encoded attachment data properly
-        import base64
+        # Bedrock Claude 4 invoke API has limited format support
+        # For now, we'll indicate the file is attached but not send the full content
+        # This is a temporary solution until we implement proper document handling
         
-        if isinstance(self.body, bytes):
-            # If body is bytes, convert to base64 string
-            data_str = base64.b64encode(self.body).decode('utf-8')
-        else:
-            # If body is already a string (base64-encoded), use it directly
-            data_str = self.body
-            
         return [
             {
-                "type": "document",
-                "source": {
-                    "type": "base64",
-                    "media_type": f"application/{Path(self.file_name).suffix[1:]}",
-                    "data": data_str,
-                },
-                "name": self.file_name,
+                "type": "text",
+                "text": f"[Attached file: {self.file_name}]\n\nNote: Large file attachments are currently not fully supported with Claude 4 models via the invoke API. Please try with Claude 3.5 Sonnet or other models that support the converse API for full document processing.",
             }
         ]
 
