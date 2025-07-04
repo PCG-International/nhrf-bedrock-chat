@@ -74,6 +74,15 @@ class TextContentModel(BaseModel):
             }
         ]
 
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        return [
+            {
+                "type": "text",
+                "text": self.body,
+            }
+        ]
+
 
 def _is_converse_supported_image_format(format: str) -> TypeGuard[ImageFormatType]:
     return format in {"gif", "jpeg", "png", "webp"}
@@ -118,6 +127,19 @@ class ImageContentModel(BaseModel):
             if _is_converse_supported_image_format(format)
             else []
         )
+
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        return [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": self.media_type,
+                    "data": self.body.decode() if isinstance(self.body, bytes) else self.body,
+                },
+            }
+        ]
 
 
 def _is_converse_supported_document_format(ext: str) -> TypeGuard[DocumentFormatType]:
@@ -189,6 +211,20 @@ class AttachmentContentModel(BaseModel):
             if _is_converse_supported_document_format(format)
             else []
         )
+
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format for document attachments"""
+        return [
+            {
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": f"application/{Path(self.file_name).suffix[1:]}",
+                    "data": self.body.decode() if isinstance(self.body, bytes) else self.body,
+                },
+                "name": self.file_name,
+            }
+        ]
 
 
 class FeedbackModel(BaseModel):
@@ -264,6 +300,17 @@ class ToolUseContentModel(BaseModel):
             {
                 "toolUse": self.body.to_tool_use_for_converse(),
             },
+        ]
+
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        return [
+            {
+                "type": "tool_use",
+                "id": self.body.tool_use_id,
+                "name": self.body.name,
+                "input": self.body.input,
+            }
         ]
 
 
@@ -552,6 +599,28 @@ class ToolResultContentModel(BaseModel):
             },
         ]
 
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        # Convert tool result content to text format for invoke API
+        content_text = ""
+        for content in self.body.content:
+            if isinstance(content, TextToolResultModel):
+                content_text += content.text
+            elif isinstance(content, JsonToolResultModel):
+                content_text += json.dumps(content.json_)
+            elif isinstance(content, ImageToolResultModel):
+                content_text += f"[Image: {content.url}]"
+            elif isinstance(content, DocumentToolResultModel):
+                content_text += f"[Document: {content.url}]"
+        
+        return [
+            {
+                "type": "tool_result",
+                "tool_use_id": self.body.tool_use_id,
+                "content": content_text,
+            }
+        ]
+
 
 class ReasoningContentModel(BaseModel):
     content_type: Literal["reasoning"]
@@ -588,6 +657,24 @@ class ReasoningContentModel(BaseModel):
                     "reasoningContent": {  # type: ignore
                         "redactedContent": {"data": self.redacted_content},
                     }
+                }
+            ]
+
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        # Reasoning content is handled differently in invoke API
+        if self.text:
+            return [
+                {
+                    "type": "text",
+                    "text": f"<thinking>\n{self.text}\n</thinking>",
+                }
+            ]
+        else:
+            return [
+                {
+                    "type": "text",
+                    "text": "<thinking>[Redacted reasoning content]</thinking>",
                 }
             ]
 

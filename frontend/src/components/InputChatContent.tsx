@@ -33,6 +33,9 @@ import {
   MAX_FILE_SIZE_MB,
   SUPPORTED_FILE_EXTENSIONS,
   MAX_ATTACHED_FILES,
+  CLAUDE_4_MAX_FILE_SIZE_BYTES,
+  CLAUDE_4_MAX_FILE_SIZE_MB,
+  isClaude4Model,
 } from '../constants/supportedAttachedFiles';
 
 type Props = BaseProps & {
@@ -69,6 +72,10 @@ const MAX_IMAGE_HEIGHT = 1568;
 // Need to refactor if want to increase the limit by using s3 presigned URL.
 const MAX_FILE_SIZE_TO_SEND_MB = 6;
 const MAX_FILE_SIZE_TO_SEND_BYTES = MAX_FILE_SIZE_TO_SEND_MB * 1024 * 1024;
+
+// Claude 4 uses invoke API and has higher total file size limits
+const CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB = 200; // 200 MB total for Claude 4
+const CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES = CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB * 1024 * 1024;
 
 const useInputChatContentState = create<{
   base64EncodedImages: string[];
@@ -269,14 +276,18 @@ const InputChatContent = forwardRef<HTMLElement, Props>(
 
             const resizedImageData = canvas.toDataURL('image/png');
 
-            // Total file size check
+            // Total file size check - use different limits for Claude 4
+            const isUsingClaude4 = isClaude4Model(model?.modelId || '');
+            const maxTotalFileSizeBytes = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES : MAX_FILE_SIZE_TO_SEND_BYTES;
+            const maxTotalFileSizeMB = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB : MAX_FILE_SIZE_TO_SEND_MB;
+            
             if (
               totalFileSizeToSend + resizedImageData.length >
-              MAX_FILE_SIZE_TO_SEND_BYTES
+              maxTotalFileSizeBytes
             ) {
               open(
                 t('error.totalFileSizeToSendExceeded', {
-                  maxSize: `${MAX_FILE_SIZE_TO_SEND_MB} MB`,
+                  maxSize: `${maxTotalFileSizeMB} MB`,
                 })
               );
               return;
@@ -295,15 +306,21 @@ const InputChatContent = forwardRef<HTMLElement, Props>(
         setTotalFileSizeToSend,
         open,
         t,
+        model?.modelId,
       ]
     );
 
     const handleAttachedFileRead = useCallback(
       (file: File) => {
-        if (file.size > MAX_FILE_SIZE_BYTES) {
+        // Check if current model is Claude 4 and use appropriate file size limit
+        const isUsingClaude4 = isClaude4Model(model?.modelId || '');
+        const maxFileSizeBytes = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_BYTES : MAX_FILE_SIZE_BYTES;
+        const maxFileSizeMB = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_MB : MAX_FILE_SIZE_MB;
+        
+        if (file.size > maxFileSizeBytes) {
           open(
             t('error.attachment.fileSizeExceeded', {
-              maxSize: `${MAX_FILE_SIZE_MB} MB`,
+              maxSize: `${maxFileSizeMB} MB`,
             })
           );
           return;
@@ -324,14 +341,18 @@ const InputChatContent = forwardRef<HTMLElement, Props>(
             }
             const base64String = btoa(binaryString);
 
-            // Total file size check
+            // Total file size check - use different limits for Claude 4
+            const isUsingClaude4 = isClaude4Model(model?.modelId || '');
+            const maxTotalFileSizeBytes = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES : MAX_FILE_SIZE_TO_SEND_BYTES;
+            const maxTotalFileSizeMB = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB : MAX_FILE_SIZE_TO_SEND_MB;
+            
             if (
               totalFileSizeToSend + base64String.length >
-              MAX_FILE_SIZE_TO_SEND_BYTES
+              maxTotalFileSizeBytes
             ) {
               open(
                 t('error.totalFileSizeToSendExceeded', {
-                  maxSize: `${MAX_FILE_SIZE_TO_SEND_MB} MB`,
+                  maxSize: `${maxTotalFileSizeMB} MB`,
                 })
               );
               return;
@@ -347,7 +368,7 @@ const InputChatContent = forwardRef<HTMLElement, Props>(
         };
         reader.readAsArrayBuffer(file);
       },
-      [pushTextFile, totalFileSizeToSend, setTotalFileSizeToSend, open, t]
+      [pushTextFile, totalFileSizeToSend, setTotalFileSizeToSend, open, t, model?.modelId]
     );
 
     useEffect(() => {

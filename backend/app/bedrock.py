@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, TypeGuard
@@ -28,6 +29,9 @@ if TYPE_CHECKING:
         ConverseStreamRequestTypeDef,
         GuardrailConverseContentBlockTypeDef,
         InferenceConfigurationTypeDef,
+        InvokeModelRequestTypeDef,
+        InvokeModelResponseTypeDef,
+        InvokeModelWithResponseStreamRequestTypeDef,
         MessageTypeDef,
         SystemContentBlockTypeDef,
     )
@@ -69,6 +73,11 @@ def is_llama_model(model: type_model_name) -> bool:
 def is_mistral(model: type_model_name) -> bool:
     """Check if the model is a Mistral model"""
     return "mistral" in model
+
+
+def is_claude_4_model(model: type_model_name) -> bool:
+    """Check if the model is a Claude 4 model"""
+    return model in ["claude-v4-opus", "claude-v4-sonnet"]
 
 
 def is_tooluse_supported(model: type_model_name) -> bool:
@@ -493,6 +502,96 @@ def compose_args_for_converse_api(
     return args
 
 
+def compose_args_for_invoke_api(
+    messages: list[SimpleMessageModel],
+    model: type_model_name,
+    instructions: list[str] = [],
+    generation_params: GenerationParamsModel | None = None,
+    stream: bool = True,
+) -> InvokeModelWithResponseStreamRequestTypeDef | InvokeModelRequestTypeDef:
+    """
+    Compose arguments for Claude 4 models using the invoke API instead of converse API.
+    This allows for file uploads that are not supported by the converse API.
+    """
+    # Convert messages to Claude 4 format
+    claude_messages = []
+    for message in messages:
+        if _is_conversation_role(message.role):
+            content = []
+            for c in message.content:
+                content.extend(c.to_contents_for_invoke())
+            claude_messages.append({
+                "role": message.role,
+                "content": content
+            })
+    
+    # Prepare system prompt
+    system_prompt = "\n\n".join(instructions) if instructions and any(instructions) else ""
+    
+    # Prepare inference parameters
+    max_tokens = (
+        generation_params.max_tokens
+        if generation_params
+        else DEFAULT_GENERATION_CONFIG["max_tokens"]
+    )
+    temperature = (
+        generation_params.temperature
+        if generation_params
+        else DEFAULT_GENERATION_CONFIG["temperature"]
+    )
+    top_p = (
+        generation_params.top_p
+        if generation_params
+        else DEFAULT_GENERATION_CONFIG["top_p"]
+    )
+    top_k = (
+        generation_params.top_k
+        if generation_params
+        else DEFAULT_GENERATION_CONFIG["top_k"]
+    )
+    stop_sequences = (
+        generation_params.stop_sequences
+        if (
+            generation_params
+            and generation_params.stop_sequences
+            and any(generation_params.stop_sequences)
+        )
+        else DEFAULT_GENERATION_CONFIG.get("stop_sequences", [])
+    )
+    
+    # Compose the body for Claude 4 invoke API
+    body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": max_tokens,
+        "messages": claude_messages,
+        "temperature": temperature,
+        "top_p": top_p,
+        "top_k": top_k,
+    }
+    
+    if system_prompt:
+        body["system"] = system_prompt
+    
+    if stop_sequences:
+        body["stop_sequences"] = stop_sequences
+    
+    # Return appropriate request type based on streaming
+    if stream:
+        return {
+            "body": json.dumps(body),
+            "modelId": get_model_id(model),
+            "contentType": "application/json",
+            "accept": "application/json",
+        }
+    else:
+        return {
+            "body": json.dumps(body),
+            "modelId": get_model_id(model),
+            "contentType": "application/json",
+            "accept": "application/json",
+        }
+
+
 @retry(
     exceptions=(BedrockThrottlingException,),
     tries=3,
@@ -507,6 +606,29 @@ def call_converse_api(
     client = get_bedrock_runtime_client()
     try:
         return client.converse(**args)
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ThrottlingException":
+            raise BedrockThrottlingException(
+                "Bedrock API is throttling requests"
+            ) from e
+        raise
+
+
+@retry(
+    exceptions=(BedrockThrottlingException,),
+    tries=3,
+    delay=60,
+    backoff=2,
+    jitter=(0, 2),
+    logger=logger,
+)
+def call_invoke_api(
+    args: InvokeModelRequestTypeDef,
+) -> InvokeModelResponseTypeDef:
+    """Call the invoke API for Claude 4 models"""
+    client = get_bedrock_runtime_client()
+    try:
+        return client.invoke_model(**args)
     except ClientError as e:
         if e.response["Error"]["Code"] == "ThrottlingException":
             raise BedrockThrottlingException(
