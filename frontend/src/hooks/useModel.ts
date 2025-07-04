@@ -21,12 +21,12 @@ const NOVA_SUPPORTED_MEDIA_TYPES = [
   'image/webp',
 ];
 
-const LLAMA_SUPPORTED_MEDIA_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-];
+// const LLAMA_SUPPORTED_MEDIA_TYPES = [
+//   'image/jpeg',
+//   'image/png',
+//   'image/gif',
+//   'image/webp',
+// ];
 
 const DEFAULT_MODEL: Model = 'claude-v3.7-sonnet';
 
@@ -82,13 +82,13 @@ const useModel = (botId?: string | null, activeModels?: ActiveModels) => {
     }[]
   >(() => {
     return [
-      {
-        modelId: 'claude-v4-opus',
-        label: t('model.claude-v4-opus.label'),
-        description: t('model.claude-v4-opus.description'),
-        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
-        supportReasoning: true,
-      },
+      // {
+      //   modelId: 'claude-v4-opus',
+      //   label: t('model.claude-v4-opus.label'),
+      //   description: t('model.claude-v4-opus.description'),
+      //   supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+      //   supportReasoning: true,
+      // },
       {
         modelId: 'claude-v4-sonnet',
         label: t('model.claude-v4-sonnet.label'),
@@ -103,13 +103,13 @@ const useModel = (botId?: string | null, activeModels?: ActiveModels) => {
         supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
         supportReasoning: false,
       },
-      {
-        modelId: 'claude-v3.5-haiku',
-        label: t('model.claude-v3.5-haiku.label'),
-        description: t('model.claude-v3.5-haiku.description'),
-        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
-        supportReasoning: false,
-      },
+      // {
+      //   modelId: 'claude-v3.5-haiku',
+      //   label: t('model.claude-v3.5-haiku.label'),
+      //   description: t('model.claude-v3.5-haiku.description'),
+      //   supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+      //   supportReasoning: false,
+      // },
       {
         modelId: 'claude-v3.5-sonnet',
         label: t('model.claude-v3.5-sonnet.label'),
@@ -117,13 +117,13 @@ const useModel = (botId?: string | null, activeModels?: ActiveModels) => {
         supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
         supportReasoning: false,
       },
-      {
-        modelId: 'claude-v3.5-sonnet-v2',
-        label: t('model.claude-v3.5-sonnet-v2.label'),
-        description: t('model.claude-v3.5-sonnet-v2.description'),
-        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
-        supportReasoning: false,
-      },
+      // {
+      //   modelId: 'claude-v3.5-sonnet-v2',
+      //   label: t('model.claude-v3.5-sonnet-v2.label'),
+      //   description: t('model.claude-v3.5-sonnet-v2.description'),
+      //   supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+      //   supportReasoning: false,
+      // },
       {
         modelId: 'claude-v3.7-sonnet',
         label: t('model.claude-v3.7-sonnet.label'),
@@ -131,13 +131,13 @@ const useModel = (botId?: string | null, activeModels?: ActiveModels) => {
         supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
         supportReasoning: true,
       },
-      {
-        modelId: 'claude-v3-opus',
-        label: t('model.claude-v3-opus.label'),
-        description: t('model.claude-v3-opus.description'),
-        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
-        supportReasoning: false,
-      },
+      // {
+      //   modelId: 'claude-v3-opus',
+      //   label: t('model.claude-v3-opus.label'),
+      //   description: t('model.claude-v3-opus.description'),
+      //   supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+      //   supportReasoning: false,
+      // },
       // New Amazon Nova models
       {
         modelId: 'amazon-nova-pro',
@@ -161,29 +161,29 @@ const useModel = (botId?: string | null, activeModels?: ActiveModels) => {
         supportReasoning: false,
       },
       // DeepSeek models
-      {
-        modelId: 'deepseek-r1',
-        label: t('model.deepseek-r1.label'),
-        description: t('model.deepseek-r1.description'),
-        supportMediaType: [],
-        supportReasoning: true,
-        forceReasoningEnabled: true, // Deep Seek always return reasoning contents.
-      },
+      // {
+      //   modelId: 'deepseek-r1',
+      //   label: t('model.deepseek-r1.label'),
+      //   description: t('model.deepseek-r1.description'),
+      //   supportMediaType: [],
+      //   supportReasoning: true,
+      //   forceReasoningEnabled: true, // Deep Seek always return reasoning contents.
+      // },
       // Meta Llama 3 models
-      {
-        modelId: 'llama3-3-70b-instruct',
-        label: t('model.llama3-3-70b-instruct.label'),
-        description: t('model.llama3-3-70b-instruct.description'),
-        supportMediaType: [],
-        supportReasoning: false,
-      },
-      {
-        modelId: 'llama3-2-1b-instruct',
-        label: t('model.llama3-2-1b-instruct.label'),
-        description: t('model.llama3-2-1b-instruct.description'),
-        supportMediaType: [],
-        supportReasoning: false,
-      },
+      // {
+      //   modelId: 'llama3-3-70b-instruct',
+      //   label: t('model.llama3-3-70b-instruct.label'),
+      //   description: t('model.llama3-3-70b-instruct.description'),
+      //   supportMediaType: [],
+      //   supportReasoning: false,
+      // },
+      // {
+      //   modelId: 'llama3-2-1b-instruct',
+      //   label: t('model.llama3-2-1b-instruct.label'),
+      //   description: t('model.llama3-2-1b-instruct.description'),
+      //   supportMediaType: [],
+      //   supportReasoning: false,
+      // },
       {
         modelId: 'llama3-2-3b-instruct',
         label: t('model.llama3-2-3b-instruct.label'),
@@ -191,49 +191,49 @@ const useModel = (botId?: string | null, activeModels?: ActiveModels) => {
         supportMediaType: [],
         supportReasoning: false,
       },
-      {
-        modelId: 'llama3-2-11b-instruct',
-        label: t('model.llama3-2-11b-instruct.label'),
-        description: t('model.llama3-2-11b-instruct.description'),
-        supportMediaType: LLAMA_SUPPORTED_MEDIA_TYPES,
-        supportReasoning: false,
-      },
-      {
-        modelId: 'llama3-2-90b-instruct',
-        label: t('model.llama3-2-90b-instruct.label'),
-        description: t('model.llama3-2-90b-instruct.description'),
-        supportMediaType: LLAMA_SUPPORTED_MEDIA_TYPES,
-        supportReasoning: false,
-      },
+      // {
+      //   modelId: 'llama3-2-11b-instruct',
+      //   label: t('model.llama3-2-11b-instruct.label'),
+      //   description: t('model.llama3-2-11b-instruct.description'),
+      //   supportMediaType: LLAMA_SUPPORTED_MEDIA_TYPES,
+      //   supportReasoning: false,
+      // },
+      // {
+      //   modelId: 'llama3-2-90b-instruct',
+      //   label: t('model.llama3-2-90b-instruct.label'),
+      //   description: t('model.llama3-2-90b-instruct.description'),
+      //   supportMediaType: LLAMA_SUPPORTED_MEDIA_TYPES,
+      //   supportReasoning: false,
+      // },
       // Mistral
-      {
-        modelId: 'mistral-7b-instruct',
-        label: t('model.mistral-7b-instruct.label'),
-        description: t('model.mistral-7b-instruct.description'),
-        supportMediaType: [],
-        supportReasoning: false,
-      },
-      {
-        modelId: 'mixtral-8x7b-instruct',
-        label: t('model.mixtral-8x7b-instruct.label'),
-        description: t('model.mixtral-8x7b-instruct.description'),
-        supportMediaType: [],
-        supportReasoning: false,
-      },
-      {
-        modelId: 'mistral-large',
-        label: t('model.mistral-large.label'),
-        description: t('model.mistral-large.description'),
-        supportMediaType: [],
-        supportReasoning: false,
-      },
-      {
-        modelId: 'mistral-large-2',
-        label: t('model.mistral-large-2.label'),
-        description: t('model.mistral-large-2.description'),
-        supportMediaType: [],
-        supportReasoning: false,
-      },
+      // {
+      //   modelId: 'mistral-7b-instruct',
+      //   label: t('model.mistral-7b-instruct.label'),
+      //   description: t('model.mistral-7b-instruct.description'),
+      //   supportMediaType: [],
+      //   supportReasoning: false,
+      // },
+      // {
+      //   modelId: 'mixtral-8x7b-instruct',
+      //   label: t('model.mixtral-8x7b-instruct.label'),
+      //   description: t('model.mixtral-8x7b-instruct.description'),
+      //   supportMediaType: [],
+      //   supportReasoning: false,
+      // },
+      // {
+      //   modelId: 'mistral-large',
+      //   label: t('model.mistral-large.label'),
+      //   description: t('model.mistral-large.description'),
+      //   supportMediaType: [],
+      //   supportReasoning: false,
+      // },
+      // {
+      //   modelId: 'mistral-large-2',
+      //   label: t('model.mistral-large-2.label'),
+      //   description: t('model.mistral-large-2.description'),
+      //   supportMediaType: [],
+      //   supportReasoning: false,
+      // },
     ];
   }, [t]);
 

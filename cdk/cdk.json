@@ -1,7 +1,10 @@
 {
   "app": "npx ts-node --prefer-ts-exts bin/bedrock-chat.ts",
   "watch": {
-    "include": ["**", "../backend"],
+    "include": [
+      "**",
+      "../backend"
+    ],
     "exclude": [
       "README.md",
       "../backend/**/__pycache__",
@@ -20,7 +23,10 @@
   "context": {
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
-    "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
+    "@aws-cdk/core:target-partitions": [
+      "aws",
+      "aws-cn"
+    ],
     "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
     "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
     "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
@@ -51,18 +57,32 @@
     "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
     "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
     "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
-    "bedrockRegion": "us-east-1",
-    "allowedIpV4AddressRanges": ["0.0.0.0/1", "128.0.0.0/1"],
+    "bedrockRegion": "eu-central-1",
+    "allowedIpV4AddressRanges": [
+      "0.0.0.0/1",
+      "128.0.0.0/1"
+    ],
     "allowedIpV6AddressRanges": [
       "0000:0000:0000:0000:0000:0000:0000:0000/1",
       "8000:0000:0000:0000:0000:0000:0000:0000/1"
     ],
-    "identityProviders": [],
-    "userPoolDomainPrefix": "",
+    "identityProviders": [
+      {
+        "service": "google",
+        "secretName": "googleOAuthCredentials"
+      }
+    ],
+    "userPoolDomainPrefix": "nhrf",
     "allowedSignUpEmailDomains": [],
-    "autoJoinUserGroups": ["CreatingBotAllowed"],
-    "selfSignUpEnabled": true,
-    "publishedApiAllowedIpV4AddressRanges": ["0.0.0.0/1", "128.0.0.0/1"],
+    "autoJoinUserGroups": [
+      "CreatingBotAllowed",
+      "PublishAllowed"
+    ],
+    "selfSignUpEnabled": false,
+    "publishedApiAllowedIpV4AddressRanges": [
+      "0.0.0.0/1",
+      "128.0.0.0/1"
+    ],
     "publishedApiAllowedIpV6AddressRanges": [
       "0000:0000:0000:0000:0000:0000:0000:0000/1",
       "8000:0000:0000:0000:0000:0000:0000:0000/1"
@@ -71,10 +91,10 @@
     "enableBedrockCrossRegionInference": true,
     "enableLambdaSnapStart": true,
     "enableBotStore": true,
-    "enableBotStoreReplicas": false,
+    "enableBotStoreReplicas": true,
     "botStoreLanguage": "en",
     "tokenValidMinutes": 30,
-    "alternateDomainName": "",
+    "alternateDomainName": "ai-pilot.eie.gr/",
     "hostedZoneId": "",
     "devAccessIamRoleArn": ""
   }
