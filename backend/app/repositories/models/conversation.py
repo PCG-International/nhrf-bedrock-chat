@@ -259,12 +259,12 @@ class AttachmentContentModel(BaseModel):
         # Special validation for PDFs - Claude 4 invoke API has a 100 page limit
         if file_ext == ".pdf":
             try:
-                # Try to count PDF pages using PyPDF2 if available
+                # Try to count PDF pages using pypdf if available
                 try:
-                    import PyPDF2
+                    import pypdf
 
                     pdf_stream = io.BytesIO(file_bytes)
-                    pdf_reader = PyPDF2.PdfReader(pdf_stream)
+                    pdf_reader = pypdf.PdfReader(pdf_stream)
                     page_count = len(pdf_reader.pages)
 
                     if page_count > 100:
@@ -275,7 +275,7 @@ class AttachmentContentModel(BaseModel):
                             }
                         ]
                 except ImportError:
-                    # PyPDF2 not available, fall back to size-based estimation
+                    # pypdf not available, fall back to size-based estimation
                     # Rough estimation: assume ~5KB per page on average
                     estimated_pages = len(file_bytes) // (5 * 1024)
                     if estimated_pages > 100:
