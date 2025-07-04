@@ -520,14 +520,13 @@ def compose_args_for_invoke_api(
             content = []
             for c in message.content:
                 content.extend(c.to_contents_for_invoke())
-            claude_messages.append({
-                "role": message.role,
-                "content": content
-            })
-    
+            claude_messages.append({"role": message.role, "content": content})
+
     # Prepare system prompt
-    system_prompt = "\n\n".join(instructions) if instructions and any(instructions) else ""
-    
+    system_prompt = (
+        "\n\n".join(instructions) if instructions and any(instructions) else ""
+    )
+
     # Prepare inference parameters
     max_tokens = (
         generation_params.max_tokens
@@ -558,7 +557,7 @@ def compose_args_for_invoke_api(
         )
         else DEFAULT_GENERATION_CONFIG.get("stop_sequences", [])
     )
-    
+
     # Compose the body for Claude 4 invoke API
     body = {
         "anthropic_version": "bedrock-2023-05-31",
@@ -568,13 +567,13 @@ def compose_args_for_invoke_api(
         "top_p": top_p,
         "top_k": top_k,
     }
-    
+
     if system_prompt:
         body["system"] = system_prompt
-    
+
     if stop_sequences:
         body["stop_sequences"] = stop_sequences
-    
+
     # Return appropriate request type based on streaming
     if stream:
         return {

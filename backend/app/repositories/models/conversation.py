@@ -271,7 +271,7 @@ class AttachmentContentModel(BaseModel):
                         return [
                             {
                                 "type": "text",
-                                "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF has {page_count} pages, which exceeds the 100-page limit for Claude 4 models via the invoke API. Please try with a smaller PDF (≤100 pages) or use Claude 3.5 Sonnet for larger documents.",
+                                "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF has {page_count} pages, which exceeds the 100-page limit for PDF processing. Please try with a smaller PDF (≤100 pages).",
                             }
                         ]
                 except ImportError:
@@ -282,7 +282,7 @@ class AttachmentContentModel(BaseModel):
                         return [
                             {
                                 "type": "text",
-                                "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF appears to be large (estimated >{estimated_pages} pages) and may exceed the 100-page limit for Claude 4 models. If you encounter errors, please try with a smaller PDF or use Claude 3.5 Sonnet for larger documents.",
+                                "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF appears to be large (estimated >{estimated_pages} pages) and may exceed the 100-page limit for PDF processing. If you encounter errors, please try with a smaller PDF.",
                             }
                         ]
             except Exception as e:
