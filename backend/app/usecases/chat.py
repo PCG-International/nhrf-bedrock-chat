@@ -7,6 +7,7 @@ from app.agents.utils import get_tools
 from app.bedrock import (
     call_converse_api,
     compose_args_for_converse_api,
+    is_claude_4_model,
     is_tooluse_supported,
 )
 from app.prompt import build_rag_prompt, get_prompt_to_cite_tool_results

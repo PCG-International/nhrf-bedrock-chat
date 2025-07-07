@@ -7,6 +7,8 @@ from app.bedrock import (
     BedrockThrottlingException,
     calculate_price,
     compose_args_for_converse_api,
+    compose_args_for_invoke_api,
+    is_claude_4_model,
 )
 from app.repositories.models.conversation import (
     ContentModel,
@@ -196,7 +198,14 @@ class ConverseApiStreamHandler:
         enable_reasoning: bool = False,
     ) -> OnStopInput:
         try:
-            # Create payload to invoke Bedrock
+            # Check if this is a Claude 4 model and use invoke API instead
+            if is_claude_4_model(self.model):
+                return self._run_invoke_api(
+                    messages=messages,
+                    message_for_continue_generate=message_for_continue_generate,
+                )
+
+            # Create payload to invoke Bedrock (original converse API)
             args = compose_args_for_converse_api(
                 messages=messages,
                 model=self.model,
@@ -461,4 +470,94 @@ class ConverseApiStreamHandler:
 
         except Exception as e:
             logger.error(f"Error: {e}")
+            raise e
+
+    def _run_invoke_api(
+        self,
+        messages: list[SimpleMessageModel],
+        message_for_continue_generate: SimpleMessageModel | None = None,
+    ) -> OnStopInput:
+        """Handle Claude 4 models using the invoke API for file upload support"""
+        try:
+            # Create payload for invoke API
+            args = compose_args_for_invoke_api(
+                messages=messages,
+                model=self.model,
+                instructions=self.instructions,
+                generation_params=self.generation_params,
+                stream=True,
+            )
+            logger.info(f"args for invoke_model_with_response_stream: {args}")
+
+            client = get_bedrock_runtime_client()
+            try:
+                response = client.invoke_model_with_response_stream(**args)
+            except ClientError as e:
+                if e.response["Error"]["Code"] == "ThrottlingException":
+                    raise BedrockThrottlingException(
+                        "Bedrock API is throttling requests"
+                    ) from e
+                raise
+
+            # Process the streaming response for Claude 4 invoke API
+            current_text = ""
+            input_token_count = 0
+            output_token_count = 0
+            stop_reason: StopReasonType = "end_turn"
+
+            for event in response["body"]:
+                chunk = event.get("chunk")
+                if chunk:
+                    chunk_data = json.loads(chunk["bytes"].decode())
+
+                    if chunk_data.get("type") == "message_start":
+                        usage = chunk_data.get("message", {}).get("usage", {})
+                        input_token_count = usage.get("input_tokens", 0)
+
+                    elif chunk_data.get("type") == "content_block_delta":
+                        delta = chunk_data.get("delta", {})
+                        if delta.get("type") == "text_delta":
+                            text = delta.get("text", "")
+                            current_text += text
+                            if self.on_stream:
+                                self.on_stream(text)
+
+                    elif chunk_data.get("type") == "message_delta":
+                        delta = chunk_data.get("delta", {})
+                        if "stop_reason" in delta:
+                            stop_reason = delta["stop_reason"]
+                        usage = chunk_data.get("usage", {})
+                        output_token_count = usage.get("output_tokens", 0)
+
+            # Create the final message
+            message = MessageModel(
+                role="assistant",
+                content=[
+                    TextContentModel(
+                        content_type="text",
+                        body=current_text,
+                    )
+                ],
+                model=self.model,
+                children=[],
+                parent=None,
+                create_time=get_current_time(),
+                feedback=None,
+                used_chunks=None,
+                thinking_log=None,
+            )
+
+            price = calculate_price(self.model, input_token_count, output_token_count)
+
+            result = OnStopInput(
+                message=message,
+                stop_reason=stop_reason,
+                input_token_count=input_token_count,
+                output_token_count=output_token_count,
+                price=price,
+            )
+            return result
+
+        except Exception as e:
+            logger.error(f"Error in invoke API: {e}")
             raise e

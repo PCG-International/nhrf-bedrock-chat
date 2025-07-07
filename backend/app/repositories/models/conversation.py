@@ -74,6 +74,15 @@ class TextContentModel(BaseModel):
             }
         ]
 
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        return [
+            {
+                "type": "text",
+                "text": self.body,
+            }
+        ]
+
 
 def _is_converse_supported_image_format(format: str) -> TypeGuard[ImageFormatType]:
     return format in {"gif", "jpeg", "png", "webp"}
@@ -118,6 +127,29 @@ class ImageContentModel(BaseModel):
             if _is_converse_supported_image_format(format)
             else []
         )
+
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        # Handle Base64-encoded image data properly
+        import base64
+
+        if isinstance(self.body, bytes):
+            # If body is bytes, convert to base64 string
+            data_str = base64.b64encode(self.body).decode("utf-8")
+        else:
+            # If body is already a string (base64-encoded), use it directly
+            data_str = self.body
+
+        return [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": self.media_type,
+                    "data": data_str,
+                },
+            }
+        ]
 
 
 def _is_converse_supported_document_format(ext: str) -> TypeGuard[DocumentFormatType]:
@@ -189,6 +221,86 @@ class AttachmentContentModel(BaseModel):
             if _is_converse_supported_document_format(format)
             else []
         )
+
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format for document attachments"""
+        # Handle Base64-encoded document data properly
+        import base64
+        import io
+
+        # Get file extension to determine media type
+        file_ext = Path(self.file_name).suffix.lower()
+
+        # Map file extensions to MIME types
+        mime_type_map = {
+            ".pdf": "application/pdf",
+            ".txt": "text/plain",
+            ".md": "text/markdown",
+            ".html": "text/html",
+            ".htm": "text/html",
+            ".csv": "text/csv",
+            ".doc": "application/msword",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xls": "application/vnd.ms-excel",
+            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+
+        media_type = mime_type_map.get(file_ext, "application/octet-stream")
+
+        # Get raw bytes for processing
+        if isinstance(self.body, bytes):
+            file_bytes = self.body
+            data_str = base64.b64encode(self.body).decode("utf-8")
+        else:
+            # If body is already a string (base64-encoded), decode to get bytes for validation
+            file_bytes = base64.b64decode(self.body)
+            data_str = self.body
+
+        # Special validation for PDFs - Claude 4 invoke API has a 100 page limit
+        if file_ext == ".pdf":
+            try:
+                # Try to count PDF pages using pypdf if available
+                try:
+                    import pypdf
+
+                    pdf_stream = io.BytesIO(file_bytes)
+                    pdf_reader = pypdf.PdfReader(pdf_stream)
+                    page_count = len(pdf_reader.pages)
+
+                    if page_count > 100:
+                        return [
+                            {
+                                "type": "text",
+                                "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF has {page_count} pages, which exceeds the 100-page limit for PDF processing. Please try with a smaller PDF (≤100 pages).",
+                            }
+                        ]
+                except ImportError:
+                    # pypdf not available, fall back to size-based estimation
+                    # Rough estimation: assume ~5KB per page on average
+                    estimated_pages = len(file_bytes) // (5 * 1024)
+                    if estimated_pages > 100:
+                        return [
+                            {
+                                "type": "text",
+                                "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF appears to be large (estimated >{estimated_pages} pages) and may exceed the 100-page limit for PDF processing. If you encounter errors, please try with a smaller PDF.",
+                            }
+                        ]
+            except Exception as e:
+                logger.warning(
+                    f"Failed to validate PDF page count for {self.file_name}: {e}"
+                )
+                # Continue with normal processing if validation fails
+
+        return [
+            {
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": data_str,
+                },
+            }
+        ]
 
 
 class FeedbackModel(BaseModel):
@@ -264,6 +376,17 @@ class ToolUseContentModel(BaseModel):
             {
                 "toolUse": self.body.to_tool_use_for_converse(),
             },
+        ]
+
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        return [
+            {
+                "type": "tool_use",
+                "id": self.body.tool_use_id,
+                "name": self.body.name,
+                "input": self.body.input,
+            }
         ]
 
 
@@ -552,6 +675,28 @@ class ToolResultContentModel(BaseModel):
             },
         ]
 
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        # Convert tool result content to text format for invoke API
+        content_text = ""
+        for content in self.body.content:
+            if isinstance(content, TextToolResultModel):
+                content_text += content.text
+            elif isinstance(content, JsonToolResultModel):
+                content_text += json.dumps(content.json_)
+            elif isinstance(content, ImageToolResultModel):
+                content_text += f"[Image: {content.format} format]"
+            elif isinstance(content, DocumentToolResultModel):
+                content_text += f"[Document: {content.name}]"
+
+        return [
+            {
+                "type": "tool_result",
+                "tool_use_id": self.body.tool_use_id,
+                "content": content_text,
+            }
+        ]
+
 
 class ReasoningContentModel(BaseModel):
     content_type: Literal["reasoning"]
@@ -588,6 +733,24 @@ class ReasoningContentModel(BaseModel):
                     "reasoningContent": {  # type: ignore
                         "redactedContent": {"data": self.redacted_content},
                     }
+                }
+            ]
+
+    def to_contents_for_invoke(self) -> list[dict[str, Any]]:
+        """Convert to Claude 4 invoke API format"""
+        # Reasoning content is handled differently in invoke API
+        if self.text:
+            return [
+                {
+                    "type": "text",
+                    "text": f"<thinking>\n{self.text}\n</thinking>",
+                }
+            ]
+        else:
+            return [
+                {
+                    "type": "text",
+                    "text": "<thinking>[Redacted reasoning content]</thinking>",
                 }
             ]
 
