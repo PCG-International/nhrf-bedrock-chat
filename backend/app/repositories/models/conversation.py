@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import logging
 import re
@@ -163,6 +164,7 @@ def _is_converse_supported_document_format(ext: str) -> TypeGuard[DocumentFormat
         "html",
         "txt",
         "md",
+        "epub",
     }
     return ext in supported_formats
 
@@ -243,6 +245,7 @@ class AttachmentContentModel(BaseModel):
             ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ".xls": "application/vnd.ms-excel",
             ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".epub": "application/epub+zip",
         }
 
         media_type = mime_type_map.get(file_ext, "application/octet-stream")
@@ -291,6 +294,45 @@ class AttachmentContentModel(BaseModel):
                 )
                 # Continue with normal processing if validation fails
 
+        # Special handling for EPUB files - extract text and convert to HTML
+        if file_ext == ".epub":
+            try:
+                extracted_text = self._extract_epub_text(file_bytes)
+                if extracted_text:
+                    # Convert extracted text to HTML format for better processing
+                    html_content = f"<html><body><h1>{Path(self.file_name).stem}</h1><div>{extracted_text}</div></body></html>"
+                    html_data = base64.b64encode(html_content.encode("utf-8")).decode(
+                        "utf-8"
+                    )
+
+                    return [
+                        {
+                            "type": "document",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "text/html",
+                                "data": html_data,
+                            },
+                        }
+                    ]
+                else:
+                    return [
+                        {
+                            "type": "text",
+                            "text": f"[EPUB Document: {self.file_name}]\n\nNote: Could not extract text from this EPUB file. The file may be corrupted or protected.",
+                        }
+                    ]
+            except Exception as e:
+                logger.warning(
+                    f"Failed to extract text from EPUB {self.file_name}: {e}"
+                )
+                return [
+                    {
+                        "type": "text",
+                        "text": f"[EPUB Document: {self.file_name}]\n\nNote: Error processing EPUB file. Please try with a different file format.",
+                    }
+                ]
+
         return [
             {
                 "type": "document",
@@ -301,6 +343,58 @@ class AttachmentContentModel(BaseModel):
                 },
             }
         ]
+
+    def _extract_epub_text(self, file_bytes: bytes) -> str:
+        """Extract text content from EPUB file bytes"""
+        try:
+            import ebooklib
+            from ebooklib import epub
+            from bs4 import BeautifulSoup
+            import tempfile
+            import os
+
+            # Create temporary file since ebooklib.epub.read_epub needs a file path
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as temp_file:
+                temp_file.write(file_bytes)
+                temp_file_path = temp_file.name
+
+            try:
+                # Create EPUB book from temporary file
+                book = epub.read_epub(temp_file_path)
+
+                # Extract text from all document items
+                text_content = []
+
+                # Get all document items (HTML/XHTML content)
+                for item in book.get_items():
+                    if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                        # Get the content and parse with BeautifulSoup
+                        content = item.get_content().decode("utf-8", errors="ignore")
+                        soup = BeautifulSoup(content, "html.parser")
+
+                        # Extract text from paragraphs, maintaining some structure
+                        for paragraph in soup.find_all(
+                            ["p", "div", "span", "h1", "h2", "h3", "h4", "h5", "h6"]
+                        ):
+                            text = paragraph.get_text(strip=True)
+                            if text:
+                                text_content.append(text)
+
+                # Join all text with double newlines for readability
+                return "\n\n".join(text_content)
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
+
+        except ImportError:
+            logger.error(
+                "ebooklib or beautifulsoup4 not installed - cannot process EPUB files"
+            )
+            return ""
+        except Exception as e:
+            logger.error(f"Error extracting text from EPUB: {e}")
+            return ""
 
 
 class FeedbackModel(BaseModel):
