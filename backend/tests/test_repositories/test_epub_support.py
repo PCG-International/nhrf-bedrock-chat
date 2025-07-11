@@ -91,7 +91,7 @@ class TestEPUBSupport(unittest.TestCase):
         self.assertTrue(_is_converse_supported_document_format("epub"))
 
     def test_epub_mime_type_mapping(self):
-        """Test that .epub files get correct MIME type"""
+        """Test that .epub files get correct handling for invoke API"""
         attachment = AttachmentContentModel(
             content_type="attachment",
             body=self.minimal_epub_b64,
@@ -100,14 +100,13 @@ class TestEPUBSupport(unittest.TestCase):
 
         result = attachment.to_contents_for_invoke()
 
-        # Should extract text and convert to HTML
+        # Should extract text and return as text format for invoke API
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["type"], "document")
-        self.assertEqual(result[0]["source"]["type"], "base64")
-        self.assertEqual(result[0]["source"]["media_type"], "text/html")
+        self.assertEqual(result[0]["type"], "text")
+        self.assertIn("[EPUB Document: test_book.epub]", result[0]["text"])
 
     def test_epub_text_extraction_success(self):
-        """Test successful EPUB text extraction and conversion to HTML"""
+        """Test successful EPUB text extraction for invoke API"""
         attachment = AttachmentContentModel(
             content_type="attachment",
             body=self.minimal_epub_b64,
@@ -116,19 +115,16 @@ class TestEPUBSupport(unittest.TestCase):
 
         result = attachment.to_contents_for_invoke()
 
-        # Should return HTML document format
+        # Should return text format for invoke API
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["type"], "document")
-        self.assertEqual(result[0]["source"]["media_type"], "text/html")
+        self.assertEqual(result[0]["type"], "text")
 
-        # Decode and verify HTML content contains extracted text
-        html_data = base64.b64decode(result[0]["source"]["data"]).decode("utf-8")
-        self.assertIn("<html>", html_data)
-        self.assertIn("<body>", html_data)
-        self.assertIn("test_book", html_data)  # Title from filename
-        self.assertIn("Chapter 1: The Beginning", html_data)
-        self.assertIn("first paragraph", html_data)
-        self.assertIn("second paragraph", html_data)
+        # Verify text content contains extracted text
+        text_content = result[0]["text"]
+        self.assertIn("[EPUB Document: test_book.epub]", text_content)
+        self.assertIn("Chapter 1: The Beginning", text_content)
+        self.assertIn("first paragraph", text_content)
+        self.assertIn("second paragraph", text_content)
 
     def test_epub_corrupted_file_handling(self):
         """Test graceful handling of corrupted EPUB files"""
@@ -275,13 +271,13 @@ class TestEPUBSupport(unittest.TestCase):
         result = attachment.to_contents_for_invoke()
 
         # Verify various text elements are extracted
-        html_data = base64.b64decode(result[0]["source"]["data"]).decode("utf-8")
-        self.assertIn("Main Heading", html_data)
-        self.assertIn("Sub Heading", html_data)
-        self.assertIn("Paragraph text", html_data)
-        self.assertIn("Div text content", html_data)
-        self.assertIn("Span text content", html_data)
-        self.assertIn("Another heading", html_data)
+        text_content = result[0]["text"]
+        self.assertIn("Main Heading", text_content)
+        self.assertIn("Sub Heading", text_content)
+        self.assertIn("Paragraph text", text_content)
+        self.assertIn("Div text content", text_content)
+        self.assertIn("Span text content", text_content)
+        self.assertIn("Another heading", text_content)
 
     def test_epub_base64_vs_bytes_handling(self):
         """Test that both base64 strings and bytes are handled correctly for EPUB"""
@@ -302,11 +298,11 @@ class TestEPUBSupport(unittest.TestCase):
         result_bytes = attachment_bytes.to_contents_for_invoke()
         result_string = attachment_string.to_contents_for_invoke()
 
-        # Both should work and return HTML document format
-        self.assertEqual(result_bytes[0]["type"], "document")
-        self.assertEqual(result_bytes[0]["source"]["media_type"], "text/html")
-        self.assertEqual(result_string[0]["type"], "document")
-        self.assertEqual(result_string[0]["source"]["media_type"], "text/html")
+        # Both should work and return text format for invoke API
+        self.assertEqual(result_bytes[0]["type"], "text")
+        self.assertIn("[EPUB Document:", result_bytes[0]["text"])
+        self.assertEqual(result_string[0]["type"], "text")
+        self.assertIn("[EPUB Document:", result_string[0]["text"])
 
     def test_epub_invoke_format_structure(self):
         """Test that the EPUB invoke format structure is correct"""
@@ -318,22 +314,15 @@ class TestEPUBSupport(unittest.TestCase):
 
         result = attachment.to_contents_for_invoke()
 
-        # Verify the structure matches Claude 4 invoke API format
+        # Verify the structure matches Claude 4 invoke API format (text format for EPUB)
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["type"], "document")
-        self.assertIn("source", result[0])
-        self.assertEqual(result[0]["source"]["type"], "base64")
-        self.assertEqual(result[0]["source"]["media_type"], "text/html")
-        self.assertIn("data", result[0]["source"])
-
-        # Verify the data is valid base64
-        try:
-            decoded_html = base64.b64decode(result[0]["source"]["data"]).decode("utf-8")
-            # Verify it's valid HTML
-            self.assertIn("<html>", decoded_html)
-            self.assertIn("</html>", decoded_html)
-        except Exception:
-            self.fail("EPUB converted HTML data is not valid base64 or HTML")
+        self.assertEqual(result[0]["type"], "text")
+        self.assertIn("text", result[0])
+        
+        # Verify the text contains the document header and extracted content
+        text_content = result[0]["text"]
+        self.assertIn("[EPUB Document: test.epub]", text_content)
+        self.assertIsInstance(text_content, str)
 
 
 if __name__ == "__main__":

@@ -294,25 +294,17 @@ class AttachmentContentModel(BaseModel):
                 )
                 # Continue with normal processing if validation fails
 
-        # Special handling for EPUB files - extract text and convert to HTML
+        # Special handling for EPUB files - extract text and return as text for invoke API
+        # (Claude 4 invoke API only accepts application/pdf for documents)
         if file_ext == ".epub":
             try:
                 extracted_text = self._extract_epub_text(file_bytes)
                 if extracted_text:
-                    # Convert extracted text to HTML format for better processing
-                    html_content = f"<html><body><h1>{Path(self.file_name).stem}</h1><div>{extracted_text}</div></body></html>"
-                    html_data = base64.b64encode(html_content.encode("utf-8")).decode(
-                        "utf-8"
-                    )
-
+                    # Return as text format since invoke API doesn't support EPUB documents
                     return [
                         {
-                            "type": "document",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "text/html",
-                                "data": html_data,
-                            },
+                            "type": "text",
+                            "text": f"[EPUB Document: {self.file_name}]\n\n{extracted_text}",
                         }
                     ]
                 else:
