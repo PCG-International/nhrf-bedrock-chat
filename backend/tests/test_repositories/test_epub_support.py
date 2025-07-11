@@ -318,7 +318,7 @@ class TestEPUBSupport(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["type"], "text")
         self.assertIn("text", result[0])
-        
+
         # Verify the text contains the document header and extracted content
         text_content = result[0]["text"]
         self.assertIn("[EPUB Document: test.epub]", text_content)
