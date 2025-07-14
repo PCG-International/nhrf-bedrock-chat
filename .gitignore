@@ -9,3 +9,7 @@ AmazonQ.md
 memory-bank
 .clinerules
 .idea
+
+# Claude Code related files
+.claude/
+CLAUDE.md
