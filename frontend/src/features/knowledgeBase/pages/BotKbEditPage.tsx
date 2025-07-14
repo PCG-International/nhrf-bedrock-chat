@@ -171,15 +171,8 @@ const BotKbEditPage: React.FC = () => {
     label: string;
     description: string;
   }[] = (() => {
-    // We exclude any models that use the Invoke API instead of the Converse API
-    // since Tools use is only supported by Converse API.
-    // https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html
-    const excludedModels = ['claude-v4-opus', 'claude-v4-sonnet'];
-
     const getGeneralModels = () => {
-      return AVAILABLE_MODEL_KEYS.filter((key) =>
-        !excludedModels.includes(key)
-      ).map((key) => ({
+      return AVAILABLE_MODEL_KEYS.map((key) => ({
         key: key as Model,
         label: t(`model.${key}.label`) as string,
         description: t(`model.${key}.description`) as string,
