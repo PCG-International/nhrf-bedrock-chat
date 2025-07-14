@@ -492,6 +492,13 @@ How would you categorize this email?`,
         title: 'Model Activation',
         description: 'Configure which AI models can be used with this bot.',
       },
+      promptCaching: {
+        title: 'Prompt Caching',
+        promptCachingEnabled: {
+          title: 'Use prompt caching if the model supports it.',
+          description: 'If enabled, it may reduce the cost and latency of repeated conversations with this bot.',
+        },
+      },
     },
     admin: {
       botAnalytics: {

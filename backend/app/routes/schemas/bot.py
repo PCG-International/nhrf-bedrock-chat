@@ -157,17 +157,8 @@ class Agent(BaseSchema):
         return v
 
 
-class AgentToolInput(BaseSchema):
-    tool_type: Literal["plain", "internet", "bedrock_agent"]
-    name: str
-    description: str
-    search_engine: Literal["duckduckgo", "firecrawl"] | None = None
-    firecrawl_config: FirecrawlConfig | None = None
-    bedrock_agent_config: BedrockAgentConfig | None = None
-
-
 class AgentInput(BaseSchema):
-    tools: list[AgentToolInput] = Field(..., description="List of tools")
+    tools: list[Tool] = Field(..., description="List of tools")
 
 
 class Knowledge(BaseSchema):
@@ -220,6 +211,7 @@ class BotInput(BaseSchema):
     agent: Optional[AgentInput] = None
     knowledge: Knowledge | None
     display_retrieved_chunks: bool
+    prompt_caching_enabled: bool = True
     conversation_quick_starters: list[ConversationQuickStarter] | None
     bedrock_knowledge_base: BedrockKnowledgeBaseInput | None = None
     bedrock_guardrails: BedrockGuardrailsInput | None = None
@@ -255,6 +247,7 @@ class BotModifyInput(BaseSchema):
     agent: Optional[AgentInput] = None
     knowledge: KnowledgeDiffInput | None
     display_retrieved_chunks: bool
+    prompt_caching_enabled: bool
     conversation_quick_starters: list[ConversationQuickStarter] | None
     bedrock_knowledge_base: BedrockKnowledgeBaseInput | None = None
     bedrock_guardrails: BedrockGuardrailsInput | None = None
@@ -369,6 +362,7 @@ class BotModifyOutput(BaseSchema):
     generation_params: GenerationParams
     agent: Agent
     knowledge: Knowledge
+    prompt_caching_enabled: bool
     conversation_quick_starters: list[ConversationQuickStarter]
     bedrock_knowledge_base: BedrockKnowledgeBaseOutput | None
     bedrock_guardrails: BedrockGuardrailsOutput | None
@@ -391,6 +385,7 @@ class BotOutput(BaseSchema):
     generation_params: GenerationParams
     agent: Agent
     knowledge: Knowledge
+    prompt_caching_enabled: bool
     sync_status: type_sync_status
     sync_status_reason: str
     sync_last_exec_id: str

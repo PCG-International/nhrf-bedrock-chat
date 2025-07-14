@@ -498,6 +498,13 @@ const translation: typeof en = {
         title: '利用可能なモデル設定',
         description: 'このボットで使用可能なモデルを設定します。',
       },
+      promptCaching: {
+        title: 'プロンプトキャッシュ',
+        promptCachingEnabled: {
+          title: 'モデルが対応している場合、プロンプトキャッシュを利用する。',
+          description: '有効にすると、このボットと繰り返し会話した際のコストとレイテンシーを削減できます。',
+        },
+      },
     },
     admin: {
       botAnalytics: {

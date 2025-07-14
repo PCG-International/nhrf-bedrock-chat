@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import InputText from '../../../components/InputText';
 import Button from '../../../components/Button';
 import useBot from '../../../hooks/useBot';
@@ -107,6 +107,7 @@ const BotKbEditPage: React.FC = () => {
     defaultGenerationConfig.reasoningParams?.budgetTokens ??
       EDGE_GENERATION_PARAMS.budgetTokens.MIN
   );
+  const [promptCachingEnabled, setPromptCachingEnabled] = useState<boolean>(false);
   const [tools, setTools] = useState<AgentTool[]>([]);
   const [conversationQuickStarters, setConversationQuickStarters] = useState<
     ConversationQuickStarter[]
@@ -475,6 +476,7 @@ const BotKbEditPage: React.FC = () => {
           setBudgetTokens(bot.generationParams.reasoningParams.budgetTokens);
           setUnchangedFilenames([...bot.knowledge.filenames]);
           setDisplayRetrievedChunks(bot.displayRetrievedChunks);
+          setPromptCachingEnabled(bot.promptCachingEnabled);
           if (bot.syncStatus === 'FAILED') {
             setErrorMessages(
               isSyncChunkError(bot.syncStatusReason)
@@ -1205,40 +1207,7 @@ const BotKbEditPage: React.FC = () => {
     setIsLoading(true);
     registerBot({
       agent: {
-        tools: tools.map((tool) => {
-          const baseTool = {
-            tool_type: tool.toolType,
-            name: tool.name,
-            description: tool.description,
-          };
-
-          if (isInternetTool(tool)) {
-            return {
-              ...baseTool,
-              search_engine: tool.searchEngine,
-              firecrawl_config: tool.firecrawlConfig
-                ? {
-                    api_key: tool.firecrawlConfig.apiKey,
-                    max_results: tool.firecrawlConfig.maxResults,
-                  }
-                : undefined,
-            };
-          }
-
-          if (isBedrockAgentTool(tool)) {
-            return {
-              ...baseTool,
-              bedrock_agent_config: tool.bedrockAgentConfig
-                ? {
-                    agent_id: tool.bedrockAgentConfig.agentId,
-                    alias_id: tool.bedrockAgentConfig.aliasId,
-                  }
-                : undefined,
-            };
-          }
-
-          return baseTool;
-        }),
+        tools,
       },
       id: botId,
       title,
@@ -1262,6 +1231,7 @@ const BotKbEditPage: React.FC = () => {
         filenames: files.map((f) => f.filename),
       },
       displayRetrievedChunks,
+      promptCachingEnabled: promptCachingEnabled,
       conversationQuickStarters: conversationQuickStarters.filter(
         (qs) => qs.title !== '' && qs.example !== ''
       ),
@@ -1335,6 +1305,7 @@ const BotKbEditPage: React.FC = () => {
     s3Urls,
     files,
     displayRetrievedChunks,
+    promptCachingEnabled,
     conversationQuickStarters,
     navigate,
     knowledgeBaseId,
@@ -1366,40 +1337,7 @@ const BotKbEditPage: React.FC = () => {
       setIsLoading(true);
       updateBot(botId, {
         agent: {
-          tools: tools.map((tool) => {
-            const baseTool = {
-              tool_type: tool.toolType,
-              name: tool.name,
-              description: tool.description,
-            };
-
-            if (isInternetTool(tool)) {
-              return {
-                ...baseTool,
-                search_engine: tool.searchEngine,
-                firecrawl_config: tool.firecrawlConfig
-                  ? {
-                      api_key: tool.firecrawlConfig.apiKey,
-                      max_results: tool.firecrawlConfig.maxResults,
-                    }
-                  : undefined,
-              };
-            }
-
-            if (isBedrockAgentTool(tool)) {
-              return {
-                ...baseTool,
-                bedrock_agent_config: tool.bedrockAgentConfig
-                  ? {
-                      agent_id: tool.bedrockAgentConfig.agentId,
-                      alias_id: tool.bedrockAgentConfig.aliasId,
-                    }
-                  : undefined,
-              };
-            }
-
-            return baseTool;
-          }),
+          tools,
         },
         title,
         description,
@@ -1424,6 +1362,7 @@ const BotKbEditPage: React.FC = () => {
           unchangedFilenames,
         },
         displayRetrievedChunks,
+        promptCachingEnabled: promptCachingEnabled,
         conversationQuickStarters: conversationQuickStarters.filter(
           (qs) => qs.title !== '' && qs.example !== ''
         ),
@@ -1501,6 +1440,7 @@ const BotKbEditPage: React.FC = () => {
     deletedFilenames,
     unchangedFilenames,
     displayRetrievedChunks,
+    promptCachingEnabled,
     conversationQuickStarters,
     navigate,
     knowledgeBaseId,
@@ -2651,6 +2591,25 @@ const BotKbEditPage: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              </ExpandableDrawerGroup>
+
+              <ExpandableDrawerGroup
+                isDefaultShow={false}
+                label={t('bot.promptCaching.title')}
+                className="py-2"
+              >
+                <div className="flex mt-4 items-start">
+                  <Toggle
+                    value={promptCachingEnabled}
+                    onChange={setPromptCachingEnabled}
+                  />
+                  <div>
+                    <Trans t={t} i18nKey="bot.promptCaching.promptCachingEnabled.title" />
+                    <div className="text-sm text-dark-gray dark:text-light-gray">
+                      <Trans t={t} i18nKey="bot.promptCaching.promptCachingEnabled.description" />
+                    </div>
                   </div>
                 </div>
               </ExpandableDrawerGroup>

@@ -71,6 +71,7 @@ def store_bot(custom_bot: BotModel):
         "GenerationParams": custom_bot.generation_params.model_dump(),
         "AgentData": custom_bot.agent.model_dump(),
         "Knowledge": custom_bot.knowledge.model_dump(),
+        "PromptCachingEnabled": custom_bot.prompt_caching_enabled,
         "SyncStatus": custom_bot.sync_status,
         "SyncStatusReason": custom_bot.sync_status_reason,
         "LastExecId": custom_bot.sync_last_exec_id,
@@ -112,6 +113,7 @@ def update_bot(
     generation_params: GenerationParamsModel,
     agent: AgentModel,
     knowledge: KnowledgeModel,
+    prompt_caching_enabled: bool,
     sync_status: type_sync_status,
     sync_status_reason: str,
     display_retrieved_chunks: bool,
@@ -132,6 +134,7 @@ def update_bot(
         "Instruction = :instruction, "
         "AgentData = :agent_data, "
         "Knowledge = :knowledge, "
+        "PromptCachingEnabled = :prompt_caching_enabled, "
         "SyncStatus = :sync_status, "
         "SyncStatusReason = :sync_status_reason, "
         "GenerationParams = :generation_params, "
@@ -146,6 +149,7 @@ def update_bot(
         ":instruction": instruction,
         ":knowledge": knowledge.model_dump(),
         ":agent_data": agent.model_dump(),
+        ":prompt_caching_enabled": prompt_caching_enabled,
         ":sync_status": sync_status,
         ":sync_status_reason": sync_status_reason,
         ":display_retrieved_chunks": display_retrieved_chunks,
@@ -711,6 +715,7 @@ def find_bot_by_id(bot_id: str) -> BotModel:
         knowledge=KnowledgeModel(
             **{**item["Knowledge"], "s3_urls": item["Knowledge"].get("s3_urls", [])}
         ),
+        prompt_caching_enabled=item.get("PromptCachingEnabled", True),
         sync_status=item["SyncStatus"],
         sync_status_reason=item["SyncStatusReason"],
         sync_last_exec_id=item["LastExecId"],

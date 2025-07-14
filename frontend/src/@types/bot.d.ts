@@ -1,3 +1,7 @@
+import {
+  Agent,
+  AgentInput,
+} from '../features/agent/types';
 import { BedrockKnowledgeBase } from '../features/knowledgeBase/types';
 import { Model } from './conversation';
 export type BotKind = 'private' | 'mixed';
@@ -84,6 +88,7 @@ export type BotDetails = Omit<BotMeta, 'isStarred' | 'owned'> & {
   generationParams: GenerationParams;
   agent: Agent;
   knowledge: BotKnowledge;
+  promptCachingEnabled: boolean;
   syncStatusReason: string;
   displayRetrievedChunks: boolean;
   conversationQuickStarters: ConversationQuickStarter[];
@@ -115,6 +120,7 @@ export type RegisterBotRequest = {
   generationParams?: GenerationParams;
   knowledge?: BotKnowledge;
   displayRetrievedChunks: boolean;
+  promptCachingEnabled: boolean;
   conversationQuickStarters: ConversationQuickStarter[];
   bedrockGuardrails?: GuardrailsParams;
   bedrockKnowledgeBase?: BedrockKnowledgeBase;
@@ -128,9 +134,10 @@ export type UpdateBotRequest = {
   instruction: string;
   description?: string;
   agent: AgentInput;
-  generationParams?: BotGenerationConfig;
+  generationParams?: GenerationParams;
   knowledge?: BotKnowledgeDiff;
   displayRetrievedChunks: boolean;
+  promptCachingEnabled: boolean;
   conversationQuickStarters: ConversationQuickStarter[];
   bedrockGuardrails?: GuardrailsParams;
   bedrockKnowledgeBase?: BedrockKnowledgeBase;
@@ -145,6 +152,7 @@ export type UpdateBotResponse = {
   generationParams: GenerationParams;
   knowledge?: BotKnowledge;
   displayRetrievedChunks: boolean;
+  promptCachingEnabled: boolean;
   conversationQuickStarters: ConversationQuickStarter[];
   bedrockKnowledgeBase: BedrockKnowledgeBase;
   activeModels: ActiveModels;
