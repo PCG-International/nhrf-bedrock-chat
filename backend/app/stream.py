@@ -572,13 +572,21 @@ class ConverseApiStreamHandler:
                 thinking_log=None,
             )
 
-            price = calculate_price(self.model, input_token_count, output_token_count)
+            price = calculate_price(
+                model=self.model,
+                input_tokens=input_token_count,
+                output_tokens=output_token_count,
+                cache_read_input_tokens=0,  # Claude 4 invoke API doesn't support prompt caching yet
+                cache_write_input_tokens=0,  # Claude 4 invoke API doesn't support prompt caching yet
+            )
 
             result = OnStopInput(
                 message=message,
                 stop_reason=stop_reason,
                 input_token_count=input_token_count,
                 output_token_count=output_token_count,
+                cache_read_input_count=0,  # Claude 4 invoke API doesn't support prompt caching yet
+                cache_write_input_count=0,  # Claude 4 invoke API doesn't support prompt caching yet
                 price=price,
             )
             return result
