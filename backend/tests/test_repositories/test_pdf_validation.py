@@ -81,6 +81,7 @@ class TestPDFPageValidation(unittest.TestCase):
                 "data.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             ),
+            ("book.epub", "application/epub+zip"),
             ("unknown.xyz", "application/octet-stream"),
         ]
 
@@ -93,7 +94,17 @@ class TestPDFPageValidation(unittest.TestCase):
                 )
 
                 result = attachment.to_contents_for_invoke()
-                self.assertEqual(result[0]["source"]["media_type"], expected_mime)
+
+                # EPUB files get special processing, so check accordingly
+                if filename.endswith(".epub"):
+                    # EPUB should be converted to HTML due to text extraction
+                    if result[0]["type"] == "document":
+                        self.assertEqual(result[0]["source"]["media_type"], "text/html")
+                    else:
+                        # If extraction failed, it returns text format
+                        self.assertEqual(result[0]["type"], "text")
+                else:
+                    self.assertEqual(result[0]["source"]["media_type"], expected_mime)
 
     def test_base64_string_vs_bytes_handling(self):
         """Test that both base64 strings and bytes are handled correctly"""

@@ -62,6 +62,7 @@ export const NON_TEXT_FILE_EXTENSIONS = [
   '.docx',
   '.xls',
   '.xlsx',
+  '.epub',
 ];
 
 export const SUPPORTED_FILE_EXTENSIONS = [

@@ -17,17 +17,19 @@ poetry install
 
 - Configure environment variables
 
+Create a `.env` file in the backend directory with:
+
 ```sh
-export CONVERSATION_TABLE_NAME=BedrockChatStack-DatabaseConversationTablexxxx
-export BOT_TABLE_NAME=BedrockChatStack-DatabaseBotTablexxxx
-export ACCOUNT=yyyy
-export REGION=ap-northeast-1
-export BEDROCK_REGION=us-east-1
-export DOCUMENT_BUCKET=bedrockchatstack-documentbucketxxxxxxx
-export LARGE_MESSAGE_BUCKET=bedrockchatstack-largemessagebucketxxx
-export USER_POOL_ID=xxxxxxxxx
-export CLIENT_ID=xxxxxxxxx
-export OPENSEARCH_DOMAIN_ENDPOINT=https://abcdefghijklmnopqrst.aa-region-1.aoss.amazonaws.com
+REGION=eu-central-1
+AWS_REGION=eu-central-1
+BEDROCK_REGION=eu-central-1
+CONVERSATION_TABLE_NAME=BedrockChatStack-DatabaseConversationTablexxxx
+BOT_TABLE_NAME=BedrockChatStack-DatabaseBotTablexxxx
+DOCUMENT_BUCKET_NAME=bedrockchatstack-documentbucketxxxxxxx
+LARGE_MESSAGE_BUCKET_NAME=bedrockchatstack-largemessagebucketxxx
+USER_POOL_ID=xxxxxxxxx
+CLIENT_ID=xxxxxxxxx
+BOT_STORE_OPENSEARCH_ENDPOINT=https://abcdefghijklmnopqrst.aa-region-1.aoss.amazonaws.com
 ```
 
 - Configure CDK configration.
@@ -67,7 +69,7 @@ Local development requires OpenSearch data access permissions for the IAM role t
 ## Launch local server
 
 ```sh
-poetry run uvicorn app.main:app  --reload --host 0.0.0.0 --port 8000
+env $(cat .env | xargs) poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 - To refer the specification, access to [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for [Swagger](https://swagger.io/) and [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc) for [Redoc](https://github.com/Redocly/redoc).

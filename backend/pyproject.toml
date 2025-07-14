@@ -24,6 +24,9 @@ boto3-stubs = {extras = ["bedrock", "bedrock-agent-runtime", "bedrock-runtime", 
 firecrawl-py = "^1.11.1"
 reretry = "^0.11.8"
 pypdf = "^5.0.0"
+ebooklib = "^0.19"
+beautifulsoup4 = "^4.12.0"
+types-beautifulsoup4 = "^4.12.0"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.15.0"
