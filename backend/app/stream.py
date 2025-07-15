@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Callable, TypedDict, TypeGuard
 
 from app.agents.tools.agent_tool import AgentTool
@@ -96,13 +97,28 @@ def _is_reasoning_content(
     return "signature" in content or "redacted_content" in content
 
 
+def _sanitize_text(text: str) -> str:
+    """Remove internal processing artifacts from text content."""
+    # Remove internal tool use patterns (not legitimate citations)
+    text = re.sub(r"\[\^tooluse_[^]]+\]", "", text)
+    text = re.sub(r"\[\^new-message-assistant[^]]*\]", "", text)
+
+    # Remove any stray tool_use_id patterns
+    text = re.sub(r"tool_use_id:\s*[A-Za-z0-9_-]+", "", text)
+
+    # Remove JSON fragments that might leak
+    text = re.sub(r'{"tool_use":[^}]*}', "", text)
+
+    return text.strip()
+
+
 def _content_model_from_partial_content(
     content: _PartialTextContent | _PartialToolUseContent,
 ) -> ContentModel:
     if _is_text_content(content=content):
         return TextContentModel(
             content_type="text",
-            body=content["text"].rstrip(),
+            body=_sanitize_text(content["text"].rstrip()),
         )
 
     elif _is_tool_use_content(content=content):
