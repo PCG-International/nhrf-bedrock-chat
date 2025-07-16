@@ -59,12 +59,18 @@ const usePostMessageStreaming = create<{
           try {
             if (
               message.data === '' ||
-              message.data === 'Message sent.' ||
-              // Ignore timeout message from api gateway
-              message.data.startsWith(
-                '{"message": "Endpoint request timed out",'
-              )
+              message.data === 'Message sent.'
             ) {
+              return;
+            } else if (message.data.startsWith(
+              '{"message": "Endpoint request timed out",'
+            )) {
+              // Handle timeout message from API gateway
+              ws.close();
+              set({
+                errorDetail: 'Request timed out. Your file may be too large or complex to process. Please try uploading a smaller file or converting it to text format.'
+              });
+              reject('Request timed out. Your file may be too large or complex to process. Please try uploading a smaller file or converting it to text format.');
               return;
             } else if (message.data === 'Session started.') {
               chunkedPayloads.forEach((chunk, index) => {

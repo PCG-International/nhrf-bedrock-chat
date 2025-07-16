@@ -89,11 +89,9 @@ export class WebSocket extends Construct {
       new iam.PolicyStatement({
         actions: ["secretsmanager:GetSecretValue"],
         resources: [
-          `arn:aws:secretsmanager:${Stack.of(this).region}:${
-            Stack.of(this).account
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${Stack.of(this).account
           }:secret:firecrawl/*/*`,
-          `arn:aws:secretsmanager:${Stack.of(this).region}:${
-            Stack.of(this).account
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${Stack.of(this).account
           }:secret:firecrawl/*/*`,
         ],
       })
@@ -112,7 +110,7 @@ export class WebSocket extends Construct {
         buildArgs: { POETRY_VERSION: "1.8.3" },
       },
       runtime: Runtime.PYTHON_3_13,
-      memorySize: 512,
+      memorySize: 2048,
       timeout: Duration.minutes(15),
       environment: {
         ACCOUNT: Stack.of(this).account,
@@ -140,14 +138,20 @@ export class WebSocket extends Construct {
       connectRouteOptions: {
         integration: new WebSocketLambdaIntegration(
           "ConnectIntegration",
-          handler.currentVersion
+          handler.currentVersion,
+          {
+            timeout: Duration.seconds(29),
+          }
         ),
       },
     });
     const route = webSocketApi.addRoute("$default", {
       integration: new WebSocketLambdaIntegration(
         "DefaultIntegration",
-        handler.currentVersion
+        handler.currentVersion,
+        {
+          timeout: Duration.seconds(29),
+        }
       ),
     });
     new apigwv2.WebSocketStage(this, "WebSocketStage", {
