@@ -262,13 +262,13 @@ class AttachmentContentModel(BaseModel):
         # Special handling for PDFs - Claude 4 invoke API processing
         if file_ext == ".pdf":
             try:
-                # Try to count PDF pages using pypdf if available
+                # Count PDF pages using PyMuPDF
                 try:
-                    import pypdf
+                    import fitz  # PyMuPDF
 
-                    pdf_stream = io.BytesIO(file_bytes)
-                    pdf_reader = pypdf.PdfReader(pdf_stream)
-                    page_count = len(pdf_reader.pages)
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    page_count = doc.page_count
+                    doc.close()
 
                     # If PDF has more than 30 pages, chunk it for better performance
                     if page_count > 30:
@@ -285,7 +285,7 @@ class AttachmentContentModel(BaseModel):
                             }
                         ]
                 except ImportError:
-                    # pypdf not available, fall back to size-based estimation
+                    # PyMuPDF not available, fall back to size-based estimation
                     # Rough estimation: assume ~5KB per page on average
                     estimated_pages = len(file_bytes) // (5 * 1024)
                     if estimated_pages > 100:
