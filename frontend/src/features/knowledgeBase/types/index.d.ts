@@ -13,9 +13,17 @@ export type BedrockKnowledgeBase = {
 
 export type EmbeddingsModel = 'titan_v2' | 'cohere_multilingual_v3';
 
-export type ParsingModel = 'anthropic.claude-3-5-sonnet-v1' | 'anthropic.claude-3-haiku-v1' | 'disabled';
+export type ParsingModel =
+  | 'anthropic.claude-3-5-sonnet-v1'
+  | 'anthropic.claude-3-haiku-v1'
+  | 'disabled';
 
-export type ChunkingStrategy = 'default' | 'fixed_size' | 'hierarchical' | 'semantic' | 'none';
+export type ChunkingStrategy =
+  | 'default'
+  | 'fixed_size'
+  | 'hierarchical'
+  | 'semantic'
+  | 'none';
 
 export type WebCrawlingScope = 'DEFAULT' | 'SUBDOMAINS' | 'HOST_ONLY';
 
@@ -24,7 +32,12 @@ export type WebCrawlingFilters = {
   includePatterns: string[];
 };
 
-export type ChunkingConfiguration = DefaultParams | FixedSizeParams | HierarchicalParams | SemanticParams | NoneParams;
+export type ChunkingConfiguration =
+  | DefaultParams
+  | FixedSizeParams
+  | HierarchicalParams
+  | SemanticParams
+  | NoneParams;
 
 export type OpenSearchParams = {
   analyzer: {

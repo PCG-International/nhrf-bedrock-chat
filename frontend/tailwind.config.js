@@ -17,19 +17,19 @@ export default {
       colors: {
         'nhrf-gray': {
           light: '#aaa',
-          dark: '#777'
+          dark: '#777',
         },
         'drawers-white': {
           light: '#f9f9f9',
-          dark: '#f9f9f9'
+          dark: '#f9f9f9',
         },
         'drawers-white-mist': {
           light: '#0000000a',
-          dark: '#47484a'
+          dark: '#47484a',
         },
         'drawers-text': {
           light: '#0d0d0d',
-          dark: '#f9f9f9'
+          dark: '#f9f9f9',
         },
         'aws-squid-ink': {
           light: '#232F3E',
@@ -54,7 +54,7 @@ export default {
         },
         'aws-font-color-white': {
           light: '#ffffff',
-          dark:'#ececec',
+          dark: '#ececec',
         },
         'aws-ui-color': {
           dark: '#151515',

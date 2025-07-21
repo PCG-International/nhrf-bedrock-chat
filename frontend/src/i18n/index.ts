@@ -23,75 +23,75 @@ export const LANGUAGES: {
   value: string;
   label: string;
 }[] = [
-    {
-      value: 'gr',
-      label: 'Ελληνικά',
-    },
-    {
-      value: 'en',
-      label: 'English',
-    },
-    {
-      value: 'de',
-      label: 'Deutsch',
-    },
-    {
-      value: 'fr',
-      label: 'Français',
-    },
-    {
-      value: 'es',
-      label: 'Español',
-    },
-    {
-      value: 'ja',
-      label: '日本語',
-    },
-    {
-      value: 'ko',
-      label: '한국어',
-    },
-    {
-      value: 'zhhans',
-      label: '中文 (简体)',
-    },
-    {
-      value: 'zhhant',
-      label: '中文 (繁體)',
-    },
-    {
-      value: 'it',
-      label: 'Italian',
-    },
-    {
-      value: 'nb',
-      label: 'Norsk (Bokmål)',
-    },
-    {
-      value: 'th',
-      label: 'ไทย',
-    },
-    {
-      value: 'id',
-      label: 'Bahasa Indonesia',
-    },
-    {
-      value: 'ms',
-      label: 'Bahasa Melayu',
-    },
-    {
-      value: 'vi',
-      label: 'Tiếng Việt',
-    },
-    {
-      value: 'pl',
-      label: 'Polski',
-    },
-    {
-      value: 'ptbr',
-      label: 'Português (Brasil)',
-    },
-  ];
+  {
+    value: 'gr',
+    label: 'Ελληνικά',
+  },
+  {
+    value: 'en',
+    label: 'English',
+  },
+  {
+    value: 'de',
+    label: 'Deutsch',
+  },
+  {
+    value: 'fr',
+    label: 'Français',
+  },
+  {
+    value: 'es',
+    label: 'Español',
+  },
+  {
+    value: 'ja',
+    label: '日本語',
+  },
+  {
+    value: 'ko',
+    label: '한국어',
+  },
+  {
+    value: 'zhhans',
+    label: '中文 (简体)',
+  },
+  {
+    value: 'zhhant',
+    label: '中文 (繁體)',
+  },
+  {
+    value: 'it',
+    label: 'Italian',
+  },
+  {
+    value: 'nb',
+    label: 'Norsk (Bokmål)',
+  },
+  {
+    value: 'th',
+    label: 'ไทย',
+  },
+  {
+    value: 'id',
+    label: 'Bahasa Indonesia',
+  },
+  {
+    value: 'ms',
+    label: 'Bahasa Melayu',
+  },
+  {
+    value: 'vi',
+    label: 'Tiếng Việt',
+  },
+  {
+    value: 'pl',
+    label: 'Polski',
+  },
+  {
+    value: 'ptbr',
+    label: 'Português (Brasil)',
+  },
+];
 
 const resources = {
   gr,

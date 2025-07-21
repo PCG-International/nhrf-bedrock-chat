@@ -1,4 +1,11 @@
-import { FC, Dispatch, ReactNode, useEffect, useState, useCallback } from 'react';
+import {
+  FC,
+  Dispatch,
+  ReactNode,
+  useEffect,
+  useState,
+  useCallback,
+} from 'react';
 import { twMerge } from 'tailwind-merge';
 
 interface Props {
@@ -20,27 +27,33 @@ export const Slider: FC<Props> = (props) => {
   const [value, setValue] = useState<string>(String(props.value));
 
   useEffect(() => {
-    setValue(prev => prev === String(props.value) ? prev : String(props.value));
+    setValue((prev) =>
+      prev === String(props.value) ? prev : String(props.value)
+    );
   }, [props.value]);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const validateReg = props.enableDecimal ? /^\d*\.?\d*$/ : /^\d*$/;
-    const newValStr = e.target.value;
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const validateReg = props.enableDecimal ? /^\d*\.?\d*$/ : /^\d*$/;
+      const newValStr = e.target.value;
 
-    if (newValStr === '' || validateReg.test(newValStr)) {
-      setValue(newValStr);
-      const parseNumber = props.enableDecimal ? parseFloat : parseInt;   
-      const newValue = parseNumber(newValStr !== '' ? newValStr : '0');
-      props.onChange(newValue); 
-    }
-  }, [props, setValue]);
+      if (newValStr === '' || validateReg.test(newValStr)) {
+        setValue(newValStr);
+        const parseNumber = props.enableDecimal ? parseFloat : parseInt;
+        const newValue = parseNumber(newValStr !== '' ? newValStr : '0');
+        props.onChange(newValue);
+      }
+    },
+    [props, setValue]
+  );
 
   return (
     <div className="flex flex-col">
       <label
         className={twMerge(
           'text-sm text-dark-gray dark:text-light-gray',
-          props.errorMessage && 'border-red dark:border-red text-red dark:text-red'
+          props.errorMessage &&
+            'border-red text-red dark:border-red dark:text-red'
         )}>
         {props.label}
       </label>
@@ -62,8 +75,8 @@ export const Slider: FC<Props> = (props) => {
           className={twMerge(
             'peer h-9 w-16 rounded border p-1 text-center',
             props.errorMessage
-              ? 'dark:bg-aws-ui-color-dark border-2 border-red dark:text-aws-font-color-dark'
-              : 'dark:bg-aws-ui-color-dark border-aws-font-color-light/50 dark:border-aws-font-color-dark dark:text-aws-font-color-dark'
+              ? 'border-2 border-red dark:bg-aws-ui-color-dark dark:text-aws-font-color-dark'
+              : 'border-aws-font-color-light/50 dark:border-aws-font-color-dark dark:bg-aws-ui-color-dark dark:text-aws-font-color-dark'
           )}
           value={value}
           max={props.range.max}
@@ -73,7 +86,10 @@ export const Slider: FC<Props> = (props) => {
         />
       </div>
       {props.hint && !props.errorMessage && (
-        <span className={'mt-0.5 text-xs text-gray dark:text-aws-font-color-gray'}>{props.hint}</span>
+        <span
+          className={'mt-0.5 text-xs text-gray dark:text-aws-font-color-gray'}>
+          {props.hint}
+        </span>
       )}
       {props.errorMessage && (
         <div className="mt-0.5 text-xs text-red">{props.errorMessage}</div>

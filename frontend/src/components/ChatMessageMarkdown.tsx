@@ -56,7 +56,8 @@ const RelatedDocumentLink: React.FC<{
   linkId: string;
   children: ReactNode;
 }> = (props) => {
-  const { relatedDocuments, setRelatedDocument, resetRelatedDocument } = useRelatedDocumentsState();
+  const { relatedDocuments, setRelatedDocument, resetRelatedDocument } =
+    useRelatedDocumentsState();
 
   return (
     <>
@@ -64,7 +65,7 @@ const RelatedDocumentLink: React.FC<{
         className={twMerge(
           'mx-0.5 ',
           props.relatedDocument != null
-            ? 'cursor-pointer text-aws-sea-blue-light dark:text-aws-sea-blue-dark hover:text-aws-sea-blue-hover-light dark:hover:text-aws-sea-blue-hover-dark'
+            ? 'cursor-pointer text-aws-sea-blue-light hover:text-aws-sea-blue-hover-light dark:text-aws-sea-blue-dark dark:hover:text-aws-sea-blue-hover-dark'
             : 'cursor-not-allowed text-gray'
         )}
         onClick={() => {
@@ -94,16 +95,27 @@ const ChatMessageMarkdown: React.FC<Props> = ({
   relatedDocuments,
   messageId,
 }) => {
-  const sourceIds = useMemo(() => (
-    [...new Set(Array.from(
-      children.matchAll(/\[\^(?<sourceId>[\w!?/+\-_~=;.,*&@#$%]+?)\]/g),
-      match => match.groups!.sourceId,
-    ))]
-  ), [children]);
+  const sourceIds = useMemo(
+    () => [
+      ...new Set(
+        Array.from(
+          children.matchAll(/\[\^(?<sourceId>[\w!?/+\-_~=;.,*&@#$%]+?)\]/g),
+          (match) => match.groups!.sourceId
+        )
+      ),
+    ],
+    [children]
+  );
 
-  const chatWaitingSymbol = useMemo(() => i18next.t('app.chatWaitingSymbol'), []);
+  const chatWaitingSymbol = useMemo(
+    () => i18next.t('app.chatWaitingSymbol'),
+    []
+  );
   const text = useMemo(() => {
-    const textRemovedIncompleteCitation = children.replace(/\[\^[^\]]*?$/, '[^');
+    const textRemovedIncompleteCitation = children.replace(
+      /\[\^[^\]]*?$/,
+      '[^'
+    );
     let textReplacedSourceId = textRemovedIncompleteCitation.replace(
       /\[\^(?<sourceId>[\w!?/+\-_~=;.,*&@#$%]+?)\]/g,
       (_, sourceId) => {
@@ -111,8 +123,8 @@ const ChatMessageMarkdown: React.FC<Props> = ({
         if (index === -1) {
           return '';
         }
-        return `[^${index + 1}]`
-      },
+        return `[^${index + 1}]`;
+      }
     );
 
     // Simple approach: only allow $$ for math, escape single $ that are not part of valid math
@@ -151,7 +163,10 @@ const ChatMessageMarkdown: React.FC<Props> = ({
 
   return (
     <ReactMarkdown
-      className={twMerge(className, 'prose dark:prose-invert max-w-full break-words')}
+      className={twMerge(
+        className,
+        'prose max-w-full break-words dark:prose-invert'
+      )}
       children={text}
       remarkPlugins={remarkPlugins}
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -178,7 +193,7 @@ const ChatMessageMarkdown: React.FC<Props> = ({
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                   overflowWrap: 'break-word',
-                  maxWidth: '100%'
+                  maxWidth: '100%',
                 }}
                 className="code-block-wrap"
               />
@@ -210,9 +225,11 @@ const ChatMessageMarkdown: React.FC<Props> = ({
                         href.replace('#user-content-fn-', '')
                       );
                       const sourceId = sourceIds[docNo - 1];
-                      const relatedDocument = relatedDocuments?.find(document => (
-                        document.sourceId === sourceId || document.sourceId === `${messageId}@${sourceId}`
-                      ));
+                      const relatedDocument = relatedDocuments?.find(
+                        (document) =>
+                          document.sourceId === sourceId ||
+                          document.sourceId === `${messageId}@${sourceId}`
+                      );
 
                       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                       // @ts-ignore
@@ -222,8 +239,7 @@ const ChatMessageMarkdown: React.FC<Props> = ({
                           key={`${idx}-${docNo}`}
                           linkId={`${messageId}-${idx}-${docNo}`}
                           relatedDocument={relatedDocument}
-                          sourceId={sourceId}
-                        >
+                          sourceId={sourceId}>
                           [{refNo}]
                         </RelatedDocumentLink>
                       );

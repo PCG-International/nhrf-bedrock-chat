@@ -153,9 +153,9 @@ const Item: React.FC<ItemProps> = (props) => {
               }}
             />
           ) : (
-            <div className={"truncate"} title={props.label}>
+            <div className={'truncate'} title={props.label}>
               {props.generatedTitle ? (
-                <LazyOutputText text={props.label}/>
+                <LazyOutputText text={props.label} />
               ) : (
                 <>{props.label}</>
               )}
@@ -286,9 +286,12 @@ const Drawer: React.FC<Props> = (props) => {
           className={`lg:visible lg:w-64 ${
             opened ? 'visible w-64' : 'invisible w-0'
           } text-lg text-drawers-text-light transition-width`}>
-
-          <div className="p-4 flex justify-center">
-            <img src="https://nhrf-web-assets.s3.eu-central-1.amazonaws.com/nhrf_logo_nobg.png" alt="App Logo" className="h-12 w-auto" />
+          <div className="flex justify-center p-4">
+            <img
+              src="https://nhrf-web-assets.s3.eu-central-1.amazonaws.com/nhrf_logo_nobg.png"
+              alt="App Logo"
+              className="h-12 w-auto"
+            />
           </div>
           {!isAdminPanel && (
             <>
@@ -349,7 +352,7 @@ const Drawer: React.FC<Props> = (props) => {
                   <Button
                     text
                     rightIcon={<PiArrowRight />}
-                    className="w-full text-aws-font-color-gray text-base"
+                    className="w-full text-base text-aws-font-color-gray"
                     onClick={() => {
                       navigate('/bot/starred');
                       closeSmallDrawer();
@@ -394,7 +397,7 @@ const Drawer: React.FC<Props> = (props) => {
                   <Button
                     text
                     rightIcon={<PiArrowRight />}
-                    className="w-full text-aws-font-color-gray text-base"
+                    className="w-full text-base text-aws-font-color-gray"
                     onClick={() => {
                       navigate('/bot/recently-used');
                       closeSmallDrawer();
@@ -438,7 +441,7 @@ const Drawer: React.FC<Props> = (props) => {
                   <Button
                     text
                     rightIcon={<PiArrowRight />}
-                    className="w-full text-aws-font-color-gray text-base"
+                    className="w-full text-base text-aws-font-color-gray"
                     onClick={() => {
                       navigate('/conversations');
                       closeSmallDrawer();
