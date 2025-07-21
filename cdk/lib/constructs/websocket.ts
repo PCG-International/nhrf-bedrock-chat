@@ -110,7 +110,7 @@ export class WebSocket extends Construct {
         buildArgs: { POETRY_VERSION: "1.8.3" },
       },
       runtime: Runtime.PYTHON_3_13,
-      memorySize: 2048,
+      memorySize: 10240, // Maximum Lambda memory (6 vCPUs)
       timeout: Duration.minutes(15),
       environment: {
         ACCOUNT: Stack.of(this).account,
@@ -134,6 +134,18 @@ export class WebSocket extends Construct {
       logRetention: logs.RetentionDays.THREE_MONTHS,
     });
 
+    // Create IAM role for API Gateway to write to CloudWatch logs
+    const apiGatewayLogRole = new iam.Role(this, "ApiGatewayLogRole", {
+      assumedBy: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+        ),
+      ],
+    });
+
+
+
     const webSocketApi = new apigwv2.WebSocketApi(this, "WebSocketApi", {
       connectRouteOptions: {
         integration: new WebSocketLambdaIntegration(
@@ -154,11 +166,50 @@ export class WebSocket extends Construct {
         }
       ),
     });
-    new apigwv2.WebSocketStage(this, "WebSocketStage", {
+    // Create log group for access logging
+    const accessLogGroup = new logs.LogGroup(this, "WebSocketAccessLogGroup", {
+      logGroupName: "WebsocketApiGateway",
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // Grant API Gateway permission to write to the log group
+    accessLogGroup.grantWrite(apiGatewayLogRole);
+
+    const webSocketStage = new apigwv2.WebSocketStage(this, "WebSocketStage", {
       webSocketApi,
       stageName: this.defaultStageName,
       autoDeploy: true,
     });
+
+    // Configure logging and tracing using CfnStage
+    const cfnStage = webSocketStage.node.defaultChild as apigwv2.CfnStage;
+    cfnStage.defaultRouteSettings = {
+      loggingLevel: "INFO",
+      dataTraceEnabled: true,
+    };
+    cfnStage.accessLogSettings = {
+      destinationArn: accessLogGroup.logGroupArn,
+      format: JSON.stringify({
+        requestId: "$context.requestId",
+        connectionId: "$context.connectionId", 
+        requestTime: "$context.requestTime",
+        eventType: "$context.eventType",
+        routeKey: "$context.routeKey",
+        status: "$context.status",
+        error: "$context.error.message",
+        errorMessageString: "$context.error.messageString",
+        integrationError: "$context.integration.error",
+        integrationErrorMessage: "$context.integration.errorMessage",
+        integrationLatency: "$context.integration.latency",
+        integrationStatus: "$context.integration.status",
+        integrationRequestId: "$context.integration.requestId",
+        responseLatency: "$context.responseLatency",
+        messageDirection: "$context.messageDirection",
+        messageId: "$context.messageId",
+        sourceIp: "$context.identity.sourceIp"
+      }),
+    };
     webSocketApi.grantManageConnections(handler);
 
     new CfnRouteResponse(this, "RouteResponse", {
@@ -172,6 +223,11 @@ export class WebSocket extends Construct {
 
     new CfnOutput(this, "WebSocketEndpoint", {
       value: this.apiEndpoint,
+    });
+
+    new CfnOutput(this, "ApiGatewayLogRoleArn", {
+      value: apiGatewayLogRole.roleArn,
+      description: "ARN of the API Gateway CloudWatch Logs role - use this to configure account settings manually",
     });
   }
 

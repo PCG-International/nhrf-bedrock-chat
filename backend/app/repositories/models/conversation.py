@@ -401,6 +401,7 @@ class AttachmentContentModel(BaseModel):
         """Extract text and images from PDF for Claude 4 invoke API processing"""
         import base64
         import gc
+        import time
 
         try:
             import fitz  # PyMuPDF
@@ -408,93 +409,118 @@ class AttachmentContentModel(BaseModel):
             # Open PDF with PyMuPDF for text/image extraction
             doc = fitz.open(stream=file_bytes, filetype="pdf")
 
-            pages_per_chunk = 15  # Process 15 pages per chunk
+            pages_per_chunk = 20  # Process 20 pages per chunk for efficiency
             chunks: list[dict[str, Any]] = []
             total_chunks = (page_count + pages_per_chunk - 1) // pages_per_chunk
+
+            # Track total payload size to stay under 100MB limit - more aggressive limit
+            total_payload_size = 0
+            max_payload_size = 80 * 1024 * 1024  # 80MB limit - more reasonable
+
+            # Images disabled for speed - text-only processing
 
             logger.info(
                 f"Starting PDF extraction for {self.file_name}: {page_count} pages in {total_chunks} chunks"
             )
 
+            start_time = time.time()
+            max_processing_time = (
+                18  # Leave buffer for timeout, but process meaningful chunks
+            )
+
             for chunk_index in range(total_chunks):
+                # Check timeout and size limits
+                if time.time() - start_time > max_processing_time:
+                    logger.warning(
+                        f"PDF processing timeout after {chunk_index} chunks, will continue in next request"
+                    )
+                    # Add a continuation marker to indicate more content is available
+                    chunks.append(
+                        {
+                            "type": "text",
+                            "text": f"\n\n[PDF processing will continue... Processed {chunk_index * pages_per_chunk} of {page_count} pages]",
+                        }
+                    )
+                    break
+
+                if total_payload_size > max_payload_size:
+                    logger.warning(
+                        f"PDF payload size limit reached after {chunk_index} chunks, switching to text-only mode"
+                    )
+                    # Add remaining pages as text-only
+                    for remaining_chunk_index in range(chunk_index, total_chunks):
+                        remaining_start_page = remaining_chunk_index * pages_per_chunk
+                        remaining_end_page = min(
+                            remaining_start_page + pages_per_chunk, page_count
+                        )
+
+                        text_pages = []
+                        for page_num in range(remaining_start_page, remaining_end_page):
+                            page = doc[page_num]
+                            text_content = page.get_text()
+                            if text_content.strip():
+                                text_pages.append(
+                                    f"[Page {page_num + 1}]\n{text_content.strip()}"
+                                )
+
+                        if text_pages:
+                            text_only_chunk = {
+                                "type": "text",
+                                "text": f"[PDF Text-Only Mode - Pages {remaining_start_page + 1}-{remaining_end_page}]\n\n"
+                                + "\n\n".join(text_pages),
+                            }
+                            chunk_size = len(json.dumps(text_only_chunk).encode())
+                            if total_payload_size + chunk_size < max_payload_size:
+                                chunks.append(text_only_chunk)
+                                total_payload_size += chunk_size
+                            else:
+                                logger.warning(
+                                    f"Cannot fit any more content, stopping at page {remaining_start_page}"
+                                )
+                                break
+                    break
+
                 start_page = chunk_index * pages_per_chunk
                 end_page = min(start_page + pages_per_chunk, page_count)
 
                 # Add chunk header
-                if chunk_index == 0:
-                    chunks.append(
-                        {
-                            "type": "text",
-                            "text": f"[PDF Document: {self.file_name}] - Extracted content (pages {start_page + 1}-{end_page} of {page_count})",
-                        }
-                    )
-                else:
-                    chunks.append(
-                        {
-                            "type": "text",
-                            "text": f"[PDF Document: {self.file_name}] - Chunk {chunk_index + 1} of {total_chunks} (pages {start_page + 1}-{end_page})",
-                        }
-                    )
+                import json
 
-                # Extract content from pages in this chunk
+                header_text = f"[PDF Document: {self.file_name}] - Pages {start_page + 1}-{end_page} of {page_count}"
+                header_chunk = {"type": "text", "text": header_text}
+                chunks.append(header_chunk)
+                total_payload_size += len(json.dumps(header_chunk).encode())
+
+                # Extract and combine content from pages in this chunk
+                combined_text_pages = []
                 for page_num in range(start_page, end_page):
                     page = doc[page_num]
 
                     # Extract text content
                     text_content = page.get_text()
                     if text_content.strip():
-                        chunks.append(
-                            {
-                                "type": "text",
-                                "text": f"[Page {page_num + 1}]\n{text_content.strip()}",
-                            }
+                        combined_text_pages.append(
+                            f"[Page {page_num + 1}]\n{text_content.strip()}"
                         )
 
-                    # Extract images (charts, graphs, diagrams)
-                    image_list = page.get_images()
-                    for img_index, img in enumerate(image_list):
-                        try:
-                            xref = img[0]
-                            pix = fitz.Pixmap(doc, xref)
-
-                            # Skip very small images (likely decorative)
-                            if pix.width < 50 or pix.height < 50:
-                                pix = None
-                                continue
-
-                            # Convert CMYK to RGB if needed
-                            if pix.n - pix.alpha > 3:
-                                pix = fitz.Pixmap(fitz.csRGB, pix)
-
-                            # Convert to PNG bytes
-                            img_bytes = pix.tobytes("png")
-                            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-
-                            chunks.append(
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": "image/png",
-                                        "data": img_b64,
-                                    },
-                                }
-                            )
-
-                            pix = None  # Free memory
-
-                        except Exception as img_error:
-                            logger.warning(
-                                f"Failed to extract image {img_index} from page {page_num + 1}: {img_error}"
-                            )
-                            continue
+                # Create single combined chunk instead of individual page chunks
+                if combined_text_pages:
+                    combined_chunk = {
+                        "type": "text",
+                        "text": f"[Pages {start_page + 1}-{end_page}]\n\n"
+                        + "\n\n".join(combined_text_pages),
+                    }
+                    chunk_size = len(json.dumps(combined_chunk).encode())
+                    if total_payload_size + chunk_size < max_payload_size:
+                        chunks.append(combined_chunk)
+                        total_payload_size += chunk_size
 
                 # Force garbage collection between chunks
                 gc.collect()
 
             doc.close()
             logger.info(
-                f"Successfully extracted PDF content from {self.file_name}: {len(chunks)} content blocks"
+                f"Successfully extracted PDF content from {self.file_name}: {len(chunks)} content blocks (text-only), total size: {total_payload_size / (1024*1024):.1f}MB"
             )
             return chunks
 

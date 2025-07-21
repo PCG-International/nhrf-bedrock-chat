@@ -517,6 +517,10 @@ class ConverseApiStreamHandler:
     ) -> OnStopInput:
         """Handle Claude 4 models using the invoke API for file upload support"""
         try:
+            # Handle continue generation by appending the partial message to messages
+            if message_for_continue_generate is not None:
+                messages = messages + [message_for_continue_generate]
+
             # Create payload for invoke API
             args = compose_args_for_invoke_api(
                 messages=messages,
