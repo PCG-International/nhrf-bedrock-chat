@@ -259,7 +259,7 @@ class AttachmentContentModel(BaseModel):
             file_bytes = base64.b64decode(self.body)
             data_str = self.body
 
-        # Special validation for PDFs - Claude 4 invoke API has a 100 page limit
+        # Special handling for PDFs - Claude 4 invoke API processing
         if file_ext == ".pdf":
             try:
                 # Try to count PDF pages using pypdf if available
@@ -270,6 +270,13 @@ class AttachmentContentModel(BaseModel):
                     pdf_reader = pypdf.PdfReader(pdf_stream)
                     page_count = len(pdf_reader.pages)
 
+                    # If PDF has more than 30 pages, chunk it for better performance
+                    if page_count > 30:
+                        return self._extract_pdf_content_for_invoke(
+                            file_bytes, page_count
+                        )
+
+                    # If PDF exceeds 100 pages, show error as fallback
                     if page_count > 100:
                         return [
                             {
@@ -387,6 +394,129 @@ class AttachmentContentModel(BaseModel):
         except Exception as e:
             logger.error(f"Error extracting text from EPUB: {e}")
             return ""
+
+    def _extract_pdf_content_for_invoke(
+        self, file_bytes: bytes, page_count: int
+    ) -> list[dict[str, Any]]:
+        """Extract text and images from PDF for Claude 4 invoke API processing"""
+        import base64
+        import gc
+
+        try:
+            import fitz  # PyMuPDF
+
+            # Open PDF with PyMuPDF for text/image extraction
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+
+            pages_per_chunk = 15  # Process 15 pages per chunk
+            chunks: list[dict[str, Any]] = []
+            total_chunks = (page_count + pages_per_chunk - 1) // pages_per_chunk
+
+            logger.info(
+                f"Starting PDF extraction for {self.file_name}: {page_count} pages in {total_chunks} chunks"
+            )
+
+            for chunk_index in range(total_chunks):
+                start_page = chunk_index * pages_per_chunk
+                end_page = min(start_page + pages_per_chunk, page_count)
+
+                # Add chunk header
+                if chunk_index == 0:
+                    chunks.append(
+                        {
+                            "type": "text",
+                            "text": f"[PDF Document: {self.file_name}] - Extracted content (pages {start_page + 1}-{end_page} of {page_count})",
+                        }
+                    )
+                else:
+                    chunks.append(
+                        {
+                            "type": "text",
+                            "text": f"[PDF Document: {self.file_name}] - Chunk {chunk_index + 1} of {total_chunks} (pages {start_page + 1}-{end_page})",
+                        }
+                    )
+
+                # Extract content from pages in this chunk
+                for page_num in range(start_page, end_page):
+                    page = doc[page_num]
+
+                    # Extract text content
+                    text_content = page.get_text()
+                    if text_content.strip():
+                        chunks.append(
+                            {
+                                "type": "text",
+                                "text": f"[Page {page_num + 1}]\n{text_content.strip()}",
+                            }
+                        )
+
+                    # Extract images (charts, graphs, diagrams)
+                    image_list = page.get_images()
+                    for img_index, img in enumerate(image_list):
+                        try:
+                            xref = img[0]
+                            pix = fitz.Pixmap(doc, xref)
+
+                            # Skip very small images (likely decorative)
+                            if pix.width < 50 or pix.height < 50:
+                                pix = None
+                                continue
+
+                            # Convert CMYK to RGB if needed
+                            if pix.n - pix.alpha > 3:
+                                pix = fitz.Pixmap(fitz.csRGB, pix)
+
+                            # Convert to PNG bytes
+                            img_bytes = pix.tobytes("png")
+                            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+                            chunks.append(
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": "image/png",
+                                        "data": img_b64,
+                                    },
+                                }
+                            )
+
+                            pix = None  # Free memory
+
+                        except Exception as img_error:
+                            logger.warning(
+                                f"Failed to extract image {img_index} from page {page_num + 1}: {img_error}"
+                            )
+                            continue
+
+                # Force garbage collection between chunks
+                gc.collect()
+
+            doc.close()
+            logger.info(
+                f"Successfully extracted PDF content from {self.file_name}: {len(chunks)} content blocks"
+            )
+            return chunks
+
+        except ImportError:
+            logger.error(
+                f"PyMuPDF not available, falling back to error message for {self.file_name}"
+            )
+            return [
+                {
+                    "type": "text",
+                    "text": f"[PDF Document: {self.file_name}]\\n\\nNote: This PDF has {page_count} pages and requires PyMuPDF for processing. Please try with a smaller PDF or install PyMuPDF.",
+                }
+            ]
+        except Exception as e:
+            logger.error(f"Failed to extract PDF content from {self.file_name}: {e}")
+            # Fall back to original behavior - return error message
+            return [
+                {
+                    "type": "text",
+                    "text": f"[PDF Document: {self.file_name}]\\n\\nNote: This PDF has {page_count} pages and could not be processed. Please try with a smaller PDF or a different format.",
+                }
+            ]
 
 
 class FeedbackModel(BaseModel):
