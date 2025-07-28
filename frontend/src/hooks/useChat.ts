@@ -22,6 +22,7 @@ import useFeedbackApi from './useFeedbackApi';
 import { useMachine } from '@xstate/react';
 import { agentThinkingState } from '../features/agent/xstates/agentThink';
 import { reasoningState } from '../features/reasoning/xstates/reasoningState';
+import { isClaude4Model } from '../constants/supportedAttachedFiles';
 
 type ChatStateType = {
   [id: string]: MessageMap;
@@ -51,6 +52,16 @@ const NEW_MESSAGE_ID = {
 };
 const USE_STREAMING: boolean =
   import.meta.env.VITE_APP_USE_STREAMING === 'true';
+
+// Determine if streaming should be used based on model
+const shouldUseStreaming = (model: Model): boolean => {
+  // For Claude 4 models, use HTTP API (non-streaming) to avoid 29s WebSocket timeout
+  if (isClaude4Model(model)) {
+    return false;
+  }
+  // For all other models, use the environment variable setting
+  return USE_STREAMING;
+};
 
 const getTextContentBody = (content: Content[]): string => {
   const textContent = content.find(
@@ -457,7 +468,7 @@ const useChat = () => {
 
     // post message
     const postPromise: Promise<string> = new Promise((resolve, reject) => {
-      if (USE_STREAMING) {
+      if (shouldUseStreaming(input.message.model)) {
         agentSend({ type: 'wakeup' });
         reasoningSend({ type: 'start' });
         postStreaming({
@@ -541,19 +552,41 @@ const useChat = () => {
     const currentContentBody = getTextContentBody(lastMessage.content);
     const currentMessage = messages[messages.length - 1];
 
-    // WARNING: Non-streaming is not supported from the UI side as it is planned to be DEPRICATED.
-    postStreaming({
-      input,
-      dispatch: (c: string) => {
-        editMessage(conversationId, currentMessage.id, currentContentBody + c);
-      },
-      thinkingDispatch: (event) => {
-        agentSend(event);
-      },
-      reasoningDispatch: (event) => {
-        reasoningSend(event);
-      },
-    })
+    const postPromise: Promise<string> = new Promise((resolve, reject) => {
+      if (shouldUseStreaming(input.message.model)) {
+        postStreaming({
+          input,
+          dispatch: (c: string) => {
+            editMessage(conversationId, currentMessage.id, currentContentBody + c);
+          },
+          thinkingDispatch: (event) => {
+            agentSend(event);
+          },
+          reasoningDispatch: (event) => {
+            reasoningSend(event);
+          },
+        })
+          .then((message) => {
+            resolve(message);
+          })
+          .catch((e) => {
+            reject(e);
+          });
+      } else {
+        conversationApi
+          .postMessage(input)
+          .then((res) => {
+            const textBody = getTextContentBody(res.data.message.content);
+            editMessage(conversationId, currentMessage.id, currentContentBody + textBody);
+            resolve(textBody);
+          })
+          .catch((e) => {
+            reject(e);
+          });
+      }
+    });
+
+    postPromise
       .then(() => {
         mutate();
       })
@@ -646,19 +679,42 @@ const useChat = () => {
 
     setCurrentMessageId(NEW_MESSAGE_ID.ASSISTANT);
 
-    agentSend({ type: 'wakeup' });
-    postStreaming({
-      input,
-      dispatch: (c: string) => {
-        editMessage(conversationId, NEW_MESSAGE_ID.ASSISTANT, c);
-      },
-      thinkingDispatch: (event) => {
-        agentSend(event);
-      },
-      reasoningDispatch: (event) => {
-        reasoningSend(event);
-      },
-    })
+    const postPromise: Promise<string> = new Promise((resolve, reject) => {
+      if (shouldUseStreaming(input.message.model)) {
+        agentSend({ type: 'wakeup' });
+        postStreaming({
+          input,
+          dispatch: (c: string) => {
+            editMessage(conversationId, NEW_MESSAGE_ID.ASSISTANT, c);
+          },
+          thinkingDispatch: (event) => {
+            agentSend(event);
+          },
+          reasoningDispatch: (event) => {
+            reasoningSend(event);
+          },
+        })
+          .then((message) => {
+            resolve(message);
+          })
+          .catch((e) => {
+            reject(e);
+          });
+      } else {
+        conversationApi
+          .postMessage(input)
+          .then((res) => {
+            const textBody = getTextContentBody(res.data.message.content);
+            editMessage(conversationId, NEW_MESSAGE_ID.ASSISTANT, textBody);
+            resolve(textBody);
+          })
+          .catch((e) => {
+            reject(e);
+          });
+      }
+    });
+
+    postPromise
       .then(() => {
         mutate();
       })

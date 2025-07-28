@@ -60,7 +60,20 @@ class AttachmentContent(BaseSchema):
         ...,
         description="File name of the attachment. Must be specified if `content_type` is `attachment`.",
     )
-    body: Base64EncodedBytes = Field(..., description="Content body.")
+    body: Base64EncodedBytes | None = Field(
+        None, description="Content body (legacy inline content)."
+    )
+    s3_key: str | None = Field(None, description="S3 key for attachment stored in S3.")
+
+    @root_validator(pre=True)
+    def check_content_source(cls, values):
+        body = values.get("body")
+        s3_key = values.get("s3_key")
+        if not body and not s3_key:
+            raise ValueError(
+                "Either body (inline content) or s3_key (S3 reference) must be provided"
+            )
+        return values
 
 
 class FeedbackInput(BaseSchema):
@@ -252,3 +265,8 @@ class NewTitleInput(BaseSchema):
 
 class ProposedTitle(BaseSchema):
     title: str
+
+
+class AttachmentPresignedUrlOutput(BaseSchema):
+    url: str
+    s3_key: str

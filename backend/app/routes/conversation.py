@@ -9,6 +9,7 @@ from app.repositories.conversation import (
 )
 from app.repositories.models.conversation import FeedbackModel
 from app.routes.schemas.conversation import (
+    AttachmentPresignedUrlOutput,
     ChatInput,
     ChatOutput,
     Conversation,
@@ -28,7 +29,9 @@ from app.usecases.chat import (
     search_conversations as search_conversations_usecase,
 )
 from app.user import User
+from app.utils import compose_attachment_s3_path, generate_presigned_url
 from fastapi import APIRouter, Request
+import os
 
 router = APIRouter(tags=["conversation"])
 
@@ -37,6 +40,31 @@ router = APIRouter(tags=["conversation"])
 def health():
     """For health check"""
     return {"status": "ok"}
+
+
+@router.get("/attachment/presigned-url", response_model=AttachmentPresignedUrlOutput)
+def get_attachment_presigned_url(request: Request, filename: str, contentType: str):
+    """Get presigned URL for uploading chat attachments"""
+    current_user: User = request.state.current_user
+
+    # Get S3 bucket for documents
+    bucket = os.environ.get("DOCUMENT_BUCKET")
+    if not bucket:
+        raise ValueError("DOCUMENT_BUCKET environment variable not set")
+
+    # Generate unique S3 key for attachment
+    s3_key = compose_attachment_s3_path(current_user.id, filename)
+
+    # Generate presigned URL for upload
+    url = generate_presigned_url(
+        bucket=bucket,
+        key=s3_key,
+        content_type=contentType,
+        expiration=3600,
+        client_method="put_object",
+    )
+
+    return AttachmentPresignedUrlOutput(url=url, s3_key=s3_key)
 
 
 @router.post("/conversation", response_model=ChatOutput)

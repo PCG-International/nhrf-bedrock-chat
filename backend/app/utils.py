@@ -106,6 +106,21 @@ def compose_upload_document_s3_path(user_id: str, bot_id: str, filename: str) ->
     return f"{user_id}/{bot_id}/documents/{filename}"
 
 
+def compose_attachment_s3_path(user_id: str, filename: str) -> str:
+    """Compose S3 path for chat attachments.
+    The files on this path are used for chat messages.
+    """
+    import uuid
+    from datetime import datetime
+
+    # Generate unique key with timestamp and UUID to avoid conflicts
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    unique_id = str(uuid.uuid4())[:8]
+    safe_filename = filename.replace(" ", "_").replace("/", "_")
+
+    return f"attachments/{user_id}/{timestamp}_{unique_id}_{safe_filename}"
+
+
 def delete_file_from_s3(bucket: str, key: str, ignore_not_exist: bool = False):
     client = boto3.client("s3", region_name=BEDROCK_REGION)
 

@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import io
 import json
 import logging
 import re
@@ -8,7 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, TypeGuard
 from urllib.parse import urlparse
 
-from app.repositories.common import decompose_conv_id
 from app.repositories.models.common import Base64EncodedBytes
 from app.routes.schemas.conversation import (
     AttachmentContent,
@@ -182,9 +179,13 @@ def _convert_to_valid_file_name(file_name: str) -> str:
 
 class AttachmentContentModel(BaseModel):
     content_type: Literal["attachment"]
-    body: Base64EncodedBytes = Field(
-        ...,
-        description="Attachment file bytes.",
+    body: Base64EncodedBytes | None = Field(
+        None,
+        description="Attachment file bytes (legacy inline content).",
+    )
+    s3_key: str | None = Field(
+        None,
+        description="S3 key for attachment stored in S3.",
     )
     file_name: str
 
@@ -193,6 +194,7 @@ class AttachmentContentModel(BaseModel):
         return cls(
             content_type="attachment",
             body=content.body,
+            s3_key=content.s3_key,
             file_name=content.file_name,
         )
 
@@ -200,8 +202,41 @@ class AttachmentContentModel(BaseModel):
         return AttachmentContent(
             content_type="attachment",
             body=self.body,
+            s3_key=self.s3_key,
             file_name=self.file_name,
         )
+
+    def _get_file_bytes(self) -> bytes:
+        """Get file bytes from either inline content or S3"""
+        import base64
+        import boto3
+        import os
+
+        if self.body is not None:
+            # Legacy inline content
+            if isinstance(self.body, bytes):
+                return self.body
+            else:
+                return base64.b64decode(self.body)
+
+        elif self.s3_key is not None:
+            # Fetch from S3
+            s3_client = boto3.client("s3")
+            bucket = os.environ.get("DOCUMENT_BUCKET")
+            if not bucket:
+                raise ValueError("DOCUMENT_BUCKET environment variable not set")
+
+            try:
+                response = s3_client.get_object(Bucket=bucket, Key=self.s3_key)
+                return response["Body"].read()
+            except Exception as e:
+                logger.error(f"Failed to fetch file from S3: {self.s3_key}, error: {e}")
+                raise ValueError(f"Failed to fetch attachment from S3: {str(e)}")
+
+        else:
+            raise ValueError(
+                "Neither inline content nor S3 key provided for attachment"
+            )
 
     def to_contents_for_converse(self) -> list[ContentBlockTypeDef]:
         # e.g. "document.txt" -> "txt"
@@ -216,7 +251,7 @@ class AttachmentContentModel(BaseModel):
                     "document": {
                         "format": format,
                         "name": _convert_to_valid_file_name(name),
-                        "source": {"bytes": self.body},
+                        "source": {"bytes": self._get_file_bytes()},
                     },
                 },
             ]
@@ -228,7 +263,6 @@ class AttachmentContentModel(BaseModel):
         """Convert to Claude 4 invoke API format for document attachments"""
         # Handle Base64-encoded document data properly
         import base64
-        import io
 
         # Get file extension to determine media type
         file_ext = Path(self.file_name).suffix.lower()
@@ -251,13 +285,8 @@ class AttachmentContentModel(BaseModel):
         media_type = mime_type_map.get(file_ext, "application/octet-stream")
 
         # Get raw bytes for processing
-        if isinstance(self.body, bytes):
-            file_bytes = self.body
-            data_str = base64.b64encode(self.body).decode("utf-8")
-        else:
-            # If body is already a string (base64-encoded), decode to get bytes for validation
-            file_bytes = base64.b64decode(self.body)
-            data_str = self.body
+        file_bytes = self._get_file_bytes()
+        data_str = base64.b64encode(file_bytes).decode("utf-8")
 
         # Special handling for PDFs - Claude 4 invoke API processing
         if file_ext == ".pdf":
@@ -398,151 +427,84 @@ class AttachmentContentModel(BaseModel):
     def _extract_pdf_content_for_invoke(
         self, file_bytes: bytes, page_count: int
     ) -> list[dict[str, Any]]:
-        """Extract text and images from PDF for Claude 4 invoke API processing"""
-        import base64
+        """Extract text from PDF for Claude 4 invoke API processing"""
         import gc
-        import time
+
+        logger.info(f"Extracting PDF content for invoke API, {page_count} pages")
+
+        # Process PDF in chunks to handle large files
+        pages_per_chunk = 20  # Smaller chunks for better memory management
+        total_chunks = (page_count + pages_per_chunk - 1) // pages_per_chunk
+
+        logger.info(
+            f"Processing PDF in {total_chunks} chunks of {pages_per_chunk} pages each"
+        )
 
         try:
             import fitz  # PyMuPDF
 
-            # Open PDF with PyMuPDF for text/image extraction
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            doc = fitz.open("pdf", file_bytes)
+        except ImportError:
+            logger.error("PyMuPDF not available")
+            return [
+                {
+                    "type": "text",
+                    "text": f"PDF Document ({page_count} pages): PyMuPDF required for processing. Please install PyMuPDF or try a different format.",
+                }
+            ]
 
-            pages_per_chunk = 20  # Process 20 pages per chunk for efficiency
-            chunks: list[dict[str, Any]] = []
-            total_chunks = (page_count + pages_per_chunk - 1) // pages_per_chunk
+        extracted_content = []
 
-            # Track total payload size to stay under 100MB limit - more aggressive limit
-            total_payload_size = 0
-            max_payload_size = 80 * 1024 * 1024  # 80MB limit - more reasonable
-
-            # Images disabled for speed - text-only processing
-
-            logger.info(
-                f"Starting PDF extraction for {self.file_name}: {page_count} pages in {total_chunks} chunks"
-            )
-
-            start_time = time.time()
-            max_processing_time = (
-                18  # Leave buffer for timeout, but process meaningful chunks
-            )
-
+        try:
+            # Process all chunks synchronously
             for chunk_index in range(total_chunks):
-                # Check timeout and size limits
-                if time.time() - start_time > max_processing_time:
-                    logger.warning(
-                        f"PDF processing timeout after {chunk_index} chunks, will continue in next request"
-                    )
-                    # Add a continuation marker to indicate more content is available
-                    chunks.append(
-                        {
-                            "type": "text",
-                            "text": f"\n\n[PDF processing will continue... Processed {chunk_index * pages_per_chunk} of {page_count} pages]",
-                        }
-                    )
-                    break
-
-                if total_payload_size > max_payload_size:
-                    logger.warning(
-                        f"PDF payload size limit reached after {chunk_index} chunks, switching to text-only mode"
-                    )
-                    # Add remaining pages as text-only
-                    for remaining_chunk_index in range(chunk_index, total_chunks):
-                        remaining_start_page = remaining_chunk_index * pages_per_chunk
-                        remaining_end_page = min(
-                            remaining_start_page + pages_per_chunk, page_count
-                        )
-
-                        text_pages = []
-                        for page_num in range(remaining_start_page, remaining_end_page):
-                            page = doc[page_num]
-                            text_content = page.get_text()
-                            if text_content.strip():
-                                text_pages.append(
-                                    f"[Page {page_num + 1}]\n{text_content.strip()}"
-                                )
-
-                        if text_pages:
-                            text_only_chunk = {
-                                "type": "text",
-                                "text": f"[PDF Text-Only Mode - Pages {remaining_start_page + 1}-{remaining_end_page}]\n\n"
-                                + "\n\n".join(text_pages),
-                            }
-                            chunk_size = len(json.dumps(text_only_chunk).encode())
-                            if total_payload_size + chunk_size < max_payload_size:
-                                chunks.append(text_only_chunk)
-                                total_payload_size += chunk_size
-                            else:
-                                logger.warning(
-                                    f"Cannot fit any more content, stopping at page {remaining_start_page}"
-                                )
-                                break
-                    break
-
                 start_page = chunk_index * pages_per_chunk
                 end_page = min(start_page + pages_per_chunk, page_count)
 
-                # Add chunk header
-                import json
+                logger.info(
+                    f"Processing chunk {chunk_index + 1}/{total_chunks}: pages {start_page}-{end_page-1}"
+                )
 
-                header_text = f"[PDF Document: {self.file_name}] - Pages {start_page + 1}-{end_page} of {page_count}"
-                header_chunk = {"type": "text", "text": header_text}
-                chunks.append(header_chunk)
-                total_payload_size += len(json.dumps(header_chunk).encode())
-
-                # Extract and combine content from pages in this chunk
-                combined_text_pages = []
+                chunk_text = ""
                 for page_num in range(start_page, end_page):
-                    page = doc[page_num]
+                    try:
+                        page = doc.load_page(page_num)
+                        page_text = page.get_text()
+                        if page_text.strip():
+                            chunk_text += (
+                                f"\n\n--- Page {page_num + 1} ---\n{page_text}"
+                            )
+                        # Clear page memory
+                        page = None
+                        gc.collect()
+                    except Exception as e:
+                        logger.error(f"Error extracting page {page_num + 1}: {e}")
+                        chunk_text += f"\n\n--- Page {page_num + 1} (Error) ---\n[Could not extract page content]"
 
-                    # Extract text content
-                    text_content = page.get_text()
-                    if text_content.strip():
-                        combined_text_pages.append(
-                            f"[Page {page_num + 1}]\n{text_content.strip()}"
-                        )
+                if chunk_text.strip():
+                    extracted_content.append(
+                        {
+                            "type": "text",
+                            "text": f"PDF Content (Pages {start_page + 1}-{end_page}):\n{chunk_text}",
+                        }
+                    )
 
-                # Create single combined chunk instead of individual page chunks
-                if combined_text_pages:
-                    combined_chunk = {
+            # Add timeout guidance for large PDFs
+            if total_chunks > 3:  # Only for significantly large PDFs
+                extracted_content.append(
+                    {
                         "type": "text",
-                        "text": f"[Pages {start_page + 1}-{end_page}]\n\n"
-                        + "\n\n".join(combined_text_pages),
+                        "text": f"\n\n⏱️ Note: This is a large PDF ({page_count} pages). If processing times out, partial results will be preserved and you can continue the conversation.",
                     }
-                    chunk_size = len(json.dumps(combined_chunk).encode())
-                    if total_payload_size + chunk_size < max_payload_size:
-                        chunks.append(combined_chunk)
-                        total_payload_size += chunk_size
+                )
 
-                # Force garbage collection between chunks
-                gc.collect()
+            return extracted_content
 
-            doc.close()
-            logger.info(
-                f"Successfully extracted PDF content from {self.file_name}: {len(chunks)} content blocks (text-only), total size: {total_payload_size / (1024*1024):.1f}MB"
-            )
-            return chunks
-
-        except ImportError:
-            logger.error(
-                f"PyMuPDF not available, falling back to error message for {self.file_name}"
-            )
-            return [
-                {
-                    "type": "text",
-                    "text": f"[PDF Document: {self.file_name}]\\n\\nNote: This PDF has {page_count} pages and requires PyMuPDF for processing. Please try with a smaller PDF or install PyMuPDF.",
-                }
-            ]
         except Exception as e:
-            logger.error(f"Failed to extract PDF content from {self.file_name}: {e}")
-            # Fall back to original behavior - return error message
-            return [
-                {
-                    "type": "text",
-                    "text": f"[PDF Document: {self.file_name}]\\n\\nNote: This PDF has {page_count} pages and could not be processed. Please try with a smaller PDF or a different format.",
-                }
-            ]
+            logger.error(f"Error extracting PDF content: {e}")
+            raise ValueError(f"Failed to extract PDF content: {str(e)}")
+        finally:
+            doc.close()
 
 
 class FeedbackModel(BaseModel):

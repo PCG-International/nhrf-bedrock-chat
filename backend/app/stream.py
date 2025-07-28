@@ -6,6 +6,7 @@ from app.agents.tools.agent_tool import AgentTool
 from app.bedrock import (
     BedrockThrottlingException,
     calculate_price,
+    call_invoke_api,
     compose_args_for_converse_api,
     compose_args_for_invoke_api,
     is_claude_4_model,
@@ -515,31 +516,30 @@ class ConverseApiStreamHandler:
         messages: list[SimpleMessageModel],
         message_for_continue_generate: SimpleMessageModel | None = None,
     ) -> OnStopInput:
-        """Handle Claude 4 models using the invoke API for file upload support"""
+        """Handle Claude 4 models using the invoke API - NON-STREAMING to avoid 29s timeout"""
         try:
             # Handle continue generation by appending the partial message to messages
             if message_for_continue_generate is not None:
                 messages = messages + [message_for_continue_generate]
 
-            # Create payload for invoke API
+            # Create payload for invoke API - NON-STREAMING
             args = compose_args_for_invoke_api(
                 messages=messages,
                 model=self.model,
                 instructions=self.instructions,
                 generation_params=self.generation_params,
-                stream=True,
+                stream=False,  # Changed to False for non-streaming
             )
-            logger.info(f"args for invoke_model_with_response_stream: {args}")
+            logger.info(f"args for invoke_model (non-streaming): {args}")
 
-            client = get_bedrock_runtime_client()
             try:
-                response = client.invoke_model_with_response_stream(**args)
+                # Use the existing call_invoke_api function with retry logic
+                response = call_invoke_api(args)
+            except BedrockThrottlingException:
+                # Re-raise throttling exceptions for retry logic
+                raise
             except ClientError as e:
-                if e.response["Error"]["Code"] == "ThrottlingException":
-                    raise BedrockThrottlingException(
-                        "Bedrock API is throttling requests"
-                    ) from e
-                elif e.response["Error"]["Code"] == "ValidationException":
+                if e.response["Error"]["Code"] == "ValidationException":
                     error_message = e.response["Error"]["Message"]
                     if "Could not process PDF" in error_message:
                         raise ValueError(
@@ -554,35 +554,38 @@ class ConverseApiStreamHandler:
                         ) from e
                 raise
 
-            # Process the streaming response for Claude 4 invoke API
+            # Process the complete response for Claude 4 invoke API
+            response_body = json.loads(response["body"].read().decode('utf-8'))
+            logger.info(f"Claude 4 complete response: {response_body}")
+
+            # Extract text content from the complete response
             current_text = ""
             input_token_count = 0
             output_token_count = 0
             stop_reason: StopReasonType = "end_turn"
 
-            for event in response["body"]:
-                chunk = event.get("chunk")
-                if chunk:
-                    chunk_data = json.loads(chunk["bytes"].decode())
+            # Parse the response structure for Claude 4
+            if "content" in response_body:
+                for content_block in response_body["content"]:
+                    if content_block.get("type") == "text":
+                        current_text += content_block.get("text", "")
 
-                    if chunk_data.get("type") == "message_start":
-                        usage = chunk_data.get("message", {}).get("usage", {})
-                        input_token_count = usage.get("input_tokens", 0)
+            # Extract usage information
+            if "usage" in response_body:
+                usage = response_body["usage"]
+                input_token_count = usage.get("input_tokens", 0)
+                output_token_count = usage.get("output_tokens", 0)
 
-                    elif chunk_data.get("type") == "content_block_delta":
-                        delta = chunk_data.get("delta", {})
-                        if delta.get("type") == "text_delta":
-                            text = delta.get("text", "")
-                            current_text += text
-                            if self.on_stream:
-                                self.on_stream(text)
+            # Extract stop reason
+            if "stop_reason" in response_body:
+                stop_reason = response_body["stop_reason"]
 
-                    elif chunk_data.get("type") == "message_delta":
-                        delta = chunk_data.get("delta", {})
-                        if "stop_reason" in delta:
-                            stop_reason = delta["stop_reason"]
-                        usage = chunk_data.get("usage", {})
-                        output_token_count = usage.get("output_tokens", 0)
+            # Send the complete response as a single "stream" (like public.gr does)
+            if self.on_stream and current_text:
+                logger.info(
+                    f"Sending complete Claude 4 response as single stream: {len(current_text)} characters"
+                )
+                self.on_stream(current_text)
 
             # Create the final message
             message = MessageModel(
