@@ -39,12 +39,18 @@ const useConversationApi = () => {
     },
     getRelatedDocuments: (conversationId?: string) => {
       return http.get<RelatedDocument[]>(
-        !conversationId ? null : `conversation/${conversationId}/related-documents`, {
-        keepPreviousData: true,
-      });
+        !conversationId
+          ? null
+          : `conversation/${conversationId}/related-documents`,
+        {
+          keepPreviousData: true,
+        }
+      );
     },
     getRelatedDocument: async (conversationId: string, sourceId: string) => {
-      const res = await http.getOnce<RelatedDocument>(`conversation/${conversationId}/related-documents/${sourceId}`);
+      const res = await http.getOnce<RelatedDocument>(
+        `conversation/${conversationId}/related-documents/${sourceId}`
+      );
       return res.data;
     },
     deleteConversation: (conversationId: string) => {

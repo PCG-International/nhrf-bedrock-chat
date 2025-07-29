@@ -236,7 +236,7 @@ export class Api extends Construct {
       },
       runtime: Runtime.PYTHON_3_13,
       architecture: Architecture.X86_64,
-      memorySize: 1024,
+      memorySize: 4096,
       timeout: Duration.minutes(15),
       environment: {
         CONVERSATION_TABLE_NAME: database.conversationTable.tableName,

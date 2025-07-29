@@ -103,7 +103,7 @@ export class Embedding extends Construct {
             exclude: [...excludeDockerImage],
           }
         ),
-        memorySize: 512,
+        memorySize: 2048,
         timeout: Duration.minutes(1),
         environment: {
           ACCOUNT: Stack.of(this).account,
@@ -132,7 +132,7 @@ export class Embedding extends Construct {
             exclude: [...excludeDockerImage],
           }
         ),
-        memorySize: 512,
+        memorySize: 2048,
         timeout: Duration.minutes(1),
         role: handlerRole,
         environment: {
@@ -156,7 +156,7 @@ export class Embedding extends Construct {
             exclude: [...excludeDockerImage],
           }
         ),
-        memorySize: 512,
+        memorySize: 2048,
         timeout: Duration.minutes(1),
         environment: {
           ACCOUNT: Stack.of(this).account,
@@ -184,7 +184,7 @@ export class Embedding extends Construct {
             exclude: [...excludeDockerImage],
           }
         ),
-        memorySize: 512,
+        memorySize: 2048,
         timeout: Duration.minutes(1),
         environment: {
           ACCOUNT: Stack.of(this).account,
@@ -587,6 +587,7 @@ export class Embedding extends Construct {
           exclude: [...excludeDockerImage],
         }
       ),
+      memorySize: 2048,
       timeout: Duration.minutes(1),
       environment: {
         ACCOUNT: Stack.of(this).account,

@@ -31,7 +31,9 @@ const Select: React.FC<Props> = (props) => {
     <div className={props.className}>
       {props.label && (
         <div>
-          <span className="text-sm dark:text-aws-font-color-dark">{props.label}</span>
+          <span className="text-sm dark:text-aws-font-color-dark">
+            {props.label}
+          </span>
         </div>
       )}
       <Listbox
@@ -41,7 +43,7 @@ const Select: React.FC<Props> = (props) => {
         <div className={twMerge('relative')}>
           <Listbox.Button
             className={twMerge(
-              'relative h-9 w-full cursor-default rounded border border-aws-font-color-light/50 dark:border-aws-font-color-dark/50 py-1 pl-3 pr-10 text-left dark:text-aws-font-color-dark focus:outline-none',
+              'relative h-9 w-full cursor-default rounded border border-aws-font-color-light/50 py-1 pl-3 pr-10 text-left focus:outline-none dark:border-aws-font-color-dark/50 dark:text-aws-font-color-dark',
               !props.disabled && 'bg-white dark:bg-aws-ui-color-dark'
             )}>
             <span className="block truncate">{selectedLabel}</span>
@@ -62,7 +64,7 @@ const Select: React.FC<Props> = (props) => {
             leave="transition ease-in duration-100"
             leaveFrom="opacity-100"
             leaveTo="opacity-0">
-            <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-aws-ui-color-dark py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
+            <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none dark:bg-aws-ui-color-dark sm:text-sm">
               {props.options.map((option, idx) => (
                 <Listbox.Option
                   key={idx}

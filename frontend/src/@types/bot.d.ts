@@ -1,7 +1,4 @@
-import {
-  Agent,
-  AgentInput,
-} from '../features/agent/types';
+import { Agent, AgentInput } from '../features/agent/types';
 import { BedrockKnowledgeBase } from '../features/knowledgeBase/types';
 import { Model } from './conversation';
 export type BotKind = 'private' | 'mixed';

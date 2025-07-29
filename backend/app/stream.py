@@ -246,6 +246,19 @@ class ConverseApiStreamHandler:
                     raise BedrockThrottlingException(
                         "Bedrock API is throttling requests"
                     ) from e
+                elif e.response["Error"]["Code"] == "ValidationException":
+                    error_message = e.response["Error"]["Message"]
+                    if "Could not process PDF" in error_message:
+                        raise ValueError(
+                            "The PDF file you uploaded cannot be processed by the AI model. "
+                            "This may be due to the file being too large (over 100 pages), "
+                            "containing complex formatting, or being password-protected. "
+                            "Please try uploading a smaller PDF or converting it to text format."
+                        ) from e
+                    else:
+                        raise ValueError(
+                            f"File processing error: {error_message}"
+                        ) from e
                 raise
 
             current_message = _PartialMessage(
@@ -520,6 +533,10 @@ class ConverseApiStreamHandler:
     ) -> OnStopInput:
         """Handle Claude 4 models using the invoke API for file upload support"""
         try:
+            # Handle continue generation by appending the partial message to messages
+            if message_for_continue_generate is not None:
+                messages = messages + [message_for_continue_generate]
+
             # Create payload for invoke API
             args = compose_args_for_invoke_api(
                 messages=messages,
@@ -538,6 +555,19 @@ class ConverseApiStreamHandler:
                     raise BedrockThrottlingException(
                         "Bedrock API is throttling requests"
                     ) from e
+                elif e.response["Error"]["Code"] == "ValidationException":
+                    error_message = e.response["Error"]["Message"]
+                    if "Could not process PDF" in error_message:
+                        raise ValueError(
+                            "The PDF file you uploaded cannot be processed by the AI model. "
+                            "This may be due to the file being too large (over 100 pages), "
+                            "containing complex formatting, or being password-protected. "
+                            "Please try uploading a smaller PDF or converting it to text format."
+                        ) from e
+                    else:
+                        raise ValueError(
+                            f"File processing error: {error_message}"
+                        ) from e
                 raise
 
             # Process the streaming response for Claude 4 invoke API

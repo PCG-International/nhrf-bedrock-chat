@@ -79,7 +79,8 @@ export const MAX_ATTACHED_FILES = 5;
 
 // Claude 4 models use invoke API instead of converse API and have higher file size limits
 export const CLAUDE_4_MAX_FILE_SIZE_MB = 50; // 50 MB limit for Claude 4 models
-export const CLAUDE_4_MAX_FILE_SIZE_BYTES = CLAUDE_4_MAX_FILE_SIZE_MB * 1024 * 1024;
+export const CLAUDE_4_MAX_FILE_SIZE_BYTES =
+  CLAUDE_4_MAX_FILE_SIZE_MB * 1024 * 1024;
 
 // Claude 4 model detection
 export const CLAUDE_4_MODELS = ['claude-v4-opus', 'claude-v4-sonnet'];
