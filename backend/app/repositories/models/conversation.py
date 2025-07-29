@@ -188,6 +188,9 @@ class AttachmentContentModel(BaseModel):
 
     @classmethod
     def from_attachment_content(cls, content: AttachmentContent) -> Self:
+        # For the reverted simple model, we only support inline content
+        if content.body is None:
+            raise ValueError("Only inline attachment content is supported in the reverted model")
         return cls(
             content_type="attachment",
             body=content.body,
@@ -198,6 +201,7 @@ class AttachmentContentModel(BaseModel):
         return AttachmentContent(
             content_type="attachment",
             body=self.body,
+            s3_key=None,  # Not used in reverted model
             file_name=self.file_name,
         )
 
