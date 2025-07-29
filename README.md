@@ -114,7 +114,8 @@ Example usage:
     "selfSignUpEnabled": false,
     "enableLambdaSnapStart": true,
     "allowedIpV4AddressRanges": ["192.168.1.0/24"],
-    "allowedSignUpEmailDomains": ["example.com"]
+    "allowedSignUpEmailDomains": ["example.com"],
+    "claude4UseConverseApi": false
   }
 }'
 ```
@@ -129,10 +130,34 @@ The override JSON must follow the same structure as cdk.json. You can override a
 - `bedrockRegion`
 - `enableRagReplicas`
 - `enableBedrockCrossRegionInference`
+- `claude4UseConverseApi`
 - And other context values defined in cdk.json
 
 > [!Note]
 > The override values will be merged with the existing cdk.json configuration during the deployment time in the AWS code build. Values specified in the override will take precedence over the values in cdk.json.
+
+#### Claude 4 API Configuration
+
+The `claude4UseConverseApi` parameter controls which API Claude 4 models use:
+
+- **`true` (default)**: Use Converse API for Claude 4 models
+  - Provides stable streaming responses
+  - Standard behavior consistent with other models
+  - Recommended for most use cases
+
+- **`false`**: Use Invoke API for Claude 4 models  
+  - Supports larger file attachments (up to 50MB)
+  - Non-streaming responses to avoid API Gateway 29-second timeout
+  - Use when uploading large PDFs or documents with Claude 4
+
+**Example configuration for large file uploads:**
+```bash
+./bin.sh --cdk-json-override '{
+  "context": {
+    "claude4UseConverseApi": false
+  }
+}'
+```
 
 #### Example command with parameters:
 

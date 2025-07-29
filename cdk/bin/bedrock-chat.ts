@@ -88,6 +88,7 @@ const chat = new BedrockChatStack(
     enableRagReplicas: params.enableRagReplicas,
     enableBedrockCrossRegionInference: params.enableBedrockCrossRegionInference,
     enableLambdaSnapStart: params.enableLambdaSnapStart,
+    claude4UseConverseApi: params.claude4UseConverseApi,
     alternateDomainName: params.alternateDomainName,
     hostedZoneId: params.hostedZoneId,
     enableBotStore: params.enableBotStore,

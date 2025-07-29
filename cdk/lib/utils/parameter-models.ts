@@ -100,6 +100,9 @@ const BedrockChatParametersSchema = BaseParametersSchema.extend({
   // ID token refresh interval
   tokenValidMinutes: z.number().default(30),
 
+  // Claude 4 API selection
+  claude4UseConverseApi: z.boolean().default(true),
+
   // debug parameter
   devAccessIamRoleArn: z.string().default("")
 });
@@ -224,6 +227,7 @@ export function resolveBedrockChatParameters(
     enableBotStore: app.node.tryGetContext("enableBotStore"),
     enableBotStoreReplicas: app.node.tryGetContext("EnableBotStoreReplicas"),
     botStoreLanguage: app.node.tryGetContext("botStoreLanguage"),
+    claude4UseConverseApi: app.node.tryGetContext("claude4UseConverseApi"),
     devAccessIamRoleArn: app.node.tryGetContext("devAccessIamRoleArn"),
   };
 

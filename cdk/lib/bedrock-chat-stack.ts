@@ -44,6 +44,7 @@ export interface BedrockChatStackProps extends StackProps {
   readonly enableRagReplicas: boolean;
   readonly enableBedrockCrossRegionInference: boolean;
   readonly enableLambdaSnapStart: boolean;
+  readonly claude4UseConverseApi: boolean;
   readonly enableBotStore: boolean;
   readonly enableBotStoreReplicas: boolean;
   readonly botStoreLanguage: Language;
@@ -202,6 +203,7 @@ export class BedrockChatStack extends cdk.Stack {
       enableBedrockCrossRegionInference:
         props.enableBedrockCrossRegionInference,
       enableLambdaSnapStart: props.enableLambdaSnapStart,
+      claude4UseConverseApi: props.claude4UseConverseApi,
       openSearchEndpoint: botStore?.openSearchEndpoint,
     });
     props.documentBucket.grantReadWrite(backendApi.handler);

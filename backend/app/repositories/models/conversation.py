@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import json
 import logging
 import re
@@ -6,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, TypeGuard
 from urllib.parse import urlparse
 
+from app.repositories.common import decompose_conv_id
 from app.repositories.models.common import Base64EncodedBytes
 from app.routes.schemas.conversation import (
     AttachmentContent,
@@ -161,7 +163,6 @@ def _is_converse_supported_document_format(ext: str) -> TypeGuard[DocumentFormat
         "html",
         "txt",
         "md",
-        "epub",
     }
     return ext in supported_formats
 
@@ -179,13 +180,9 @@ def _convert_to_valid_file_name(file_name: str) -> str:
 
 class AttachmentContentModel(BaseModel):
     content_type: Literal["attachment"]
-    body: Base64EncodedBytes | None = Field(
-        None,
-        description="Attachment file bytes (legacy inline content).",
-    )
-    s3_key: str | None = Field(
-        None,
-        description="S3 key for attachment stored in S3.",
+    body: Base64EncodedBytes = Field(
+        ...,
+        description="Attachment file bytes.",
     )
     file_name: str
 
@@ -194,7 +191,6 @@ class AttachmentContentModel(BaseModel):
         return cls(
             content_type="attachment",
             body=content.body,
-            s3_key=content.s3_key,
             file_name=content.file_name,
         )
 
@@ -202,41 +198,8 @@ class AttachmentContentModel(BaseModel):
         return AttachmentContent(
             content_type="attachment",
             body=self.body,
-            s3_key=self.s3_key,
             file_name=self.file_name,
         )
-
-    def _get_file_bytes(self) -> bytes:
-        """Get file bytes from either inline content or S3"""
-        import base64
-        import boto3
-        import os
-
-        if self.body is not None:
-            # Legacy inline content
-            if isinstance(self.body, bytes):
-                return self.body
-            else:
-                return base64.b64decode(self.body)
-
-        elif self.s3_key is not None:
-            # Fetch from S3
-            s3_client = boto3.client("s3")
-            bucket = os.environ.get("DOCUMENT_BUCKET")
-            if not bucket:
-                raise ValueError("DOCUMENT_BUCKET environment variable not set")
-
-            try:
-                response = s3_client.get_object(Bucket=bucket, Key=self.s3_key)
-                return response["Body"].read()
-            except Exception as e:
-                logger.error(f"Failed to fetch file from S3: {self.s3_key}, error: {e}")
-                raise ValueError(f"Failed to fetch attachment from S3: {str(e)}")
-
-        else:
-            raise ValueError(
-                "Neither inline content nor S3 key provided for attachment"
-            )
 
     def to_contents_for_converse(self) -> list[ContentBlockTypeDef]:
         # e.g. "document.txt" -> "txt"
@@ -251,7 +214,7 @@ class AttachmentContentModel(BaseModel):
                     "document": {
                         "format": format,
                         "name": _convert_to_valid_file_name(name),
-                        "source": {"bytes": self._get_file_bytes()},
+                        "source": {"bytes": self.body},
                     },
                 },
             ]
@@ -263,6 +226,7 @@ class AttachmentContentModel(BaseModel):
         """Convert to Claude 4 invoke API format for document attachments"""
         # Handle Base64-encoded document data properly
         import base64
+        import io
 
         # Get file extension to determine media type
         file_ext = Path(self.file_name).suffix.lower()
@@ -279,33 +243,30 @@ class AttachmentContentModel(BaseModel):
             ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ".xls": "application/vnd.ms-excel",
             ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ".epub": "application/epub+zip",
         }
 
         media_type = mime_type_map.get(file_ext, "application/octet-stream")
 
         # Get raw bytes for processing
-        file_bytes = self._get_file_bytes()
-        data_str = base64.b64encode(file_bytes).decode("utf-8")
+        if isinstance(self.body, bytes):
+            file_bytes = self.body
+            data_str = base64.b64encode(self.body).decode("utf-8")
+        else:
+            # If body is already a string (base64-encoded), decode to get bytes for validation
+            file_bytes = base64.b64decode(self.body)
+            data_str = self.body
 
-        # Special handling for PDFs - Claude 4 invoke API processing
+        # Special validation for PDFs - Claude 4 invoke API has a 100 page limit
         if file_ext == ".pdf":
             try:
-                # Count PDF pages using PyMuPDF
+                # Try to count PDF pages using pypdf if available
                 try:
-                    import fitz  # PyMuPDF
+                    import pypdf
 
-                    doc = fitz.open(stream=file_bytes, filetype="pdf")
-                    page_count = doc.page_count
-                    doc.close()
+                    pdf_stream = io.BytesIO(file_bytes)
+                    pdf_reader = pypdf.PdfReader(pdf_stream)
+                    page_count = len(pdf_reader.pages)
 
-                    # If PDF has more than 30 pages, chunk it for better performance
-                    if page_count > 30:
-                        return self._extract_pdf_content_for_invoke(
-                            file_bytes, page_count
-                        )
-
-                    # If PDF exceeds 100 pages, show error as fallback
                     if page_count > 100:
                         return [
                             {
@@ -314,7 +275,7 @@ class AttachmentContentModel(BaseModel):
                             }
                         ]
                 except ImportError:
-                    # PyMuPDF not available, fall back to size-based estimation
+                    # pypdf not available, fall back to size-based estimation
                     # Rough estimation: assume ~5KB per page on average
                     estimated_pages = len(file_bytes) // (5 * 1024)
                     if estimated_pages > 100:
@@ -330,37 +291,6 @@ class AttachmentContentModel(BaseModel):
                 )
                 # Continue with normal processing if validation fails
 
-        # Special handling for EPUB files - extract text and return as text for invoke API
-        # (Claude 4 invoke API only accepts application/pdf for documents)
-        if file_ext == ".epub":
-            try:
-                extracted_text = self._extract_epub_text(file_bytes)
-                if extracted_text:
-                    # Return as text format since invoke API doesn't support EPUB documents
-                    return [
-                        {
-                            "type": "text",
-                            "text": f"[EPUB Document: {self.file_name}]\n\n{extracted_text}",
-                        }
-                    ]
-                else:
-                    return [
-                        {
-                            "type": "text",
-                            "text": f"[EPUB Document: {self.file_name}]\n\nNote: Could not extract text from this EPUB file. The file may be corrupted or protected.",
-                        }
-                    ]
-            except Exception as e:
-                logger.warning(
-                    f"Failed to extract text from EPUB {self.file_name}: {e}"
-                )
-                return [
-                    {
-                        "type": "text",
-                        "text": f"[EPUB Document: {self.file_name}]\n\nNote: Error processing EPUB file. Please try with a different file format.",
-                    }
-                ]
-
         return [
             {
                 "type": "document",
@@ -371,140 +301,6 @@ class AttachmentContentModel(BaseModel):
                 },
             }
         ]
-
-    def _extract_epub_text(self, file_bytes: bytes) -> str:
-        """Extract text content from EPUB file bytes"""
-        try:
-            import ebooklib
-            from ebooklib import epub
-            from bs4 import BeautifulSoup
-            import tempfile
-            import os
-
-            # Create temporary file since ebooklib.epub.read_epub needs a file path
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as temp_file:
-                temp_file.write(file_bytes)
-                temp_file_path = temp_file.name
-
-            try:
-                # Create EPUB book from temporary file
-                book = epub.read_epub(temp_file_path)
-
-                # Extract text from all document items
-                text_content = []
-
-                # Get all document items (HTML/XHTML content)
-                for item in book.get_items():
-                    if item.get_type() == ebooklib.ITEM_DOCUMENT:
-                        # Get the content and parse with BeautifulSoup
-                        content = item.get_content().decode("utf-8", errors="ignore")
-                        soup = BeautifulSoup(content, "html.parser")
-
-                        # Extract text from paragraphs, maintaining some structure
-                        for paragraph in soup.find_all(
-                            ["p", "div", "span", "h1", "h2", "h3", "h4", "h5", "h6"]
-                        ):
-                            text = paragraph.get_text(strip=True)
-                            if text:
-                                text_content.append(text)
-
-                # Join all text with double newlines for readability
-                return "\n\n".join(text_content)
-            finally:
-                # Clean up temporary file
-                if os.path.exists(temp_file_path):
-                    os.unlink(temp_file_path)
-
-        except ImportError:
-            logger.error(
-                "ebooklib or beautifulsoup4 not installed - cannot process EPUB files"
-            )
-            return ""
-        except Exception as e:
-            logger.error(f"Error extracting text from EPUB: {e}")
-            return ""
-
-    def _extract_pdf_content_for_invoke(
-        self, file_bytes: bytes, page_count: int
-    ) -> list[dict[str, Any]]:
-        """Extract text from PDF for Claude 4 invoke API processing"""
-        import gc
-
-        logger.info(f"Extracting PDF content for invoke API, {page_count} pages")
-
-        # Process PDF in chunks to handle large files
-        pages_per_chunk = 20  # Smaller chunks for better memory management
-        total_chunks = (page_count + pages_per_chunk - 1) // pages_per_chunk
-
-        logger.info(
-            f"Processing PDF in {total_chunks} chunks of {pages_per_chunk} pages each"
-        )
-
-        try:
-            import fitz  # PyMuPDF
-
-            doc = fitz.open("pdf", file_bytes)
-        except ImportError:
-            logger.error("PyMuPDF not available")
-            return [
-                {
-                    "type": "text",
-                    "text": f"PDF Document ({page_count} pages): PyMuPDF required for processing. Please install PyMuPDF or try a different format.",
-                }
-            ]
-
-        extracted_content = []
-
-        try:
-            # Process all chunks synchronously
-            for chunk_index in range(total_chunks):
-                start_page = chunk_index * pages_per_chunk
-                end_page = min(start_page + pages_per_chunk, page_count)
-
-                logger.info(
-                    f"Processing chunk {chunk_index + 1}/{total_chunks}: pages {start_page}-{end_page-1}"
-                )
-
-                chunk_text = ""
-                for page_num in range(start_page, end_page):
-                    try:
-                        page = doc.load_page(page_num)
-                        page_text = page.get_text()
-                        if page_text.strip():
-                            chunk_text += (
-                                f"\n\n--- Page {page_num + 1} ---\n{page_text}"
-                            )
-                        # Clear page memory
-                        page = None
-                        gc.collect()
-                    except Exception as e:
-                        logger.error(f"Error extracting page {page_num + 1}: {e}")
-                        chunk_text += f"\n\n--- Page {page_num + 1} (Error) ---\n[Could not extract page content]"
-
-                if chunk_text.strip():
-                    extracted_content.append(
-                        {
-                            "type": "text",
-                            "text": f"PDF Content (Pages {start_page + 1}-{end_page}):\n{chunk_text}",
-                        }
-                    )
-
-            # Add timeout guidance for large PDFs
-            if total_chunks > 3:  # Only for significantly large PDFs
-                extracted_content.append(
-                    {
-                        "type": "text",
-                        "text": f"\n\n⏱️ Note: This is a large PDF ({page_count} pages). If processing times out, partial results will be preserved and you can continue the conversation.",
-                    }
-                )
-
-            return extracted_content
-
-        except Exception as e:
-            logger.error(f"Error extracting PDF content: {e}")
-            raise ValueError(f"Failed to extract PDF content: {str(e)}")
-        finally:
-            doc.close()
 
 
 class FeedbackModel(BaseModel):

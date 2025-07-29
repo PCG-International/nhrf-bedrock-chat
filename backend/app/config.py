@@ -1,4 +1,10 @@
+import os
 from typing_extensions import NotRequired, TypedDict
+
+# Claude 4 API Selection Configuration
+# Set CLAUDE4_USE_CONVERSE_API=true to force Claude 4 models to use Converse API instead of Invoke API
+# Default: false (use Invoke API for Claude 4 models)
+CLAUDE4_USE_CONVERSE_API = os.environ.get("CLAUDE4_USE_CONVERSE_API", "false").lower() == "true"
 
 
 class GenerationParams(TypedDict):

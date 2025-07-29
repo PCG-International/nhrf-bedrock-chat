@@ -94,6 +94,7 @@
     "enableBotStoreReplicas": true,
     "botStoreLanguage": "en",
     "tokenValidMinutes": 30,
+    "claude4UseConverseApi": true,
     "alternateDomainName": "ai-pilot.eie.gr/",
     "hostedZoneId": "",
     "devAccessIamRoleArn": ""

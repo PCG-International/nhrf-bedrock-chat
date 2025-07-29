@@ -11,6 +11,7 @@ from app.bedrock import (
     compose_args_for_invoke_api,
     is_claude_4_model,
 )
+from app.config import CLAUDE4_USE_CONVERSE_API
 from app.repositories.models.conversation import (
     ContentModel,
     MessageModel,
@@ -202,12 +203,19 @@ class ConverseApiStreamHandler:
         prompt_caching_enabled: bool = False,
     ) -> OnStopInput:
         try:
-            # Check if this is a Claude 4 model and use invoke API instead
-            if is_claude_4_model(self.model):
+            # Check if this is a Claude 4 model and decide which API to use
+            if is_claude_4_model(self.model) and not CLAUDE4_USE_CONVERSE_API:
+                # Use invoke API for Claude 4 (default behavior)
+                logger.info(f"Using Invoke API for Claude 4 model: {self.model}")
                 return self._run_invoke_api(
                     messages=messages,
                     message_for_continue_generate=message_for_continue_generate,
                 )
+            # For Claude 4 with CLAUDE4_USE_CONVERSE_API=true, or non-Claude-4 models, use converse API
+            if is_claude_4_model(self.model):
+                logger.info(f"Using Converse API for Claude 4 model: {self.model} (CLAUDE4_USE_CONVERSE_API=true)")
+            else:
+                logger.info(f"Using Converse API for non-Claude-4 model: {self.model}")
 
             # Create payload to invoke Bedrock (original converse API)
             args = compose_args_for_converse_api(
