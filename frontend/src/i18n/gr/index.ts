@@ -17,6 +17,21 @@ const translation = {
       userGroups: 'Ομάδες Χρηστών',
     },
     model: {
+      'claude-v4-opus': {
+        label: 'Claude 4 (Opus)',
+        description:
+          'Ισχυρό υβριδικό μοντέλο συλλογισμού για σύνθετες εργασίες, κωδικοποίηση και AI agents με παράθυρο περιβάλλοντος 200K tokens.',
+      },
+      'claude-v4.1-opus': {
+        label: 'Claude 4.1 (Opus)',
+        description:
+          'Η τελευταία έκδοση του πιο ισχυρού μοντέλου Claude με ενισχυμένες δυνατότητες συλλογισμού.',
+      },
+      'claude-v4-sonnet': {
+        label: 'Claude 4 (Sonnet)',
+        description:
+          'Ισορροπημένο υβριδικό μοντέλο συλλογισμού βελτιστοποιημένο για αποδοτικότητα σε μεγάλη κλίμακα με παράθυρο περιβάλλοντος 200K tokens.',
+      },
       'claude-v3-haiku': {
         label: 'Claude 3 (Haiku)',
         description:
