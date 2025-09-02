@@ -93,6 +93,7 @@
     "enableBotStore": true,
     "enableBotStoreReplicas": true,
     "botStoreLanguage": "en",
+    "globalAvailableModels": [],
     "tokenValidMinutes": 30,
     "alternateDomainName": "ai-pilot.eie.gr/",
     "hostedZoneId": "",
