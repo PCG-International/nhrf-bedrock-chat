@@ -110,7 +110,7 @@ export class BotStore extends Construct {
       type: "SEARCH",
       standbyReplicas,
     });
-    this.collection.applyRemovalPolicy(RemovalPolicy.DESTROY)
+    this.collection.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
     const endpoint = this.collection.getAtt("CollectionEndpoint").toString();
 
@@ -130,12 +130,16 @@ export class BotStore extends Construct {
       retention: logs.RetentionDays.ONE_WEEK,
     });
 
-    let conversationIngestionLogGroup = new logs.LogGroup(this, "ConversationIngensionLogGroup", {
-      logGroupName:
-        `/aws/vendedlogs/OpenSearchIngestion/${props.envPrefix}conversation-table-osis-pipeline/${id}`.toLowerCase(),
-      removalPolicy: RemovalPolicy.DESTROY,
-      retention: logs.RetentionDays.ONE_WEEK,
-    });
+    let conversationIngestionLogGroup = new logs.LogGroup(
+      this,
+      "ConversationIngensionLogGroup",
+      {
+        logGroupName:
+          `/aws/vendedlogs/OpenSearchIngestion/${props.envPrefix}conversation-table-osis-pipeline/${id}`.toLowerCase(),
+        removalPolicy: RemovalPolicy.DESTROY,
+        retention: logs.RetentionDays.ONE_WEEK,
+      }
+    );
 
     const osisRole = new Role(this, "OsisRole", {
       assumedBy: new ServicePrincipal("osis-pipelines.amazonaws.com"),
@@ -152,8 +156,8 @@ export class BotStore extends Construct {
           ],
           resources: [
             props.botTable.tableArn,
-            props.conversationTable.tableArn
-          ] 
+            props.conversationTable.tableArn,
+          ],
         }),
         new PolicyStatement({
           sid: "allowCheckExportjob",
@@ -161,8 +165,8 @@ export class BotStore extends Construct {
           actions: ["dynamodb:DescribeExport"],
           resources: [
             `${props.botTable.tableArn}/export/*`,
-            `${props.conversationTable.tableArn}/export/*`
-          ]
+            `${props.conversationTable.tableArn}/export/*`,
+          ],
         }),
         new PolicyStatement({
           sid: "allowReadFromStream",
@@ -174,8 +178,8 @@ export class BotStore extends Construct {
           ],
           resources: [
             `${props.botTable.tableArn}/stream/*`,
-            `${props.conversationTable.tableArn}/stream/*`
-          ]
+            `${props.conversationTable.tableArn}/stream/*`,
+          ],
         }),
         new PolicyStatement({
           sid: "allowReadAndWriteToS3ForExport",
@@ -300,16 +304,17 @@ export class BotStore extends Construct {
       pipelineConfigurationBody: JSON.stringify(botOsisPipelineConfig),
     });
 
-    const conversationOsisPipelineConfig = this._createConversationOsisPipelineConfig({
-      botTable: props.botTable,
-      conversationTable: props.conversationTable,
-      osisRole,
-      bucketName: bucket.bucketName,
-      endpoint,
-      envPrefix: props.envPrefix,
-      language: props.language,
-      region,
-    });
+    const conversationOsisPipelineConfig =
+      this._createConversationOsisPipelineConfig({
+        botTable: props.botTable,
+        conversationTable: props.conversationTable,
+        osisRole,
+        bucketName: bucket.bucketName,
+        endpoint,
+        envPrefix: props.envPrefix,
+        language: props.language,
+        region,
+      });
 
     new osis.CfnPipeline(this, "ConversationOsisPipeline", {
       pipelineName: generatePhysicalName(
@@ -337,7 +342,6 @@ export class BotStore extends Construct {
 
     this.openSearchEndpoint = endpoint;
   }
-
 
   public addDataAccessPolicy(
     envPrefix: string,
@@ -382,8 +386,8 @@ export class BotStore extends Construct {
   }
 
   /**
- * Generate template content for bot tables
- */
+   * Generate template content for bot tables
+   */
   private _genBotTemplateContent(language: Language): string {
     switch (language) {
       case "ja":
@@ -453,7 +457,9 @@ export class BotStore extends Construct {
                 : {
                     index_type: "custom",
                     template_type: "index-template",
-                    template_content: this._genBotTemplateContent(props.language),
+                    template_content: this._genBotTemplateContent(
+                      props.language
+                    ),
                   }),
               document_id: '${getMetadata("primary_key")}',
               action: '${getMetadata("opensearch_action")}',
@@ -505,18 +511,18 @@ export class BotStore extends Construct {
                   fields: {
                     keyword: {
                       type: "keyword",
-                      ignore_above: 256
-                    }
-                  }
+                      ignore_above: 256,
+                    },
+                  },
                 },
                 SK: {
                   type: "text",
                   fields: {
                     keyword: {
                       type: "keyword",
-                      ignore_above: 256
-                    }
-                  }
+                      ignore_above: 256,
+                    },
+                  },
                 },
                 CreateTime: { type: "double" },
                 LastUpdateTime: { type: "double" },
@@ -525,10 +531,10 @@ export class BotStore extends Construct {
                   fields: {
                     keyword: {
                       type: "keyword",
-                      ignore_above: 256
-                    }
+                      ignore_above: 256,
+                    },
                   },
-                  analyzer: "ja_analyzer"
+                  analyzer: "ja_analyzer",
                 },
                 messages: {
                   properties: {
@@ -537,9 +543,9 @@ export class BotStore extends Construct {
                       fields: {
                         keyword: {
                           type: "keyword",
-                          ignore_above: 256
-                        }
-                      }
+                          ignore_above: 256,
+                        },
+                      },
                     },
                     value: {
                       properties: {
@@ -548,9 +554,9 @@ export class BotStore extends Construct {
                           fields: {
                             keyword: {
                               type: "keyword",
-                              ignore_above: 256
-                            }
-                          }
+                              ignore_above: 256,
+                            },
+                          },
                         },
                         content: {
                           properties: {
@@ -559,57 +565,57 @@ export class BotStore extends Construct {
                               fields: {
                                 keyword: {
                                   type: "keyword",
-                                  ignore_above: 256
-                                }
-                              }
+                                  ignore_above: 256,
+                                },
+                              },
                             },
                             body: {
                               type: "text",
                               fields: {
                                 keyword: {
                                   type: "keyword",
-                                  ignore_above: 256
-                                }
+                                  ignore_above: 256,
+                                },
                               },
-                              analyzer: "ja_analyzer"
-                            }
-                          }
+                              analyzer: "ja_analyzer",
+                            },
+                          },
                         },
                         model: {
                           type: "text",
                           fields: {
                             keyword: {
                               type: "keyword",
-                              ignore_above: 256
-                            }
-                          }
+                              ignore_above: 256,
+                            },
+                          },
                         },
                         children: {
                           type: "text",
                           fields: {
                             keyword: {
                               type: "keyword",
-                              ignore_above: 256
-                            }
-                          }
+                              ignore_above: 256,
+                            },
+                          },
                         },
                         parent: {
                           type: "text",
                           fields: {
                             keyword: {
                               type: "keyword",
-                              ignore_above: 256
-                            }
-                          }
+                              ignore_above: 256,
+                            },
+                          },
                         },
-                        create_time: { type: "double" }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+                        create_time: { type: "double" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         });
       default:
         return JSON.stringify({
@@ -622,18 +628,18 @@ export class BotStore extends Construct {
                   fields: {
                     keyword: {
                       type: "keyword",
-                      ignore_above: 256
-                    }
-                  }
+                      ignore_above: 256,
+                    },
+                  },
                 },
                 SK: {
                   type: "text",
                   fields: {
                     keyword: {
                       type: "keyword",
-                      ignore_above: 256
-                    }
-                  }
+                      ignore_above: 256,
+                    },
+                  },
                 },
                 CreateTime: { type: "double" },
                 LastUpdateTime: { type: "double" },
@@ -642,9 +648,9 @@ export class BotStore extends Construct {
                   fields: {
                     keyword: {
                       type: "keyword",
-                      ignore_above: 256
-                    }
-                  }
+                      ignore_above: 256,
+                    },
+                  },
                 },
                 messages: {
                   properties: {
@@ -653,9 +659,9 @@ export class BotStore extends Construct {
                       fields: {
                         keyword: {
                           type: "keyword",
-                          ignore_above: 256
-                        }
-                      }
+                          ignore_above: 256,
+                        },
+                      },
                     },
                     value: {
                       properties: {
@@ -664,9 +670,9 @@ export class BotStore extends Construct {
                           fields: {
                             keyword: {
                               type: "keyword",
-                              ignore_above: 256
-                            }
-                          }
+                              ignore_above: 256,
+                            },
+                          },
                         },
                         content: {
                           properties: {
@@ -675,56 +681,56 @@ export class BotStore extends Construct {
                               fields: {
                                 keyword: {
                                   type: "keyword",
-                                  ignore_above: 256
-                                }
-                              }
+                                  ignore_above: 256,
+                                },
+                              },
                             },
                             body: {
                               type: "text",
                               fields: {
                                 keyword: {
                                   type: "keyword",
-                                  ignore_above: 256
-                                }
-                              }
-                            }
-                          }
+                                  ignore_above: 256,
+                                },
+                              },
+                            },
+                          },
                         },
                         model: {
                           type: "text",
                           fields: {
                             keyword: {
                               type: "keyword",
-                              ignore_above: 256
-                            }
-                          }
+                              ignore_above: 256,
+                            },
+                          },
                         },
                         children: {
                           type: "text",
                           fields: {
                             keyword: {
                               type: "keyword",
-                              ignore_above: 256
-                            }
-                          }
+                              ignore_above: 256,
+                            },
+                          },
                         },
                         parent: {
                           type: "text",
                           fields: {
                             keyword: {
                               type: "keyword",
-                              ignore_above: 256
-                            }
-                          }
+                              ignore_above: 256,
+                            },
+                          },
                         },
-                        create_time: { type: "double" }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+                        create_time: { type: "double" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         });
     }
   }
@@ -732,7 +738,9 @@ export class BotStore extends Construct {
   /**
    * Generate OSIS pipeline settings for conversation tables
    */
-  private _createConversationOsisPipelineConfig(props: OsisPipelineConfigProps): any {
+  private _createConversationOsisPipelineConfig(
+    props: OsisPipelineConfigProps
+  ): any {
     return {
       version: "2",
       "dynamodb-pipeline": {
@@ -762,8 +770,8 @@ export class BotStore extends Construct {
           {
             parse_json: {
               source: "MessageMap",
-              destination: "parsed_message_map"
-            }
+              destination: "parsed_message_map",
+            },
           },
           // Step 2: Initialize conversation data
           {
@@ -771,10 +779,10 @@ export class BotStore extends Construct {
               entries: [
                 {
                   key: "messages",
-                  value: []
-                }
-              ]
-            }
+                  value: [],
+                },
+              ],
+            },
           },
           // Step 3: List all messages except system
           {
@@ -782,8 +790,8 @@ export class BotStore extends Construct {
               source: "parsed_message_map",
               target: "messages",
               exclude_keys: [],
-              key_name: "id"
-            }
+              key_name: "id",
+            },
           },
           // Step 4: Remove unnecessary data
           {
@@ -795,9 +803,9 @@ export class BotStore extends Construct {
                 "LastMessageId",
                 "MessageMap",
                 "parsed_message_map",
-              ]
-            }
-          }
+              ],
+            },
+          },
         ],
         sink: [
           {
@@ -805,8 +813,10 @@ export class BotStore extends Construct {
               hosts: [props.endpoint],
               index: `${props.envPrefix}conversation`,
               index_type: "custom",
-              template_type: "index-template", 
-              template_content: this._genConversationTemplateContent(props.language),
+              template_type: "index-template",
+              template_content: this._genConversationTemplateContent(
+                props.language
+              ),
               document_id: '${getMetadata("primary_key")}',
               action: '${getMetadata("opensearch_action")}',
               document_version: '${getMetadata("document_version")}',

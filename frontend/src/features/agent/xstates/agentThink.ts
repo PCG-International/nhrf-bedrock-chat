@@ -1,6 +1,9 @@
 import { setup, assign } from 'xstate';
 import { produce } from 'immer';
-import { AgentToolResultContent, RelatedDocument } from '../../../@types/conversation';
+import {
+  AgentToolResultContent,
+  RelatedDocument,
+} from '../../../@types/conversation';
 
 export type AgentToolsProps = {
   thought?: string;
@@ -68,68 +71,75 @@ export const agentThinkingState = setup({
       relatedDocuments: [],
     }),
     updateThought: assign({
-      tools: ({ context, event }) => produce(context.tools, draft => {
-        if (event.type === 'thought') {
-          if (draft.length > 0 && draft[draft.length - 1].thought == null) {
-            draft[draft.length - 1].thought = event.thought;
-          } else {
-            draft.push({
-              thought: event.thought,
-              tools: {},
-            });
+      tools: ({ context, event }) =>
+        produce(context.tools, (draft) => {
+          if (event.type === 'thought') {
+            if (draft.length > 0 && draft[draft.length - 1].thought == null) {
+              draft[draft.length - 1].thought = event.thought;
+            } else {
+              draft.push({
+                thought: event.thought,
+                tools: {},
+              });
+            }
           }
-        }
-      }),
+        }),
     }),
     addTool: assign({
-      tools: ({ context, event }) => produce(context.tools, draft => {
-        if (event.type === 'go-on') {
-          if (draft.length > 0) {
-            draft[draft.length - 1].tools[event.toolUseId] = {
-              name: event.name,
-              input: event.input,
-              status: 'running',
-            };
-          } else {
-            draft.push({
-              tools: {
-                [event.toolUseId]: {
-                  name: event.name,
-                  input: event.input,
-                  status: 'running',
+      tools: ({ context, event }) =>
+        produce(context.tools, (draft) => {
+          if (event.type === 'go-on') {
+            if (draft.length > 0) {
+              draft[draft.length - 1].tools[event.toolUseId] = {
+                name: event.name,
+                input: event.input,
+                status: 'running',
+              };
+            } else {
+              draft.push({
+                tools: {
+                  [event.toolUseId]: {
+                    name: event.name,
+                    input: event.input,
+                    status: 'running',
+                  },
                 },
-              },
-            });
+              });
+            }
           }
-        }
-      }),
+        }),
     }),
     updateToolResult: assign({
-      tools: ({ context, event }) => produce(context.tools, draft => {
-        if (event.type === 'tool-result') {
-          // Update status of the tool
-          const tool = draft.find(tool => event.toolUseId in tool.tools);
-          if (tool != null) {
-            tool.tools[event.toolUseId].status = event.status;
+      tools: ({ context, event }) =>
+        produce(context.tools, (draft) => {
+          if (event.type === 'tool-result') {
+            // Update status of the tool
+            const tool = draft.find((tool) => event.toolUseId in tool.tools);
+            if (tool != null) {
+              tool.tools[event.toolUseId].status = event.status;
+            }
           }
-        }
-      }),
+        }),
     }),
-    addRelatedDocument: assign(({ context, event }) => produce(context, draft => {
-      if (event.type === 'related-document') {
-        // Add related document of the tool
-        const tool = draft.tools.find(tool => event.toolUseId in tool.tools);
-        if (tool != null) {
-          const toolUse = tool.tools[event.toolUseId];
-          if (toolUse.relatedDocuments == null) {
-            toolUse.relatedDocuments = [event.relatedDocument];
-          } else {
-            toolUse.relatedDocuments.push(event.relatedDocument);
+    addRelatedDocument: assign(({ context, event }) =>
+      produce(context, (draft) => {
+        if (event.type === 'related-document') {
+          // Add related document of the tool
+          const tool = draft.tools.find(
+            (tool) => event.toolUseId in tool.tools
+          );
+          if (tool != null) {
+            const toolUse = tool.tools[event.toolUseId];
+            if (toolUse.relatedDocuments == null) {
+              toolUse.relatedDocuments = [event.relatedDocument];
+            } else {
+              toolUse.relatedDocuments.push(event.relatedDocument);
+            }
           }
+          draft.relatedDocuments.push(event.relatedDocument);
         }
-        draft.relatedDocuments.push(event.relatedDocument);
-      }
-    })),
+      })
+    ),
     close: assign({
       tools: [],
       relatedDocuments: [],
@@ -153,7 +163,7 @@ export const agentThinkingState = setup({
     },
     thinking: {
       on: {
-        'thought': {
+        thought: {
           actions: 'updateThought',
         },
         'go-on': {

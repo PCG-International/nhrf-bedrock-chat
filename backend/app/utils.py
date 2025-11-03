@@ -36,6 +36,19 @@ def is_running_on_lambda():
     return "AWS_EXECUTION_ENV" in os.environ
 
 
+def is_running_on_ecs():
+    """Check if running on ECS Fargate by detecting ECS metadata URI."""
+    return (
+        os.environ.get("ECS_CONTAINER_METADATA_URI") is not None
+        or os.environ.get("ECS_CONTAINER_METADATA_URI_V4") is not None
+    )
+
+
+def is_production():
+    """Check if running in production environment (Lambda or ECS)."""
+    return is_running_on_lambda() or is_running_on_ecs()
+
+
 def get_bedrock_client(region=BEDROCK_REGION):
     client = boto3.client("bedrock", region_name=region)
     return client

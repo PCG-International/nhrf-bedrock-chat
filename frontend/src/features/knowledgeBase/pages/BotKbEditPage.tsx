@@ -108,9 +108,10 @@ const BotKbEditPage: React.FC = () => {
   );
   const [budgetTokens, setBudgetTokens] = useState<number>(
     defaultGenerationConfig.reasoningParams?.budgetTokens ??
-    EDGE_GENERATION_PARAMS.budgetTokens.MIN
+      EDGE_GENERATION_PARAMS.budgetTokens.MIN
   );
-  const [promptCachingEnabled, setPromptCachingEnabled] = useState<boolean>(false);
+  const [promptCachingEnabled, setPromptCachingEnabled] =
+    useState<boolean>(false);
   const [tools, setTools] = useState<AgentTool[]>([]);
   const [conversationQuickStarters, setConversationQuickStarters] = useState<
     ConversationQuickStarter[]
@@ -176,14 +177,17 @@ const BotKbEditPage: React.FC = () => {
   }[] = (() => {
     const getGeneralModels = () => {
       let availableKeys = [...AVAILABLE_MODEL_KEYS];
-      
+
       // Filter by global configuration if available
-      if (globalConfig?.globalAvailableModels && globalConfig.globalAvailableModels.length > 0) {
-        availableKeys = availableKeys.filter(key => 
+      if (
+        globalConfig?.globalAvailableModels &&
+        globalConfig.globalAvailableModels.length > 0
+      ) {
+        availableKeys = availableKeys.filter((key) =>
           globalConfig.globalAvailableModels!.includes(key)
         );
       }
-      
+
       return availableKeys.map((key) => ({
         key: key as Model,
         label: t(`model.${key}.label`) as string,
@@ -198,17 +202,17 @@ const BotKbEditPage: React.FC = () => {
     label: string;
     value: EmbeddingsModel;
   }[] = [
-      {
-        label: t('knowledgeBaseSettings.embeddingModel.titan_v2.label'),
-        value: 'titan_v2',
-      },
-      {
-        label: t(
-          'knowledgeBaseSettings.embeddingModel.cohere_multilingual_v3.label'
-        ),
-        value: 'cohere_multilingual_v3',
-      },
-    ];
+    {
+      label: t('knowledgeBaseSettings.embeddingModel.titan_v2.label'),
+      value: 'titan_v2',
+    },
+    {
+      label: t(
+        'knowledgeBaseSettings.embeddingModel.cohere_multilingual_v3.label'
+      ),
+      value: 'cohere_multilingual_v3',
+    },
+  ];
 
   const [chunkingStrategy, setChunkingStrategy] =
     useState<ChunkingStrategy>('default');
@@ -218,94 +222,94 @@ const BotKbEditPage: React.FC = () => {
     value: WebCrawlingScope;
     description: string;
   }[] = [
-      {
-        label: t(
-          'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.default.label'
-        ),
-        value: 'DEFAULT',
-        description: t(
-          'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.default.hint'
-        ),
-      },
-      {
-        label: t(
-          'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.subdomains.label'
-        ),
-        value: 'SUBDOMAINS',
-        description: t(
-          'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.subdomains.hint'
-        ),
-      },
-      {
-        label: t(
-          'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.hostOnly.label'
-        ),
-        value: 'HOST_ONLY',
-        description: t(
-          'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.hostOnly.hint'
-        ),
-      },
-    ];
+    {
+      label: t(
+        'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.default.label'
+      ),
+      value: 'DEFAULT',
+      description: t(
+        'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.default.hint'
+      ),
+    },
+    {
+      label: t(
+        'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.subdomains.label'
+      ),
+      value: 'SUBDOMAINS',
+      description: t(
+        'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.subdomains.hint'
+      ),
+    },
+    {
+      label: t(
+        'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.hostOnly.label'
+      ),
+      value: 'HOST_ONLY',
+      description: t(
+        'knowledgeBaseSettings.webCrawlerConfig.crawlingScope.hostOnly.hint'
+      ),
+    },
+  ];
 
   const chunkingStrategyOptions: {
     label: string;
     value: ChunkingStrategy;
     description: string;
   }[] = [
-      {
-        label: t('knowledgeBaseSettings.chunkingStrategy.default.label'),
-        value: 'default',
-        description: t('knowledgeBaseSettings.chunkingStrategy.default.hint'),
-      },
-      {
-        label: t('knowledgeBaseSettings.chunkingStrategy.fixed_size.label'),
-        value: 'fixed_size',
-        description: t('knowledgeBaseSettings.chunkingStrategy.fixed_size.hint'),
-      },
-      {
-        label: t('knowledgeBaseSettings.chunkingStrategy.hierarchical.label'),
-        value: 'hierarchical',
-        description: t(
-          'knowledgeBaseSettings.chunkingStrategy.hierarchical.hint'
-        ),
-      },
-      {
-        label: t('knowledgeBaseSettings.chunkingStrategy.semantic.label'),
-        value: 'semantic',
-        description: t('knowledgeBaseSettings.chunkingStrategy.semantic.hint'),
-      },
-      {
-        label: t('knowledgeBaseSettings.chunkingStrategy.none.label'),
-        value: 'none',
-        description: t('knowledgeBaseSettings.chunkingStrategy.none.hint'),
-      },
-    ];
+    {
+      label: t('knowledgeBaseSettings.chunkingStrategy.default.label'),
+      value: 'default',
+      description: t('knowledgeBaseSettings.chunkingStrategy.default.hint'),
+    },
+    {
+      label: t('knowledgeBaseSettings.chunkingStrategy.fixed_size.label'),
+      value: 'fixed_size',
+      description: t('knowledgeBaseSettings.chunkingStrategy.fixed_size.hint'),
+    },
+    {
+      label: t('knowledgeBaseSettings.chunkingStrategy.hierarchical.label'),
+      value: 'hierarchical',
+      description: t(
+        'knowledgeBaseSettings.chunkingStrategy.hierarchical.hint'
+      ),
+    },
+    {
+      label: t('knowledgeBaseSettings.chunkingStrategy.semantic.label'),
+      value: 'semantic',
+      description: t('knowledgeBaseSettings.chunkingStrategy.semantic.hint'),
+    },
+    {
+      label: t('knowledgeBaseSettings.chunkingStrategy.none.label'),
+      value: 'none',
+      description: t('knowledgeBaseSettings.chunkingStrategy.none.hint'),
+    },
+  ];
 
   const parsingModelOptions: {
     label: string;
     value: ParsingModel;
     description: string;
   }[] = [
-      {
-        label: t('knowledgeBaseSettings.parsingModel.none.label'),
-        value: 'disabled',
-        description: t('knowledgeBaseSettings.parsingModel.none.hint'),
-      },
-      {
-        label: t('knowledgeBaseSettings.parsingModel.claude_3_5_sonnet_v1.label'),
-        value: 'anthropic.claude-3-5-sonnet-v1',
-        description: t(
-          'knowledgeBaseSettings.parsingModel.claude_3_5_sonnet_v1.hint'
-        ),
-      },
-      {
-        label: t('knowledgeBaseSettings.parsingModel.claude_3_haiku_v1.label'),
-        value: 'anthropic.claude-3-haiku-v1',
-        description: t(
-          'knowledgeBaseSettings.parsingModel.claude_3_haiku_v1.hint'
-        ),
-      },
-    ];
+    {
+      label: t('knowledgeBaseSettings.parsingModel.none.label'),
+      value: 'disabled',
+      description: t('knowledgeBaseSettings.parsingModel.none.hint'),
+    },
+    {
+      label: t('knowledgeBaseSettings.parsingModel.claude_3_5_sonnet_v1.label'),
+      value: 'anthropic.claude-3-5-sonnet-v1',
+      description: t(
+        'knowledgeBaseSettings.parsingModel.claude_3_5_sonnet_v1.hint'
+      ),
+    },
+    {
+      label: t('knowledgeBaseSettings.parsingModel.claude_3_haiku_v1.label'),
+      value: 'anthropic.claude-3-haiku-v1',
+      description: t(
+        'knowledgeBaseSettings.parsingModel.claude_3_haiku_v1.hint'
+      ),
+    },
+  ];
 
   const [fixedSizeParams, setFixedSizeParams] = useState<FixedSizeParams>(
     DEFAULT_FIXED_CHUNK_PARAMS
@@ -333,28 +337,28 @@ const BotKbEditPage: React.FC = () => {
     value: string;
     description: string;
   }[] = [
-      {
-        label: t('knowledgeBaseSettings.opensearchAnalyzer.icu.label'),
-        value: 'icu',
-        description: t('knowledgeBaseSettings.opensearchAnalyzer.icu.hint', {
-          tokenizer: OPENSEARCH_ANALYZER['icu'].analyzer!.tokenizer,
-          normalizer: OPENSEARCH_ANALYZER['icu'].analyzer!.characterFilters,
-        }),
-      },
-      {
-        label: t('knowledgeBaseSettings.opensearchAnalyzer.kuromoji.label'),
-        value: 'kuromoji',
-        description: t('knowledgeBaseSettings.opensearchAnalyzer.kuromoji.hint', {
-          tokenizer: OPENSEARCH_ANALYZER['kuromoji'].analyzer!.tokenizer,
-          normalizer: OPENSEARCH_ANALYZER['icu'].analyzer!.characterFilters,
-        }),
-      },
-      {
-        label: t('knowledgeBaseSettings.opensearchAnalyzer.none.label'),
-        value: 'none',
-        description: t('knowledgeBaseSettings.opensearchAnalyzer.none.hint'),
-      },
-    ];
+    {
+      label: t('knowledgeBaseSettings.opensearchAnalyzer.icu.label'),
+      value: 'icu',
+      description: t('knowledgeBaseSettings.opensearchAnalyzer.icu.hint', {
+        tokenizer: OPENSEARCH_ANALYZER['icu'].analyzer!.tokenizer,
+        normalizer: OPENSEARCH_ANALYZER['icu'].analyzer!.characterFilters,
+      }),
+    },
+    {
+      label: t('knowledgeBaseSettings.opensearchAnalyzer.kuromoji.label'),
+      value: 'kuromoji',
+      description: t('knowledgeBaseSettings.opensearchAnalyzer.kuromoji.hint', {
+        tokenizer: OPENSEARCH_ANALYZER['kuromoji'].analyzer!.tokenizer,
+        normalizer: OPENSEARCH_ANALYZER['icu'].analyzer!.characterFilters,
+      }),
+    },
+    {
+      label: t('knowledgeBaseSettings.opensearchAnalyzer.none.label'),
+      value: 'none',
+      description: t('knowledgeBaseSettings.opensearchAnalyzer.none.hint'),
+    },
+  ];
 
   const [searchParams, setSearchParams] = useState<SearchParams>(
     DEFAULT_SEARCH_CONFIG
@@ -365,17 +369,17 @@ const BotKbEditPage: React.FC = () => {
     value: SearchType;
     description: string;
   }[] = [
-      {
-        label: t('searchSettings.searchType.hybrid.label'),
-        value: 'hybrid',
-        description: t('searchSettings.searchType.hybrid.hint'),
-      },
-      {
-        label: t('searchSettings.searchType.semantic.label'),
-        value: 'semantic',
-        description: t('searchSettings.searchType.semantic.hint'),
-      },
-    ];
+    {
+      label: t('searchSettings.searchType.hybrid.label'),
+      value: 'hybrid',
+      description: t('searchSettings.searchType.hybrid.hint'),
+    },
+    {
+      label: t('searchSettings.searchType.semantic.label'),
+      value: 'semantic',
+      description: t('searchSettings.searchType.semantic.hint'),
+    },
+  ];
 
   const {
     errorMessages,
@@ -501,11 +505,11 @@ const BotKbEditPage: React.FC = () => {
             bot.conversationQuickStarters.length > 0
               ? bot.conversationQuickStarters
               : [
-                {
-                  title: '',
-                  example: '',
-                },
-              ]
+                  {
+                    title: '',
+                    example: '',
+                  },
+                ]
           );
           setKnowledgeBaseId(bot.bedrockKnowledgeBase.knowledgeBaseId);
           setExistKnowledgeBaseId(
@@ -522,7 +526,7 @@ const BotKbEditPage: React.FC = () => {
             setFixedSizeParams(
               (bot.bedrockKnowledgeBase!
                 .chunkingConfiguration as FixedSizeParams) ??
-              DEFAULT_FIXED_CHUNK_PARAMS
+                DEFAULT_FIXED_CHUNK_PARAMS
             );
           } else if (
             bot.bedrockKnowledgeBase!.chunkingConfiguration.chunkingStrategy ==
@@ -531,7 +535,7 @@ const BotKbEditPage: React.FC = () => {
             setHierarchicalParams(
               (bot.bedrockKnowledgeBase!
                 .chunkingConfiguration as HierarchicalParams) ??
-              DEFAULT_HIERARCHICAL_CHUNK_PARAMS
+                DEFAULT_HIERARCHICAL_CHUNK_PARAMS
             );
           } else if (
             bot.bedrockKnowledgeBase!.chunkingConfiguration.chunkingStrategy ==
@@ -540,7 +544,7 @@ const BotKbEditPage: React.FC = () => {
             setSemanticParams(
               (bot.bedrockKnowledgeBase!
                 .chunkingConfiguration as SemanticParams) ??
-              DEFAULT_SEMANTIC_CHUNK_PARAMS
+                DEFAULT_SEMANTIC_CHUNK_PARAMS
             );
           }
 
@@ -2316,7 +2320,7 @@ const BotKbEditPage: React.FC = () => {
                         disabled={!isNewBot}
                         errorMessage={
                           errorMessages[
-                          'semanticParams.breakpointPercentileThreshold'
+                            'semanticParams.breakpointPercentileThreshold'
                           ]
                         }
                       />
@@ -2590,7 +2594,7 @@ const BotKbEditPage: React.FC = () => {
                         <Toggle
                           value={
                             activeModels[
-                            toCamelCase(key) as keyof ActiveModels
+                              toCamelCase(key) as keyof ActiveModels
                             ] ?? true
                           }
                           onChange={(value) => onChangeActiveModels(key, value)}
@@ -2610,17 +2614,22 @@ const BotKbEditPage: React.FC = () => {
               <ExpandableDrawerGroup
                 isDefaultShow={false}
                 label={t('bot.promptCaching.title')}
-                className="py-2"
-              >
-                <div className="flex mt-4 items-start">
+                className="py-2">
+                <div className="mt-4 flex items-start">
                   <Toggle
                     value={promptCachingEnabled}
                     onChange={setPromptCachingEnabled}
                   />
                   <div>
-                    <Trans t={t} i18nKey="bot.promptCaching.promptCachingEnabled.title" />
+                    <Trans
+                      t={t}
+                      i18nKey="bot.promptCaching.promptCachingEnabled.title"
+                    />
                     <div className="text-sm text-dark-gray dark:text-light-gray">
-                      <Trans t={t} i18nKey="bot.promptCaching.promptCachingEnabled.description" />
+                      <Trans
+                        t={t}
+                        i18nKey="bot.promptCaching.promptCachingEnabled.description"
+                      />
                     </div>
                   </div>
                 </div>

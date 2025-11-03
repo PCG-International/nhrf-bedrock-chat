@@ -75,7 +75,8 @@ const MAX_FILE_SIZE_TO_SEND_BYTES = MAX_FILE_SIZE_TO_SEND_MB * 1024 * 1024;
 
 // Claude 4 uses invoke API and has higher total file size limits
 const CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB = 200; // 200 MB total for Claude 4
-const CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES = CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB * 1024 * 1024;
+const CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES =
+  CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB * 1024 * 1024;
 
 const useInputChatContentState = create<{
   base64EncodedImages: string[];
@@ -278,9 +279,13 @@ const InputChatContent = forwardRef<HTMLElement, Props>(
 
             // Total file size check - use different limits for Claude 4
             const isUsingClaude4 = isClaude4Model(model?.modelId || '');
-            const maxTotalFileSizeBytes = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES : MAX_FILE_SIZE_TO_SEND_BYTES;
-            const maxTotalFileSizeMB = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB : MAX_FILE_SIZE_TO_SEND_MB;
-            
+            const maxTotalFileSizeBytes = isUsingClaude4
+              ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES
+              : MAX_FILE_SIZE_TO_SEND_BYTES;
+            const maxTotalFileSizeMB = isUsingClaude4
+              ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB
+              : MAX_FILE_SIZE_TO_SEND_MB;
+
             if (
               totalFileSizeToSend + resizedImageData.length >
               maxTotalFileSizeBytes
@@ -314,9 +319,13 @@ const InputChatContent = forwardRef<HTMLElement, Props>(
       (file: File) => {
         // Check if current model is Claude 4 and use appropriate file size limit
         const isUsingClaude4 = isClaude4Model(model?.modelId || '');
-        const maxFileSizeBytes = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_BYTES : MAX_FILE_SIZE_BYTES;
-        const maxFileSizeMB = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_MB : MAX_FILE_SIZE_MB;
-        
+        const maxFileSizeBytes = isUsingClaude4
+          ? CLAUDE_4_MAX_FILE_SIZE_BYTES
+          : MAX_FILE_SIZE_BYTES;
+        const maxFileSizeMB = isUsingClaude4
+          ? CLAUDE_4_MAX_FILE_SIZE_MB
+          : MAX_FILE_SIZE_MB;
+
         if (file.size > maxFileSizeBytes) {
           open(
             t('error.attachment.fileSizeExceeded', {
@@ -343,9 +352,13 @@ const InputChatContent = forwardRef<HTMLElement, Props>(
 
             // Total file size check - use different limits for Claude 4
             const isUsingClaude4 = isClaude4Model(model?.modelId || '');
-            const maxTotalFileSizeBytes = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES : MAX_FILE_SIZE_TO_SEND_BYTES;
-            const maxTotalFileSizeMB = isUsingClaude4 ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB : MAX_FILE_SIZE_TO_SEND_MB;
-            
+            const maxTotalFileSizeBytes = isUsingClaude4
+              ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES
+              : MAX_FILE_SIZE_TO_SEND_BYTES;
+            const maxTotalFileSizeMB = isUsingClaude4
+              ? CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB
+              : MAX_FILE_SIZE_TO_SEND_MB;
+
             if (
               totalFileSizeToSend + base64String.length >
               maxTotalFileSizeBytes
@@ -368,7 +381,14 @@ const InputChatContent = forwardRef<HTMLElement, Props>(
         };
         reader.readAsArrayBuffer(file);
       },
-      [pushTextFile, totalFileSizeToSend, setTotalFileSizeToSend, open, t, model?.modelId]
+      [
+        pushTextFile,
+        totalFileSizeToSend,
+        setTotalFileSizeToSend,
+        open,
+        t,
+        model?.modelId,
+      ]
     );
 
     useEffect(() => {

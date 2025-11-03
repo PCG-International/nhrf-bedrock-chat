@@ -33,32 +33,15 @@ async def async_handler(event, context):
     avg_price = total_price / total_users if total_users else 0
 
     aggregate_metrics = [
-        {
-            "MetricName": "TotalUsers",
-            "Value": total_users,
-            "Unit": "Count"
-        },
-        {
-            "MetricName": "TotalPrice",
-            "Value": total_price,
-            "Unit": "None"
-        },
-        {
-            "MetricName": "MaxUserPrice",
-            "Value": max_price,
-            "Unit": "None"
-        },
-        {
-            "MetricName": "AvgUserPrice",
-            "Value": avg_price,
-            "Unit": "None"
-        },
+        {"MetricName": "TotalUsers", "Value": total_users, "Unit": "Count"},
+        {"MetricName": "TotalPrice", "Value": total_price, "Unit": "None"},
+        {"MetricName": "MaxUserPrice", "Value": max_price, "Unit": "None"},
+        {"MetricName": "AvgUserPrice", "Value": avg_price, "Unit": "None"},
     ]
 
     try:
         cloudwatch.put_metric_data(
-            Namespace="AIChatbot/Usage",
-            MetricData=aggregate_metrics
+            Namespace="AIChatbot/Usage", MetricData=aggregate_metrics
         )
         logger.info("Pushed metrics to CloudWatch")
     except Exception as e:
@@ -77,8 +60,7 @@ async def async_handler(event, context):
         }
         try:
             cloudwatch.put_metric_data(
-                Namespace="AIChatbot/UserUsage",
-                MetricData=[metric]
+                Namespace="AIChatbot/UserUsage", MetricData=[metric]
             )
         except Exception as e:
             logger.error("Failed to put user metric for %s: %s", user.id, str(e))

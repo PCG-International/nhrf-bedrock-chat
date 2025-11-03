@@ -46,7 +46,7 @@ const SwitchBedrockModel: React.FC<Props> = (props) => {
             <Popover.Button
               className={`${
                 props.className ?? ''
-              } group inline-flex w-auto whitespace-nowrap rounded border-aws-squid-ink-light/50 dark:border-aws-squid-ink-dark/50 bg-aws-paper-light dark:bg-aws-paper-dark p-2 px-3 text-base hover:brightness-75`}>
+              } group inline-flex w-auto whitespace-nowrap rounded border-aws-squid-ink-light/50 bg-aws-paper-light p-2 px-3 text-base hover:brightness-75 dark:border-aws-squid-ink-dark/50 dark:bg-aws-paper-dark`}>
               <div className="flex items-center justify-between text-xl font-bold text-dark-gray dark:text-light-gray">
                 <span>{modelName}</span>
                 <PiCaretDown className="ml-2" />
@@ -62,7 +62,7 @@ const SwitchBedrockModel: React.FC<Props> = (props) => {
               leaveTo="opacity-0 translate-y-1">
               <Popover.Panel className="absolute left-0 top-14 z-10 w-96">
                 <div className="mt-0.5 overflow-hidden shadow-lg">
-                  <div className="flex flex-col whitespace-nowrap rounded border border-aws-font-color-light/50 dark:border-aws-font-color-dark/50 bg-white dark:bg-aws-ui-color-dark text-sm max-h-80 overflow-y-auto">
+                  <div className="flex max-h-80 flex-col overflow-y-auto whitespace-nowrap rounded border border-aws-font-color-light/50 bg-white text-sm dark:border-aws-font-color-dark/50 dark:bg-aws-ui-color-dark">
                     {availableModels.map((model) => (
                       <div
                         key={model.modelId}

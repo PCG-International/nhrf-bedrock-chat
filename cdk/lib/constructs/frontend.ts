@@ -24,7 +24,7 @@ export interface FrontendProps {
   readonly webAclId: string;
   readonly accessLogBucket?: IBucket;
   readonly enableIpV6: boolean;
-  /** 
+  /**
    * Alternative domain name for CloudFront distribution (e.g., chat.example.com)
    * If provided, CloudFront will be accessible via this domain
    */
@@ -60,15 +60,19 @@ export class Frontend extends Construct {
     });
 
     if (props.alternateDomainName && props.hostedZoneId) {
-      this.hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-        hostedZoneId: props.hostedZoneId,
-        zoneName: this.getDomainZoneName(props.alternateDomainName),
-      });
+      this.hostedZone = route53.HostedZone.fromHostedZoneAttributes(
+        this,
+        "HostedZone",
+        {
+          hostedZoneId: props.hostedZoneId,
+          zoneName: this.getDomainZoneName(props.alternateDomainName),
+        }
+      );
 
-      this.certificate = new acm.DnsValidatedCertificate(this, 'Certificate', {
+      this.certificate = new acm.DnsValidatedCertificate(this, "Certificate", {
         domainName: props.alternateDomainName,
         hostedZone: this.hostedZone,
-        region: 'us-east-1',
+        region: "us-east-1",
         validation: acm.CertificateValidation.fromDns(this.hostedZone),
       });
     }
@@ -80,10 +84,12 @@ export class Frontend extends Construct {
         viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
       },
-      ...(this.alternateDomainName && this.certificate ? {
-        domainNames: [this.alternateDomainName],
-        certificate: this.certificate,
-      } : {}),
+      ...(this.alternateDomainName && this.certificate
+        ? {
+            domainNames: [this.alternateDomainName],
+            certificate: this.certificate,
+          }
+        : {}),
       errorResponses: [
         {
           httpStatus: 404,
@@ -107,7 +113,7 @@ export class Frontend extends Construct {
     });
 
     if (this.alternateDomainName && this.hostedZone) {
-      new route53.ARecord(this, 'AliasRecord', {
+      new route53.ARecord(this, "AliasRecord", {
         zone: this.hostedZone,
         target: route53.RecordTarget.fromAlias(
           new targets.CloudFrontTarget(distribution)
@@ -116,7 +122,7 @@ export class Frontend extends Construct {
       });
 
       if (props.enableIpV6) {
-        new route53.AaaaRecord(this, 'AaaaRecord', {
+        new route53.AaaaRecord(this, "AaaaRecord", {
           zone: this.hostedZone,
           target: route53.RecordTarget.fromAlias(
             new targets.CloudFrontTarget(distribution)
@@ -137,15 +143,15 @@ export class Frontend extends Construct {
     this.cloudFrontWebDistribution = distribution;
 
     if (this.alternateDomainName) {
-      new CfnOutput(this, 'AlternateDomain', {
+      new CfnOutput(this, "AlternateDomain", {
         value: this.alternateDomainName,
-        description: 'Alternate domain name for the CloudFront distribution',
+        description: "Alternate domain name for the CloudFront distribution",
       });
     }
     if (this.certificate) {
-      new CfnOutput(this, 'CertificateArn', {
+      new CfnOutput(this, "CertificateArn", {
         value: this.certificate.certificateArn,
-        description: 'ARN of the ACM certificate',
+        description: "ARN of the ACM certificate",
       });
     }
   }
@@ -155,9 +161,9 @@ export class Frontend extends Construct {
    * e.g., 'chat.example.com' -> 'example.com'
    */
   private getDomainZoneName(domainName: string): string {
-    const parts = domainName.split('.');
+    const parts = domainName.split(".");
     if (parts.length <= 2) return domainName;
-    return parts.slice(-2).join('.');
+    return parts.slice(-2).join(".");
   }
 
   getOrigin(): string {

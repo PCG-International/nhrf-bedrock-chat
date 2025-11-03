@@ -69,9 +69,9 @@ describe("generatePhysicalName", () => {
     const maxLength = 50;
 
     // When
-    const result = generatePhysicalName(stack, longPrefix, { 
+    const result = generatePhysicalName(stack, longPrefix, {
       maxLength,
-      suppressWarnings: true // Suppress warnings for this test
+      suppressWarnings: true, // Suppress warnings for this test
     });
 
     // Then
@@ -99,9 +99,9 @@ describe("generatePhysicalName", () => {
     const maxLength = 50;
 
     // When
-    const result = generatePhysicalName(stack, longPrefix, { 
+    const result = generatePhysicalName(stack, longPrefix, {
       maxLength,
-      suppressWarnings: true
+      suppressWarnings: true,
     });
 
     // Then
@@ -117,7 +117,9 @@ describe("generatePhysicalName", () => {
 
     // When
     const result1 = generatePhysicalName(stack, prefix, { destroyCreate });
-    const result2 = generatePhysicalName(stack, prefix, { destroyCreate: { someValue: "different" } });
+    const result2 = generatePhysicalName(stack, prefix, {
+      destroyCreate: { someValue: "different" },
+    });
     const result3 = generatePhysicalName(stack, prefix, { destroyCreate });
 
     // Then
@@ -165,9 +167,9 @@ describe("generatePhysicalName", () => {
     const maxLength = 20;
 
     // When
-    const result = generatePhysicalName(stack, longPrefix, { 
+    const result = generatePhysicalName(stack, longPrefix, {
       maxLength,
-      suppressWarnings: true
+      suppressWarnings: true,
     });
 
     // Then

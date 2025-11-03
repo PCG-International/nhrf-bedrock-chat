@@ -7,12 +7,10 @@ import {
   ObjectOwnership,
 } from "aws-cdk-lib/aws-s3";
 
-
-interface BedrockRegionResourcesStackProps extends StackProps {
-}
+interface BedrockRegionResourcesStackProps extends StackProps {}
 
 export class BedrockRegionResourcesStack extends Stack {
-  readonly documentBucket: Bucket
+  readonly documentBucket: Bucket;
 
   constructor(
     scope: Construct,
@@ -21,7 +19,7 @@ export class BedrockRegionResourcesStack extends Stack {
   ) {
     super(scope, id, props);
 
-    const prefix = Stack.of(this).region
+    const prefix = Stack.of(this).region;
 
     const accessLogBucket = new Bucket(this, `${prefix}AccessLogBucket`, {
       encryption: BucketEncryption.S3_MANAGED,
@@ -46,6 +44,5 @@ export class BedrockRegionResourcesStack extends Stack {
     new CfnOutput(this, "DocumentBucketName", {
       value: this.documentBucket.bucketName,
     });
-
-  } 
+  }
 }

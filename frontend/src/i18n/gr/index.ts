@@ -168,7 +168,8 @@ const translation = {
         },
         sql_db_query_checker: {
           name: 'Έλεγχος Ερωτήματος',
-          description: 'Έλεγχος εάν το SQL ερώτημά σας είναι σωστό πριν την εκτέλεση.',
+          description:
+            'Έλεγχος εάν το SQL ερώτημά σας είναι σωστό πριν την εκτέλεση.',
         },
         internet_search: {
           name: 'Αναζήτηση Internet',
@@ -370,10 +371,12 @@ const translation = {
         help: {
           overview:
             'Η δημιουργία ενός API επιτρέπει την πρόσβαση στις λειτουργίες του Bot από εξωτερικούς πελάτες· τα APIs επιτρέπουν την ενσωμάτωση με εξωτερικές εφαρμογές.',
-          endpoint: 'Ο πελάτης μπορεί να χρησιμοποιήσει το Bot από αυτό το endpoint.',
+          endpoint:
+            'Ο πελάτης μπορεί να χρησιμοποιήσει το Bot από αυτό το endpoint.',
           usagePlan:
             'Τα σχέδια χρήσης καθορίζουν τον αριθμό ή τον ρυθμό των αιτημάτων που το API σας αποδέχεται από έναν πελάτη. Συσχετίστε ένα API με ένα σχέδιο χρήσης για να παρακολουθήσετε τα αιτήματα που λαμβάνει το API σας.',
-          throttling: 'Περιορίστε τον ρυθμό που οι χρήστες μπορούν να καλέσουν το API σας.',
+          throttling:
+            'Περιορίστε τον ρυθμό που οι χρήστες μπορούν να καλέσουν το API σας.',
           rateLimit:
             'Εισάγετε τον ρυθμό, σε αιτήματα ανά δευτερόλεπτο, που οι πελάτες μπορούν να καλέσουν το API σας.',
           burstLimit:
@@ -442,7 +445,8 @@ const translation = {
       },
       deleteDialog: {
         title: 'Διαγραφή;',
-        content: 'Είστε σίγουροι ότι θέλετε να διαγράψετε <Bold>{{title}}</Bold>;',
+        content:
+          'Είστε σίγουροι ότι θέλετε να διαγράψετε <Bold>{{title}}</Bold>;',
       },
       shareDialog: {
         title: 'Κοινοποίηση',
@@ -473,7 +477,8 @@ const translation = {
           group: 'Ομάδα',
         },
         off: {
-          content: 'Αυτό το bot είναι ιδιωτικό και μόνο εσείς έχετε πρόσβαση σε αυτό.',
+          content:
+            'Αυτό το bot είναι ιδιωτικό και μόνο εσείς έχετε πρόσβαση σε αυτό.',
         },
         on: {
           content:
@@ -495,14 +500,16 @@ const translation = {
       },
       activeModels: {
         title: 'Ενεργοποίηση Μοντέλου',
-        description: 'Διαμορφώστε ποια μοντέλα AI μπορούν να χρησιμοποιηθούν με αυτό το bot.',
+        description:
+          'Διαμορφώστε ποια μοντέλα AI μπορούν να χρησιμοποιηθούν με αυτό το bot.',
       },
     },
     admin: {
       botAnalytics: {
         label: {
           pageTitle: 'Αναλυτικά Bot',
-          noBotUsages: 'Κατά την Περίοδο Υπολογισμού, δεν χρησιμοποιήθηκαν bots.',
+          noBotUsages:
+            'Κατά την Περίοδο Υπολογισμού, δεν χρησιμοποιήθηκαν bots.',
           published: 'Το API είναι δημοσιευμένο.',
           SearchCondition: {
             title: 'Περίοδος Υπολογισμού',
@@ -512,7 +519,8 @@ const translation = {
           sortByCost: 'Ταξινόμηση κατά Κόστος',
         },
         help: {
-          overview: 'Παρακολουθήστε την κατάσταση χρήσης των Bots και των APIs Δημοσιευμένων Bot.',
+          overview:
+            'Παρακολουθήστε την κατάσταση χρήσης των Bots και των APIs Δημοσιευμένων Bot.',
           calculationPeriod:
             'Εάν η Περίοδος Υπολογισμού δεν οριστεί, θα εμφανιστεί το κόστος για σήμερα.',
         },
@@ -610,7 +618,8 @@ const translation = {
     },
     deleteDialog: {
       title: 'Διαγραφή;',
-      content: 'Είστε σίγουροι ότι θέλετε να διαγράψετε <Bold>{{title}}</Bold>;',
+      content:
+        'Είστε σίγουροι ότι θέλετε να διαγράψετε <Bold>{{title}}</Bold>;',
       pinnedBotError: {
         title: 'Δεν μπορεί να Διαγραφεί',
         content:
@@ -932,7 +941,8 @@ const translation = {
       notFoundConversation:
         'Καθώς η καθορισμένη συνομιλία δεν υπάρχει, εμφανίζεται μια νέα οθόνη συνομιλίας.',
       notFoundPage: 'Η σελίδα που αναζητάτε δεν βρέθηκε.',
-      cannotAccessBot: 'Δεν μπορώ να έχω πρόσβαση σε αυτό το bot. Ανακατεύθυνση στη Νέα Συνομιλία.',
+      cannotAccessBot:
+        'Δεν μπορώ να έχω πρόσβαση σε αυτό το bot. Ανακατεύθυνση στη Νέα Συνομιλία.',
       unexpectedError: {
         title: 'Παρουσιάστηκε απροσδόκητο σφάλμα.',
         restore: 'Μετάβαση στην κύρια σελίδα',
@@ -949,7 +959,8 @@ const translation = {
       attachment: {
         fileSizeExceeded:
           'Κάθε μέγεθος εγγράφου πρέπει να μην υπερβαίνει τα {{maxSize}}.',
-        fileCountExceeded: 'Δεν ήταν δυνατή η μεταφόρτωση περισσότερων από {{maxCount}} αρχεία.',
+        fileCountExceeded:
+          'Δεν ήταν δυνατή η μεταφόρτωση περισσότερων από {{maxCount}} αρχεία.',
       },
       share: {
         markedEssential: {
@@ -973,16 +984,20 @@ const translation = {
         message: 'Η ελάχιστη τιμή που μπορεί να οριστεί είναι {{size}}',
       },
       maxBudgetTokens: {
-        message: 'Το maxBudgetToken δεν μπορεί να υπερβεί το maxTokens {{size}}',
+        message:
+          'Το maxBudgetToken δεν μπορεί να υπερβεί το maxTokens {{size}}',
       },
       chunkOverlapLessThanChunkSize: {
-        message: 'Η επικάλυψη chunk πρέπει να οριστεί σε λιγότερο από το μέγεθος Chunk',
+        message:
+          'Η επικάλυψη chunk πρέπει να οριστεί σε λιγότερο από το μέγεθος Chunk',
       },
       parentTokenRange: {
-        message: 'Το μέγεθος parent token θα πρέπει να είναι μεγαλύτερο από το μέγεθος child token',
+        message:
+          'Το μέγεθος parent token θα πρέπει να είναι μεγαλύτερο από το μέγεθος child token',
       },
       quickStarter: {
-        message: 'Παρακαλώ εισάγετε και τον Τίτλο και το Παράδειγμα Συνομιλίας.',
+        message:
+          'Παρακαλώ εισάγετε και τον Τίτλο και το Παράδειγμα Συνομιλίας.',
       },
       required: '{{key}} είναι απαιτούμενο',
       number: {

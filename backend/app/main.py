@@ -18,7 +18,7 @@ from app.routes.global_config import router as global_config_router
 from app.routes.published_api import router as published_api_router
 from app.routes.user import router as user_router
 from app.user import User
-from app.utils import is_running_on_lambda
+from app.utils import is_production
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -103,7 +103,7 @@ app.add_exception_handler(Exception, error_handler_factory(500))
 
 @app.middleware("http")
 def add_current_user_to_request(request: Request, call_next: ASGIApp):
-    if is_running_on_lambda():
+    if is_production():
         if not is_published_api:
             authorization = request.headers.get("Authorization")
             if authorization:

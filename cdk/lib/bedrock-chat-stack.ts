@@ -10,6 +10,7 @@ import { Distribution } from "aws-cdk-lib/aws-cloudfront";
 import { Construct } from "constructs";
 import { Auth } from "./constructs/auth";
 import { Api } from "./constructs/api";
+import { BackendEcs } from "./constructs/backend-ecs";
 import { Database } from "./constructs/database";
 import { Frontend } from "./constructs/frontend";
 import { WebSocket } from "./constructs/websocket";
@@ -189,33 +190,195 @@ export class BedrockChatStack extends cdk.Stack {
       sourceDatabase: database,
     });
 
-    const backendApi = new Api(this, "BackendApi", {
-      envName: props.envName,
-      envPrefix: props.envPrefix,
-      database,
-      auth,
-      bedrockRegion: props.bedrockRegion,
-      documentBucket: props.documentBucket,
-      apiPublishProject: apiPublishCodebuild.project,
-      bedrockCustomBotProject: bedrockCustomBotCodebuild.project,
-      usageAnalysis,
-      largeMessageBucket,
-      enableBedrockCrossRegionInference:
-        props.enableBedrockCrossRegionInference,
-      enableLambdaSnapStart: props.enableLambdaSnapStart,
-      openSearchEndpoint: botStore?.openSearchEndpoint,
-      globalAvailableModels: props.globalAvailableModels,
-    });
-    props.documentBucket.grantReadWrite(backendApi.handler);
-    // Add permissions to API handler for BotStore
-    botStore?.addDataAccessPolicy(
-      props.envPrefix,
-      "DAPolicyApiHandler",
-      backendApi.handler.role!,
-      ["aoss:DescribeCollectionItems"],
-      ["aoss:DescribeIndex", "aoss:ReadDocument"]
-    );
-    
+    // Determine whether to use ECS or Lambda based on environment
+    const useEcs = props.envName === "v4";
+
+    let backendApi: Api | undefined;
+    let backendEcs: BackendEcs | undefined;
+    let backendEndpoint: string;
+    let backendTaskRole: iam.IRole | undefined;
+
+    if (useEcs) {
+      // v4: Use ECS Fargate architecture
+      // Create task role with all necessary permissions
+      const taskRole = new iam.Role(this, "EcsTaskRole", {
+        assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+      });
+
+      // Grant DynamoDB access
+      database.conversationTable.grantReadWriteData(taskRole);
+      database.botTable.grantReadWriteData(taskRole);
+      database.websocketSessionTable.grantReadWriteData(taskRole);
+
+      // Grant Bedrock permissions
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["bedrock:*"],
+          resources: ["*"],
+        })
+      );
+
+      // Grant CodeBuild permissions
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["codebuild:StartBuild", "codebuild:BatchGetBuilds"],
+          resources: [
+            apiPublishCodebuild.project.projectArn,
+            bedrockCustomBotCodebuild.project.projectArn,
+          ],
+        })
+      );
+
+      // Grant CloudFormation permissions
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "cloudformation:DescribeStacks",
+            "cloudformation:DeleteStack",
+          ],
+          resources: ["*"],
+        })
+      );
+
+      // Grant API Gateway permissions
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["apigateway:*"],
+          resources: ["*"],
+        })
+      );
+
+      // Grant Athena and Glue permissions for usage analysis
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "athena:StartQueryExecution",
+            "athena:GetQueryExecution",
+            "athena:GetQueryResults",
+          ],
+          resources: [usageAnalysis.workgroupArn],
+        })
+      );
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["glue:GetDatabase", "glue:GetTable"],
+          resources: [
+            `arn:aws:glue:${this.region}:${this.account}:catalog`,
+            `arn:aws:glue:${this.region}:${this.account}:database/${usageAnalysis.database.databaseName}`,
+            `arn:aws:glue:${this.region}:${this.account}:table/${usageAnalysis.database.databaseName}/*`,
+          ],
+        })
+      );
+
+      // Grant Cognito permissions
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "cognito-idp:AdminListGroupsForUser",
+            "cognito-idp:AdminGetUser",
+          ],
+          resources: [auth.userPool.userPoolArn],
+        })
+      );
+
+      // Grant Secrets Manager permissions
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret",
+            "secretsmanager:CreateSecret",
+            "secretsmanager:UpdateSecret",
+          ],
+          resources: ["*"],
+        })
+      );
+
+      // Grant S3 permissions
+      props.documentBucket.grantReadWrite(taskRole);
+      largeMessageBucket.grantReadWrite(taskRole);
+      usageAnalysis.ddbBucket.grantReadWrite(taskRole);
+      usageAnalysis.resultOutputBucket.grantReadWrite(taskRole);
+
+      // Create ECS backend
+      backendEcs = new BackendEcs(this, "BackendEcs", {
+        taskRole,
+        environment: {
+          ACCOUNT: this.account,
+          REGION: this.region,
+          BEDROCK_REGION: props.bedrockRegion,
+          CONVERSATION_TABLE_NAME: database.conversationTable.tableName,
+          BOT_TABLE_NAME: database.botTable.tableName,
+          DOCUMENT_BUCKET_NAME: props.documentBucket.bucketName,
+          LARGE_MESSAGE_BUCKET_NAME: largeMessageBucket.bucketName,
+          USER_POOL_ID: auth.userPool.userPoolId,
+          CLIENT_ID: auth.client.userPoolClientId,
+          TABLE_ACCESS_ROLE_ARN: database.tableAccessRole.roleArn,
+          PUBLISH_API_CODEBUILD_PROJECT_NAME:
+            apiPublishCodebuild.project.projectName,
+          ENV_NAME: props.envName,
+          ENV_PREFIX: props.envPrefix,
+          CORS_ALLOW_ORIGINS: frontend.getOrigin(),
+          ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
+            props.enableBedrockCrossRegionInference.toString(),
+          GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels?.join(",") || "",
+          OPENSEARCH_DOMAIN_ENDPOINT: botStore?.openSearchEndpoint || "",
+          USAGE_ANALYSIS_DATABASE: usageAnalysis.database.databaseName,
+          USAGE_ANALYSIS_TABLE: usageAnalysis.ddbExportTable.tableName,
+          USAGE_ANALYSIS_WORKGROUP: usageAnalysis.workgroupName,
+          USAGE_ANALYSIS_OUTPUT_LOCATION: `s3://${usageAnalysis.resultOutputBucket.bucketName}`,
+        },
+        envName: props.envName,
+      });
+
+      backendEndpoint = backendEcs.url;
+      backendTaskRole = taskRole;
+
+      // Add permissions for BotStore
+      if (backendTaskRole && botStore) {
+        botStore.addDataAccessPolicy(
+          props.envPrefix,
+          "DAPolicyEcsTask",
+          backendTaskRole,
+          ["aoss:DescribeCollectionItems"],
+          ["aoss:DescribeIndex", "aoss:ReadDocument"]
+        );
+      }
+    } else {
+      // Default: Use Lambda architecture
+      backendApi = new Api(this, "BackendApi", {
+        envName: props.envName,
+        envPrefix: props.envPrefix,
+        database,
+        auth,
+        bedrockRegion: props.bedrockRegion,
+        documentBucket: props.documentBucket,
+        apiPublishProject: apiPublishCodebuild.project,
+        bedrockCustomBotProject: bedrockCustomBotCodebuild.project,
+        usageAnalysis,
+        largeMessageBucket,
+        enableBedrockCrossRegionInference:
+          props.enableBedrockCrossRegionInference,
+        enableLambdaSnapStart: props.enableLambdaSnapStart,
+        openSearchEndpoint: botStore?.openSearchEndpoint,
+        globalAvailableModels: props.globalAvailableModels,
+      });
+
+      backendEndpoint = backendApi.api.apiEndpoint;
+      props.documentBucket.grantReadWrite(backendApi.handler);
+
+      // Add permissions to API handler for BotStore
+      if (backendApi.handler.role && botStore) {
+        botStore.addDataAccessPolicy(
+          props.envPrefix,
+          "DAPolicyApiHandler",
+          backendApi.handler.role,
+          ["aoss:DescribeCollectionItems"],
+          ["aoss:DescribeIndex", "aoss:ReadDocument"]
+        );
+      }
+    }
+
     // Add data access policy for developers
     // Get IAM user/role ARN from environment variables
     if (props.devAccessIamRoleArn) {
@@ -223,20 +386,24 @@ export class BedrockChatStack extends cdk.Stack {
       botStore?.addDataAccessPolicy(
         props.envPrefix,
         "DAPolicyDevAccess",
-        iam.Role.fromRoleArn(this, "DevAccessIamRoleArn", props.devAccessIamRoleArn),
+        iam.Role.fromRoleArn(
+          this,
+          "DevAccessIamRoleArn",
+          props.devAccessIamRoleArn
+        ),
         [
           "aoss:DescribeCollectionItems",
-          "aoss:CreateCollectionItems", 
+          "aoss:CreateCollectionItems",
           "aoss:DeleteCollectionItems",
-          "aoss:UpdateCollectionItems"
+          "aoss:UpdateCollectionItems",
         ],
         [
-          "aoss:DescribeIndex", 
-          "aoss:ReadDocument", 
+          "aoss:DescribeIndex",
+          "aoss:ReadDocument",
           "aoss:WriteDocument",
           "aoss:CreateIndex",
           "aoss:DeleteIndex",
-          "aoss:UpdateIndex"
+          "aoss:UpdateIndex",
         ]
       );
     }
@@ -255,7 +422,7 @@ export class BedrockChatStack extends cdk.Stack {
       enableLambdaSnapStart: props.enableLambdaSnapStart,
     });
     frontend.buildViteApp({
-      backendApiEndpoint: backendApi.api.apiEndpoint,
+      backendApiEndpoint: backendEndpoint,
       webSocketApiEndpoint: websocket.apiEndpoint,
       userPoolDomainPrefix: props.userPoolDomainPrefix,
       auth,

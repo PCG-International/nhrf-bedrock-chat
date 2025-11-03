@@ -16,7 +16,9 @@ export function useConversationSearch() {
     data: searchResults,
     isLoading: isSearching,
     mutate: mutateSearchResults,
-  } = conversationSearchApi.searchConversations(hasSearched && debouncedQuery ? debouncedQuery : null);
+  } = conversationSearchApi.searchConversations(
+    hasSearched && debouncedQuery ? debouncedQuery : null
+  );
 
   // Execute search when debouncedQuery changes
   const handleSearch = useCallback(
@@ -49,7 +51,7 @@ export function useConversationSearch() {
     hasSearched,
     displayQuery,
     handleSearch,
-    clearSearch
+    clearSearch,
   };
 }
 

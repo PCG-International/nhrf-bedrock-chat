@@ -24,7 +24,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // set header title
-    document.title = t('app.name')
+    document.title = t('app.name');
   }, [t]);
 
   Amplify.configure({

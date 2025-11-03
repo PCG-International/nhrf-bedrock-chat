@@ -130,7 +130,8 @@ export class ApiPublishmentStack extends Stack {
           ),
           ACCOUNT: Stack.of(this).account,
           REGION: Stack.of(this).region,
-          ENABLE_BEDROCK_CROSS_REGION_INFERENCE: props.enableBedrockCrossRegionInference.toString(),
+          ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
+            props.enableBedrockCrossRegionInference.toString(),
           BEDROCK_REGION: props.bedrockRegion,
           TABLE_ACCESS_ROLE_ARN: props.tableAccessRoleArn,
         },

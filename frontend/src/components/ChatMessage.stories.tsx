@@ -67,11 +67,11 @@ export const Conversation = () => {
         <div
           key={idx}
           className={`${
-            message.role === 'assistant' ? 'bg-aws-squid-ink-light/5 dark:bg-aws-squid-ink-dark/5' : 'dark:text-aws-font-color-dark'
+            message.role === 'assistant'
+              ? 'bg-aws-squid-ink-light/5 dark:bg-aws-squid-ink-dark/5'
+              : 'dark:text-aws-font-color-dark'
           }`}>
-          <ChatMessage
-            chatContent={message}
-          />
+          <ChatMessage chatContent={message} />
 
           <div className="w-full border-b border-aws-squid-ink-light/10 dark:border-aws-squid-ink-dark/10"></div>
         </div>
@@ -123,11 +123,11 @@ export const ConversationThinking = () => {
         <div
           key={idx}
           className={`${
-            message.role === 'assistant' ? 'bg-aws-squid-ink-light/5 dark:bg-aws-squid-ink-dark/5' : 'dark:text-aws-font-color-dark'
+            message.role === 'assistant'
+              ? 'bg-aws-squid-ink-light/5 dark:bg-aws-squid-ink-dark/5'
+              : 'dark:text-aws-font-color-dark'
           }`}>
-          <ChatMessage
-            chatContent={message}
-          />
+          <ChatMessage chatContent={message} />
 
           <div className="w-full border-b border-aws-squid-ink-light/10 dark:border-aws-squid-ink-dark/10"></div>
         </div>
@@ -254,7 +254,8 @@ export const ConversationWithAgnet = () => {
                   {
                     json: {
                       source_id: 'tool2_cwa@2',
-                      content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
+                      content:
+                        'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
                     },
                   },
                 ],
@@ -272,7 +273,9 @@ export const ConversationWithAgnet = () => {
         <div
           key={idx}
           className={`${
-            message.role === 'assistant' ? 'bg-aws-squid-ink-light/5 dark:bg-aws-squid-ink-dark/5' : 'dark:text-aws-font-color-dark'
+            message.role === 'assistant'
+              ? 'bg-aws-squid-ink-light/5 dark:bg-aws-squid-ink-dark/5'
+              : 'dark:text-aws-font-color-dark'
           }`}>
           <ChatMessage
             chatContent={message}
@@ -307,8 +310,10 @@ export const ConversationWithAgnet = () => {
                   text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
                 },
                 sourceId: 'tool2_cwa@2',
-                sourceName: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
-                sourceLink: 'http://example.com/lorem_ipsim.html?keyword=Lorem%20ipsum%20dolor%20sit%20amet%20consectetur%20adipiscing%20elit%20sed%20do%20eiusmod%20tempor%20incididunt%20ut%20labore%20et%20dolore%20magna%20aliqua',
+                sourceName:
+                  'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
+                sourceLink:
+                  'http://example.com/lorem_ipsim.html?keyword=Lorem%20ipsum%20dolor%20sit%20amet%20consectetur%20adipiscing%20elit%20sed%20do%20eiusmod%20tempor%20incididunt%20ut%20labore%20et%20dolore%20magna%20aliqua',
               },
             ]}
           />

@@ -12,7 +12,10 @@ import {
 } from 'react-icons/pi';
 import { twMerge } from 'tailwind-merge';
 import useToolCardExpand from '../hooks/useToolCardExpand';
-import { AgentToolResultContent, RelatedDocument } from '../../../@types/conversation';
+import {
+  AgentToolResultContent,
+  RelatedDocument,
+} from '../../../@types/conversation';
 import { getAgentName } from '../functions/formatDescription';
 import RelatedDocumentViewer from '../../../components/RelatedDocumentViewer';
 
@@ -115,28 +118,34 @@ const ToolCard: React.FC<ToolCardProps> = ({
               }
             });
           } else if (typeof json === 'object') {
-            documents = [{
-              content: {
-                json: json,
+            documents = [
+              {
+                content: {
+                  json: json,
+                },
+                sourceId: toolUseId,
+                sourceName: name,
               },
-              sourceId: toolUseId,
-              sourceName: name,
-            }];
+            ];
           } else {
-            documents = [{
-              content: {
-                text: String(json),
+            documents = [
+              {
+                content: {
+                  text: String(json),
+                },
+                sourceId: toolUseId,
+                sourceName: name,
               },
-              sourceId: toolUseId,
-              sourceName: name,
-            }];
+            ];
           }
         } catch {
-          documents = [{
-            content: resultContents[0],
-            sourceId: toolUseId,
-            sourceName: name,
-          }];
+          documents = [
+            {
+              content: resultContents[0],
+              sourceId: toolUseId,
+              sourceName: name,
+            },
+          ];
         }
       } else {
         documents = resultContents.map((content, index) => ({
@@ -152,30 +161,28 @@ const ToolCard: React.FC<ToolCardProps> = ({
     return documents;
   }, [relatedDocuments, resultContents, toolUseId, name]);
 
-  const [viewingRelatedDocument, setViewingRelatedDocument] = useState<RelatedDocument>();
+  const [viewingRelatedDocument, setViewingRelatedDocument] =
+    useState<RelatedDocument>();
 
   const ToolResultDocument: React.FC<{
     relatedDocument: RelatedDocument;
-  }> = ({
-    relatedDocument: document,
-  }) => {
+  }> = ({ relatedDocument: document }) => {
     return (
       <div className="flex flex-col">
         {document.sourceName && document.sourceName !== name && (
-          <div className="font-semibold break-all line-clamp-1">
+          <div className="line-clamp-1 break-all font-semibold">
             {document.sourceName}
           </div>
         )}
         {document.sourceLink && (
           <span
-            className="italic break-all line-clamp-1 cursor-pointer underline"
-            onClick={() => window.open(document.sourceLink, '_blank')}
-          >
+            className="line-clamp-1 cursor-pointer break-all italic underline"
+            onClick={() => window.open(document.sourceLink, '_blank')}>
             {document.sourceLink}
           </span>
         )}
         {'text' in document.content && (
-          <div className="break-all line-clamp-2 dark:text-aws-font-color-dark">
+          <div className="line-clamp-2 break-all dark:text-aws-font-color-dark">
             {document.content.text}
           </div>
         )}
@@ -209,7 +216,7 @@ const ToolCard: React.FC<ToolCardProps> = ({
   return (
     <div className={twMerge('relative', className)}>
       <div
-        className="flex cursor-pointer items-center justify-between p-2 dark:text-aws-font-color-dark hover:bg-light-gray dark:hover:bg-aws-font-color-dark/10"
+        className="flex cursor-pointer items-center justify-between p-2 hover:bg-light-gray dark:text-aws-font-color-dark dark:hover:bg-aws-font-color-dark/10"
         onClick={handleToggleExpand}>
         <div className="flex items-center text-base">
           {status === 'running' && (
@@ -240,7 +247,9 @@ const ToolCard: React.FC<ToolCardProps> = ({
             <div
               className="mt-2 flex cursor-pointer items-center text-sm"
               onClick={handleToggleInputExpand}>
-              <p className="font-bold dark:text-aws-font-color-dark">{t('agent.progressCard.toolInput')}</p>
+              <p className="font-bold dark:text-aws-font-color-dark">
+                {t('agent.progressCard.toolInput')}
+              </p>
               {isInputExpanded ? (
                 <PiCaretDown className="ml-2" />
               ) : (
@@ -272,7 +281,9 @@ const ToolCard: React.FC<ToolCardProps> = ({
             <div
               className="mt-2 flex cursor-pointer items-center text-sm"
               onClick={handleToggleContentExpand}>
-              <p className="font-bold dark:text-aws-font-color-dark">{t('agent.progressCard.toolOutput')}</p>
+              <p className="font-bold dark:text-aws-font-color-dark">
+                {t('agent.progressCard.toolOutput')}
+              </p>
               {isContentExpanded ? (
                 <PiCaretDown className="ml-2" />
               ) : (
@@ -285,34 +296,39 @@ const ToolCard: React.FC<ToolCardProps> = ({
                 `overflow-hidden transition-all duration-300 ease-in-out`,
                 isContentExpanded ? 'max-h-full' : 'max-h-0'
               )}>
-              <div className="flex flex-col ml-2 mt-2 text-sm space-y-1">
+              <div className="ml-2 mt-2 flex flex-col space-y-1 text-sm">
                 {displayDocuments.length == 1 && (
                   <div className="flex items-center space-x-2">
                     <a
-                      className="flex items-center cursor-pointer text-aws-sea-blue-light dark:text-aws-sea-blue-dark hover:text-aws-sea-blue-hover-light dark:hover:text-aws-sea-blue-hover-dark"
-                      onClick={() => setViewingRelatedDocument(displayDocuments[0])}
-                    >
+                      className="flex cursor-pointer items-center text-aws-sea-blue-light hover:text-aws-sea-blue-hover-light dark:text-aws-sea-blue-dark dark:hover:text-aws-sea-blue-hover-dark"
+                      onClick={() =>
+                        setViewingRelatedDocument(displayDocuments[0])
+                      }>
                       <PiLinkBold />
                     </a>
                     <div className="flex-1">
-                      <ToolResultDocument relatedDocument={displayDocuments[0]} />
+                      <ToolResultDocument
+                        relatedDocument={displayDocuments[0]}
+                      />
                     </div>
                   </div>
                 )}
-                {displayDocuments.length > 1 && displayDocuments.map((document, index) => (
-                  <div key={document.sourceId} className="flex items-center space-x-2">
-                    <a
-                      className="flex items-center cursor-pointer text-aws-sea-blue-light dark:text-aws-sea-blue-dark hover:text-aws-sea-blue-hover-light dark:hover:text-aws-sea-blue-hover-dark"
-                      onClick={() => setViewingRelatedDocument(document)}
-                    >
-                      <div>{`[${index + 1}]`}</div>
-                      <PiLinkBold />
-                    </a>
-                    <div className="flex-1">
-                      <ToolResultDocument relatedDocument={document} />
+                {displayDocuments.length > 1 &&
+                  displayDocuments.map((document, index) => (
+                    <div
+                      key={document.sourceId}
+                      className="flex items-center space-x-2">
+                      <a
+                        className="flex cursor-pointer items-center text-aws-sea-blue-light hover:text-aws-sea-blue-hover-light dark:text-aws-sea-blue-dark dark:hover:text-aws-sea-blue-hover-dark"
+                        onClick={() => setViewingRelatedDocument(document)}>
+                        <div>{`[${index + 1}]`}</div>
+                        <PiLinkBold />
+                      </a>
+                      <div className="flex-1">
+                        <ToolResultDocument relatedDocument={document} />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           </div>

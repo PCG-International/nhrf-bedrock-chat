@@ -9,7 +9,7 @@ const useConversationSearchApi = () => {
       return http.get<ConversationSearchMeta[]>(
         query ? `conversations/search?query=${encodeURIComponent(query)}` : null
       );
-    }
+    },
   };
 };
 

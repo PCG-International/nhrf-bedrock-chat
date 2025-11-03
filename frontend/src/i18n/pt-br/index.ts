@@ -158,7 +158,8 @@ const translation = {
         },
         sql_db_query_checker: {
           name: 'Verificador de Consulta',
-          description: 'Verifique se sua consulta SQL está correta antes da execução.',
+          description:
+            'Verifique se sua consulta SQL está correta antes da execução.',
         },
         internet_search: {
           name: 'Busca na Internet',
@@ -359,7 +360,7 @@ Como você categorizaria este e-mail?`,
         },
         help: {
           overview:
-            "Criar uma API permite que as funções do Bot sejam acessadas por clientes externos; APIs permitem integração com aplicações externas.",
+            'Criar uma API permite que as funções do Bot sejam acessadas por clientes externos; APIs permitem integração com aplicações externas.',
           endpoint: 'O cliente pode usar o Bot a partir deste endpoint.',
           usagePlan:
             'Planos de uso especificam o número ou taxa de solicitações que sua API aceita de um cliente. Associe uma API a um plano de uso para rastrear as solicitações que sua API recebe.',
@@ -485,14 +486,16 @@ Como você categorizaria este e-mail?`,
       },
       activeModels: {
         title: 'Ativação de Modelos',
-        description: 'Configure quais modelos de IA podem ser usados com este bot.',
+        description:
+          'Configure quais modelos de IA podem ser usados com este bot.',
       },
     },
     admin: {
       botAnalytics: {
         label: {
           pageTitle: 'Análise de Bots',
-          noBotUsages: 'Durante o Período de Cálculo, nenhum bot foi utilizado.',
+          noBotUsages:
+            'Durante o Período de Cálculo, nenhum bot foi utilizado.',
           published: 'API está publicada.',
           SearchCondition: {
             title: 'Período de Cálculo',
@@ -502,7 +505,8 @@ Como você categorizaria este e-mail?`,
           sortByCost: 'Ordenar por Custo',
         },
         help: {
-          overview: 'Monitore o status de uso dos Bots e APIs de Bot Publicadas.',
+          overview:
+            'Monitore o status de uso dos Bots e APIs de Bot Publicadas.',
           calculationPeriod:
             'Se o Período de Cálculo não for definido, o custo de hoje será exibido.',
         },
@@ -520,7 +524,7 @@ Como você categorizaria este e-mail?`,
           sharedUrl: 'URL do Bot',
           apiSettings: 'Configurações de Publicação da API',
           noKnowledge: 'Este bot não tem Conhecimento.',
-          notPublishApi: "A API deste bot não está publicada.",
+          notPublishApi: 'A API deste bot não está publicada.',
           deployStatus: 'Status de Implantação',
           cfnStatus: 'Status do CloudFormation',
           codebuildStatus: 'Status do CodeBuild',
@@ -592,7 +596,8 @@ Como você categorizaria este e-mail?`,
       searchConversation: {
         placeholder: 'Pesquisar conversas...',
         searching: 'Pesquisando...',
-        results: 'Encontradas {{count}} conversas correspondentes a "{{query}}"',
+        results:
+          'Encontradas {{count}} conversas correspondentes a "{{query}}"',
         noResults: 'Nenhuma conversa correspondente a "{{query}}"',
         tryDifferentKeywords: 'Tente palavras-chave diferentes',
         resultsCount: '{{count}} resultados encontrados',
@@ -696,7 +701,7 @@ Como você categorizaria este e-mail?`,
       },
       help: {
         chunkSize:
-          "Quando o tamanho do chunk é muito pequeno, informações contextuais podem ser perdidas, e quando é muito grande, diferentes informações contextuais podem existir dentro do mesmo chunk, potencialmente reduzindo a precisão da pesquisa.",
+          'Quando o tamanho do chunk é muito pequeno, informações contextuais podem ser perdidas, e quando é muito grande, diferentes informações contextuais podem existir dentro do mesmo chunk, potencialmente reduzindo a precisão da pesquisa.',
         chunkOverlap:
           'Ao especificar a sobreposição de chunks, você pode preservar informações contextuais ao redor dos limites dos chunks. Aumentar o tamanho do chunk pode às vezes melhorar a precisão da pesquisa. No entanto, esteja ciente de que aumentar a sobreposição de chunks pode levar a custos computacionais mais altos.',
         overlapTokens:
@@ -789,7 +794,7 @@ Como você categorizaria este e-mail?`,
         label: 'Estratégia de Chunking',
         default: {
           label: 'Chunking padrão',
-          hint: "Divide automaticamente o texto em chunks de cerca de 300 tokens de tamanho, por padrão. Se um documento tiver menos ou já tiver 300 tokens, ele não será dividido.",
+          hint: 'Divide automaticamente o texto em chunks de cerca de 300 tokens de tamanho, por padrão. Se um documento tiver menos ou já tiver 300 tokens, ele não será dividido.',
         },
         fixed_size: {
           label: 'Chunking de tamanho fixo',
@@ -922,7 +927,8 @@ Como você categorizaria este e-mail?`,
       notFoundConversation:
         'Como o chat especificado não existe, uma nova tela de chat é exibida.',
       notFoundPage: 'A página que você está procurando não foi encontrada.',
-      cannotAccessBot: 'Não é possível acessar este bot. Redirecionado para Novo Chat.',
+      cannotAccessBot:
+        'Não é possível acessar este bot. Redirecionado para Novo Chat.',
       unexpectedError: {
         title: 'Ocorreu um erro inesperado.',
         restore: 'Ir para a página INICIAL',
@@ -933,13 +939,15 @@ Como você categorizaria este e-mail?`,
           'Resposta inesperada recebida. O formato da resposta não corresponde ao formato esperado.',
       },
       notSupportedImage: 'O modelo selecionado não suporta imagens.',
-      unsupportedFileFormat: 'O formato de arquivo selecionado não é suportado.',
+      unsupportedFileFormat:
+        'O formato de arquivo selecionado não é suportado.',
       totalFileSizeToSendExceeded:
         'O tamanho total do arquivo deve ser no máximo {{maxSize}}.',
       attachment: {
         fileSizeExceeded:
           'Cada tamanho de documento deve ser no máximo {{maxSize}}.',
-        fileCountExceeded: 'Não foi possível enviar mais de {{maxCount}} arquivos.',
+        fileCountExceeded:
+          'Não foi possível enviar mais de {{maxCount}} arquivos.',
       },
       share: {
         markedEssential: {
@@ -966,10 +974,12 @@ Como você categorizaria este e-mail?`,
         message: 'O maxBudgetToken não pode exceder o maxTokens {{size}}',
       },
       chunkOverlapLessThanChunkSize: {
-        message: 'A sobreposição de chunk deve ser definida como menor que o tamanho do chunk',
+        message:
+          'A sobreposição de chunk deve ser definida como menor que o tamanho do chunk',
       },
       parentTokenRange: {
-        message: 'O tamanho do token pai deve ser maior que o tamanho do token filho',
+        message:
+          'O tamanho do token pai deve ser maior que o tamanho do token filho',
       },
       quickStarter: {
         message: 'Por favor, insira Título e Exemplo de Conversa.',
@@ -1025,7 +1035,7 @@ Como você categorizaria este e-mail?`,
         },
         relevanceThreshold: {
           label: 'Relevância',
-          hint: "Valide se as respostas do modelo são relevantes para a consulta do usuário e bloqueie respostas que estão abaixo do limite definido de relevância. 0: não bloqueia nada, 0.99: bloqueia quase tudo",
+          hint: 'Valide se as respostas do modelo são relevantes para a consulta do usuário e bloqueie respostas que estão abaixo do limite definido de relevância. 0: não bloqueia nada, 0.99: bloqueia quase tudo',
         },
       },
     },

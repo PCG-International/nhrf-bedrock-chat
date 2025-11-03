@@ -264,7 +264,7 @@ export class Api extends Construct {
         USAGE_ANALYSIS_OUTPUT_LOCATION: usageAnalysisOutputLocation,
         ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
           props.enableBedrockCrossRegionInference.toString(),
-        GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels 
+        GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels
           ? JSON.stringify(props.globalAvailableModels)
           : "[]",
         OPENSEARCH_DOMAIN_ENDPOINT: props.openSearchEndpoint || "",
