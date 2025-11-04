@@ -5,6 +5,7 @@ import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as cognito from "aws-cdk-lib/aws-cognito";
+import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
 import { Construct } from "constructs";
 
 export interface BackendEcsProps {
@@ -132,6 +133,7 @@ export class BackendEcs extends Construct {
     taskDefinition.addContainer("Backend", {
       image: ecs.ContainerImage.fromAsset("../backend", {
         file: "Dockerfile",
+        platform: ecrAssets.Platform.LINUX_AMD64,
       }),
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: "backend",

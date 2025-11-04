@@ -240,7 +240,7 @@ export class UsageAnalysis extends Construct {
 
     const exportHandler = new python.PythonFunction(this, "ExportHandler", {
       entry: path.join(__dirname, "../../../backend/s3_exporter/"),
-      runtime: Runtime.PYTHON_3_13,
+      runtime: Runtime.PYTHON_3_12,
       environment: {
         BUCKET_NAME: ddbBucket.bucketName,
         TABLE_ARN: props.sourceDatabase.conversationTable.tableArn,
@@ -257,7 +257,7 @@ export class UsageAnalysis extends Construct {
 
     const usageHandler = new python.PythonFunction(this, "UsageHandler", {
       entry: path.join(__dirname, "../../../backend/user_usage/"),
-      runtime: Runtime.PYTHON_3_13,
+      runtime: Runtime.PYTHON_3_12,
       environment: {},
       logRetention: logs.RetentionDays.THREE_MONTHS,
     });
