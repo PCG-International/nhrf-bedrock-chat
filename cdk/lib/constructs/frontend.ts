@@ -114,17 +114,18 @@ export class Frontend extends Construct {
         enableAcceptEncodingBrotli: true,
       });
 
-      // Add behaviors for API routes
+      // Add behaviors for API routes (REST and WebSocket)
+      // This covers: /api/bot, /api/conversation, /api/ws (WebSocket), etc.
+      // CloudFront automatically supports WebSocket upgrade for this behavior
       additionalBehaviors["/api/*"] = {
         origin: albOrigin,
         viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
         allowedMethods: AllowedMethods.ALLOW_ALL,
         cachedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: apiCachePolicy,
-        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
+        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,  // Forwards all headers including WebSocket upgrade headers
         compress: true,
       };
-      // Note: /health is now under /api/health, covered by /api/* pattern above
     }
 
     const distribution = new Distribution(this, "Distribution", {

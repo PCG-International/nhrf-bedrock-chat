@@ -17,6 +17,7 @@ from app.routes.conversation import router as conversation_router
 from app.routes.global_config import router as global_config_router
 from app.routes.published_api import router as published_api_router
 from app.routes.user import router as user_router
+from app.routes.websocket_streaming import router as websocket_router
 from app.user import User
 from app.utils import is_production
 from fastapi import Depends, FastAPI, Request
@@ -71,6 +72,10 @@ if not is_published_api:
     app.include_router(user_router, prefix=api_prefix)
     app.include_router(bot_store_router, prefix=api_prefix)
     app.include_router(global_config_router, prefix=api_prefix)
+
+    # WebSocket for v4 ECS (v3 uses Lambda WebSocket)
+    if ENV_NAME == "v4":
+        app.include_router(websocket_router, prefix="/api")
 else:
     app.include_router(published_api_router)
 
@@ -140,8 +145,9 @@ async def add_log_requests(request: Request, call_next: ASGIApp):
     logger.info(f"Request method: {request.method}")
     logger.info(f"Request headers: {request.headers}")
 
-    body = await request.body()
-    logger.info(f"Request body: {body.decode('utf-8')[:100]}...")
+    # Note: DO NOT read request.body() here as it consumes the stream
+    # and makes it unavailable for the actual endpoint handler
+    # Only log path, method, and headers for debugging
 
     response = await call_next(request)  # type: ignore
 

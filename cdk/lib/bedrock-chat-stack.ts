@@ -442,22 +442,37 @@ export class BedrockChatStack extends cdk.Stack {
       );
     }
 
-    // For streaming response
-    const websocket = new WebSocket(this, "WebSocket", {
-      accessLogBucket,
-      database,
-      websocketSessionTable: database.websocketSessionTable,
-      auth,
-      bedrockRegion: props.bedrockRegion,
-      largeMessageBucket,
-      documentBucket: props.documentBucket,
-      enableBedrockCrossRegionInference:
-        props.enableBedrockCrossRegionInference,
-      enableLambdaSnapStart: props.enableLambdaSnapStart,
-    });
+    // WebSocket for streaming responses
+    // V3: Uses API Gateway WebSocket + Lambda (proven, stable)
+    // V4: Uses CloudFront → ALB → ECS WebSocket (unified architecture)
+    let webSocketApiEndpoint: string;
+
+    if (useEcs) {
+      // V4: WebSocket through CloudFront and ECS
+      // Convert https:// to wss:// for WebSocket protocol
+      const httpOrigin = frontend.getOrigin();
+      const wsOrigin = httpOrigin.replace('https://', 'wss://').replace('http://', 'ws://');
+      webSocketApiEndpoint = `${wsOrigin}/api/ws`;
+    } else {
+      // V3: WebSocket through API Gateway + Lambda
+      const websocket = new WebSocket(this, "WebSocket", {
+        accessLogBucket,
+        database,
+        websocketSessionTable: database.websocketSessionTable,
+        auth,
+        bedrockRegion: props.bedrockRegion,
+        largeMessageBucket,
+        documentBucket: props.documentBucket,
+        enableBedrockCrossRegionInference:
+          props.enableBedrockCrossRegionInference,
+        enableLambdaSnapStart: props.enableLambdaSnapStart,
+      });
+      webSocketApiEndpoint = websocket.apiEndpoint;
+    }
+
     frontend.buildViteApp({
       backendApiEndpoint: backendEndpoint,
-      webSocketApiEndpoint: websocket.apiEndpoint,
+      webSocketApiEndpoint: webSocketApiEndpoint,
       userPoolDomainPrefix: props.userPoolDomainPrefix,
       auth,
       idp,
