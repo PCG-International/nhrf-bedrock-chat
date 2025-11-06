@@ -31,6 +31,7 @@ from starlette.types import ASGIApp, Message
 
 CORS_ALLOW_ORIGINS = os.environ.get("CORS_ALLOW_ORIGINS", "*")
 PUBLISHED_API_ID = os.environ.get("PUBLISHED_API_ID", None)
+ENV_NAME = os.environ.get("ENV_NAME", "")
 
 is_published_api = PUBLISHED_API_ID is not None
 
@@ -60,13 +61,16 @@ app = FastAPI(
 
 
 if not is_published_api:
-    app.include_router(conversation_router)
-    app.include_router(bot_router)
-    app.include_router(api_publication_router)
-    app.include_router(admin_router)
-    app.include_router(user_router)
-    app.include_router(bot_store_router)
-    app.include_router(global_config_router)
+    # Mount all routes under /api prefix for CloudFront routing (v4 ECS)
+    # Lambda deployment (v3) uses API Gateway which doesn't need this prefix
+    api_prefix = "/api" if ENV_NAME == "v4" else ""
+    app.include_router(conversation_router, prefix=api_prefix)
+    app.include_router(bot_router, prefix=api_prefix)
+    app.include_router(api_publication_router, prefix=api_prefix)
+    app.include_router(admin_router, prefix=api_prefix)
+    app.include_router(user_router, prefix=api_prefix)
+    app.include_router(bot_store_router, prefix=api_prefix)
+    app.include_router(global_config_router, prefix=api_prefix)
 else:
     app.include_router(published_api_router)
 

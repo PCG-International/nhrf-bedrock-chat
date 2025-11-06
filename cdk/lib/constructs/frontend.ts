@@ -10,8 +10,14 @@ import {
   CachePolicy,
   Distribution,
   ViewerProtocolPolicy,
+  AllowedMethods,
+  CachedMethods,
+  CacheHeaderBehavior,
+  CacheQueryStringBehavior,
+  OriginRequestPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
-import { S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import { S3BucketOrigin, HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import { NodejsBuild } from "deploy-time-build";
 import { Auth } from "./auth";
 import { Idp } from "../utils/identity-provider";
@@ -34,6 +40,11 @@ export interface FrontendProps {
    * Required if alternateDomainName is provided
    */
   readonly hostedZoneId?: string;
+  /**
+   * Optional backend ALB to add as an origin (for v4 ECS architecture)
+   * If provided, CloudFront will route /api/* requests to the ALB
+   */
+  readonly backendAlb?: elbv2.IApplicationLoadBalancer;
 }
 
 export class Frontend extends Construct {
@@ -77,6 +88,45 @@ export class Frontend extends Construct {
       });
     }
 
+    // Prepare additional behaviors for backend ALB if provided
+    const additionalBehaviors: Record<string, any> = {};
+    if (props.backendAlb) {
+      const albOrigin = new HttpOrigin(props.backendAlb.loadBalancerDnsName, {
+        protocolPolicy: 'http-only' as any, // ALB uses HTTP internally
+        httpPort: 80,
+      });
+
+      // Create cache policy for API requests (don't cache, forward all headers/query strings)
+      const apiCachePolicy = new CachePolicy(this, "ApiCachePolicy", {
+        cachePolicyName: `${Stack.of(this).stackName}-ApiCachePolicy`,
+        minTtl: Duration.seconds(0),
+        maxTtl: Duration.seconds(1),
+        defaultTtl: Duration.seconds(0),
+        headerBehavior: CacheHeaderBehavior.allowList(
+          "Authorization",
+          "Content-Type",
+          "Accept",
+          "Origin",
+          "Referer"
+        ),
+        queryStringBehavior: CacheQueryStringBehavior.all(),
+        enableAcceptEncodingGzip: true,
+        enableAcceptEncodingBrotli: true,
+      });
+
+      // Add behaviors for API routes
+      additionalBehaviors["/api/*"] = {
+        origin: albOrigin,
+        viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+        allowedMethods: AllowedMethods.ALLOW_ALL,
+        cachedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
+        cachePolicy: apiCachePolicy,
+        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
+        compress: true,
+      };
+      // Note: /health is now under /api/health, covered by /api/* pattern above
+    }
+
     const distribution = new Distribution(this, "Distribution", {
       defaultRootObject: "index.html",
       defaultBehavior: {
@@ -84,12 +134,16 @@ export class Frontend extends Construct {
         viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
       },
+      additionalBehaviors,
       ...(this.alternateDomainName && this.certificate
         ? {
             domainNames: [this.alternateDomainName],
             certificate: this.certificate,
           }
         : {}),
+      // Error responses for SPA routing (only affects S3 origin/default behavior)
+      // Note: These will NOT interfere with /api/* routing to ALB because
+      // cache behaviors are evaluated before error responses
       errorResponses: [
         {
           httpStatus: 404,
@@ -171,6 +225,14 @@ export class Frontend extends Construct {
       return `https://${this.alternateDomainName}`;
     }
     return `https://${this.cloudFrontWebDistribution.distributionDomainName}`;
+  }
+
+  /**
+   * Get the backend API endpoint URL through CloudFront
+   * Returns the CloudFront URL with /api path
+   */
+  getBackendApiEndpoint(): string {
+    return `${this.getOrigin()}/api`;
   }
 
   buildViteApp({

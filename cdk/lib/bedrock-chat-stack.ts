@@ -115,6 +115,7 @@ export class BedrockChatStack extends cdk.Stack {
       ],
       destinationBucket: sourceBucket,
       logRetention: logs.RetentionDays.THREE_MONTHS,
+      memoryLimit: 2048, // Increase memory to 2GB for large asset deployment
     });
     // CodeBuild used for api publication
     const apiPublishCodebuild = new ApiPublishCodebuild(
@@ -139,16 +140,14 @@ export class BedrockChatStack extends cdk.Stack {
       }
     );
 
-    const frontend = new Frontend(this, "Frontend", {
-      accessLogBucket,
-      webAclId: props.webAclId,
-      enableIpV6: props.enableIpV6,
-      alternateDomainName: props.alternateDomainName,
-      hostedZoneId: props.hostedZoneId,
-    });
+    // Determine the frontend origin early (needed for Auth)
+    // For alternate domain, we know the URL without creating CloudFront yet
+    const frontendOrigin = props.alternateDomainName
+      ? `https://${props.alternateDomainName.replace(/\/$/, "")}`  // Remove trailing slash
+      : ""; // Will be set after frontend creation for default domain
 
     const auth = new Auth(this, "Auth", {
-      origin: frontend.getOrigin(),
+      origin: frontendOrigin || "https://placeholder", // Temporary, will be updated
       userPoolDomainPrefixKey: props.userPoolDomainPrefix,
       idp,
       allowedSignUpEmailDomains: props.allowedSignUpEmailDomains,
@@ -197,8 +196,10 @@ export class BedrockChatStack extends cdk.Stack {
     let backendEcs: BackendEcs | undefined;
     let backendEndpoint: string;
     let backendTaskRole: iam.IRole | undefined;
+    let frontend: Frontend;
 
     if (useEcs) {
+      // For v4 (ECS): Create backend first, then frontend with ALB origin
       // v4: Use ECS Fargate architecture
       // Create task role with all necessary permissions
       const taskRole = new iam.Role(this, "EcsTaskRole", {
@@ -281,6 +282,14 @@ export class BedrockChatStack extends cdk.Stack {
         })
       );
 
+      // Grant permission to assume TableAccessRole (for row-level security)
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["sts:AssumeRole"],
+          resources: [database.tableAccessRole.roleArn],
+        })
+      );
+
       // Grant Secrets Manager permissions
       taskRole.addToPolicy(
         new iam.PolicyStatement({
@@ -318,7 +327,7 @@ export class BedrockChatStack extends cdk.Stack {
             apiPublishCodebuild.project.projectName,
           ENV_NAME: props.envName,
           ENV_PREFIX: props.envPrefix,
-          CORS_ALLOW_ORIGINS: frontend.getOrigin(),
+          CORS_ALLOW_ORIGINS: frontendOrigin || "*", // Use pre-computed origin
           ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
             props.enableBedrockCrossRegionInference.toString(),
           GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels?.join(",") || "",
@@ -329,9 +338,24 @@ export class BedrockChatStack extends cdk.Stack {
           USAGE_ANALYSIS_OUTPUT_LOCATION: `s3://${usageAnalysis.resultOutputBucket.bucketName}`,
         },
         envName: props.envName,
+        // Single task configuration (no autoscaling)
+        desiredCount: 1,
+        minCapacity: 1,
+        maxCapacity: 1,
       });
 
-      backendEndpoint = backendEcs.url;
+      // Now create frontend with the ALB as an origin
+      frontend = new Frontend(this, "Frontend", {
+        accessLogBucket,
+        webAclId: props.webAclId,
+        enableIpV6: props.enableIpV6,
+        alternateDomainName: props.alternateDomainName,
+        hostedZoneId: props.hostedZoneId,
+        backendAlb: backendEcs.loadBalancer, // Pass ALB to route /api/* through CloudFront
+      });
+
+      // Use CloudFront URL for backend API (HTTPS)
+      backendEndpoint = frontend.getBackendApiEndpoint();
       backendTaskRole = taskRole;
 
       // Add permissions for BotStore
@@ -346,6 +370,16 @@ export class BedrockChatStack extends cdk.Stack {
       }
     } else {
       // Default: Use Lambda architecture
+      // For v3: Create frontend first (no backend ALB), then backend
+      frontend = new Frontend(this, "Frontend", {
+        accessLogBucket,
+        webAclId: props.webAclId,
+        enableIpV6: props.enableIpV6,
+        alternateDomainName: props.alternateDomainName,
+        hostedZoneId: props.hostedZoneId,
+        // No backendAlb for Lambda architecture
+      });
+
       backendApi = new Api(this, "BackendApi", {
         envName: props.envName,
         envPrefix: props.envPrefix,

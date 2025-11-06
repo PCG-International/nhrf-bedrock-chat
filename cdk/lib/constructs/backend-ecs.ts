@@ -149,7 +149,7 @@ export class BackendEcs extends Construct {
       healthCheck: {
         command: [
           "CMD-SHELL",
-          "curl -f http://localhost:8000/health || exit 1",
+          "curl -f http://localhost:8000/api/health || exit 1",
         ],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
@@ -174,7 +174,7 @@ export class BackendEcs extends Construct {
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
       healthCheck: {
-        path: "/health",
+        path: "/api/health",
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         healthyThresholdCount: 2,
