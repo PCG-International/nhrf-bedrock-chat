@@ -191,10 +191,10 @@ LIMIT {limit};
         user = users_dict.get(user_id)
         if user:
             usages.append(
-                Any(
-                    id=user_id,
-                    email=user["email"],
-                    total_price=total_price,
-                )
+                {
+                    "id": user_id,
+                    "email": user["email"],
+                    "total_price": total_price,
+                }
             )
     return usages

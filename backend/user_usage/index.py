@@ -2,7 +2,7 @@ import os
 import json
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import boto3
 
@@ -18,7 +18,7 @@ async def async_handler(event, context):
     logger.info("Event: %s", json.dumps(event))
 
     limit = 10
-    now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     start_time = now - timedelta(days=30)
 
     start = start_time.strftime("%Y%m%d%H")
@@ -54,7 +54,7 @@ async def async_handler(event, context):
                 {"Name": "UserId", "Value": user.id},
                 {"Name": "Email", "Value": user.email},
             ],
-            "Timestamp": datetime.utcnow(),
+            "Timestamp": datetime.now(timezone.utc),
             "Value": user.total_price,
             "Unit": "None",
         }
