@@ -92,7 +92,7 @@ export class Frontend extends Construct {
     const additionalBehaviors: Record<string, any> = {};
     if (props.backendAlb) {
       const albOrigin = new HttpOrigin(props.backendAlb.loadBalancerDnsName, {
-        protocolPolicy: 'http-only' as any, // ALB uses HTTP internally
+        protocolPolicy: "http-only" as any, // ALB uses HTTP internally
         httpPort: 80,
       });
 
@@ -123,7 +123,7 @@ export class Frontend extends Construct {
         allowedMethods: AllowedMethods.ALLOW_ALL,
         cachedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: apiCachePolicy,
-        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,  // Forwards all headers including WebSocket upgrade headers
+        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // Forwards all headers including WebSocket upgrade headers
         compress: true,
       };
     }

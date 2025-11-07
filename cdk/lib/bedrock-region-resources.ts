@@ -5,6 +5,7 @@ import {
   Bucket,
   BucketEncryption,
   ObjectOwnership,
+  HttpMethods,
 } from "aws-cdk-lib/aws-s3";
 
 interface BedrockRegionResourcesStackProps extends StackProps {}
@@ -39,6 +40,20 @@ export class BedrockRegionResourcesStack extends Stack {
       autoDeleteObjects: true,
       serverAccessLogsBucket: accessLogBucket,
       serverAccessLogsPrefix: "DocumentBucket",
+      cors: [
+        {
+          allowedMethods: [
+            HttpMethods.PUT,
+            HttpMethods.POST,
+            HttpMethods.GET,
+            HttpMethods.HEAD,
+          ],
+          allowedOrigins: ["*"],
+          allowedHeaders: ["*"],
+          exposedHeaders: ["ETag"],
+          maxAge: 3000,
+        },
+      ],
     });
 
     new CfnOutput(this, "DocumentBucketName", {

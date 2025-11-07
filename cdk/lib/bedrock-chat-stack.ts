@@ -1,13 +1,17 @@
-import { CfnOutput, RemovalPolicy, StackProps, IgnoreMode } from "aws-cdk-lib";
+import {
+  CfnOutput,
+  RemovalPolicy,
+  StackProps,
+  IgnoreMode,
+} from "aws-cdk-lib";
 import {
   BlockPublicAccess,
   Bucket,
   BucketEncryption,
-  HttpMethods,
   ObjectOwnership,
 } from "aws-cdk-lib/aws-s3";
-import { Distribution } from "aws-cdk-lib/aws-cloudfront";
 import { Construct } from "constructs";
+import { Bucket as VectorBucket } from "cdk-s3-vectors";
 import { Auth } from "./constructs/auth";
 import { Api } from "./constructs/api";
 import { BackendEcs } from "./constructs/backend-ecs";
@@ -117,6 +121,27 @@ export class BedrockChatStack extends cdk.Stack {
       logRetention: logs.RetentionDays.THREE_MONTHS,
       memoryLimit: 2048, // Increase memory to 2GB for large asset deployment
     });
+
+    // Shared S3 Vector Bucket for all bot Knowledge Bases (replaces per-bot OpenSearch collections)
+    // This single bucket can host thousands of vector indexes at minimal cost (~$0.06/bot/month)
+    const sharedVectorBucket = new VectorBucket(this, "SharedVectorBucket", {
+      vectorBucketName:
+        `${props.envPrefix}${sepHyphen}bedrock-vectors`.toLowerCase(),
+    });
+
+    // Export ARN and name so bot stacks can reference it
+    new CfnOutput(this, "SharedVectorBucketArn", {
+      value: sharedVectorBucket.vectorBucketArn,
+      description: "Shared S3 Vector Bucket ARN for bot Knowledge Bases",
+      exportName: `${props.envName}-SharedVectorBucketArn`,
+    });
+
+    new CfnOutput(this, "SharedVectorBucketName", {
+      value: sharedVectorBucket.vectorBucketName,
+      description: "Shared S3 Vector Bucket Name",
+      exportName: `${props.envName}-SharedVectorBucketName`,
+    });
+
     // CodeBuild used for api publication
     const apiPublishCodebuild = new ApiPublishCodebuild(
       this,
@@ -143,7 +168,7 @@ export class BedrockChatStack extends cdk.Stack {
     // Determine the frontend origin early (needed for Auth)
     // For alternate domain, we know the URL without creating CloudFront yet
     const frontendOrigin = props.alternateDomainName
-      ? `https://${props.alternateDomainName.replace(/\/$/, "")}`  // Remove trailing slash
+      ? `https://${props.alternateDomainName.replace(/\/$/, "")}` // Remove trailing slash
       : ""; // Will be set after frontend creation for default domain
 
     const auth = new Auth(this, "Auth", {
@@ -451,7 +476,9 @@ export class BedrockChatStack extends cdk.Stack {
       // V4: WebSocket through CloudFront and ECS
       // Convert https:// to wss:// for WebSocket protocol
       const httpOrigin = frontend.getOrigin();
-      const wsOrigin = httpOrigin.replace('https://', 'wss://').replace('http://', 'ws://');
+      const wsOrigin = httpOrigin
+        .replace("https://", "wss://")
+        .replace("http://", "ws://");
       webSocketApiEndpoint = `${wsOrigin}/api/ws`;
     } else {
       // V3: WebSocket through API Gateway + Lambda
@@ -476,19 +503,6 @@ export class BedrockChatStack extends cdk.Stack {
       userPoolDomainPrefix: props.userPoolDomainPrefix,
       auth,
       idp,
-    });
-
-    const cloudFrontWebDistribution = frontend.cloudFrontWebDistribution.node
-      .defaultChild as Distribution;
-    props.documentBucket.addCorsRule({
-      allowedMethods: [HttpMethods.PUT],
-      allowedOrigins: [
-        `https://${cloudFrontWebDistribution.distributionDomainName}`, // frontend.getOrigin() is cyclic reference
-        "http://localhost:5173",
-        "*",
-      ],
-      allowedHeaders: ["*"],
-      maxAge: 3000,
     });
 
     const embedding = new Embedding(this, "Embedding", {
