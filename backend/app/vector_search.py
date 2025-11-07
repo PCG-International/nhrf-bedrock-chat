@@ -91,46 +91,55 @@ def _bedrock_knowledge_base_search(bot: BotModel, query: str) -> list[SearchResu
     )
     assert knowledge_base_id is not None, "knowledge_base_id must be set"
 
-    try:
-        # Init retrieve parameter
-        retrieve_parameter: RetrieveRequestTypeDef = {
-            "knowledgeBaseId": knowledge_base_id,
-            "retrievalQuery": {"text": query},
-            "retrievalConfiguration": {
-                "vectorSearchConfiguration": {
-                    "numberOfResults": limit,
-                    "overrideSearchType": search_type,
-                }
-            },
-        }
+    # Init retrieve parameter
+    retrieve_parameter: RetrieveRequestTypeDef = {
+        "knowledgeBaseId": knowledge_base_id,
+        "retrievalQuery": {"text": query},
+        "retrievalConfiguration": {
+            "vectorSearchConfiguration": {
+                "numberOfResults": limit,
+                "overrideSearchType": search_type,
+            }
+        },
+    }
 
-        # Omit overrideSearchType parameter if needed
-        def omit_override_search_type_parameter(
-            retrieve_parameter: RetrieveRequestTypeDef,
-        ):
-            target_parameter: KnowledgeBaseVectorSearchConfigurationTypeDef = (
-                retrieve_parameter.get("retrievalConfiguration", {}).get(
-                    "vectorSearchConfiguration", {}
-                )
+    # Omit overrideSearchType parameter if needed
+    def omit_override_search_type_parameter(
+        retrieve_parameter: RetrieveRequestTypeDef,
+    ):
+        target_parameter: KnowledgeBaseVectorSearchConfigurationTypeDef = (
+            retrieve_parameter.get("retrievalConfiguration", {}).get(
+                "vectorSearchConfiguration", {}
             )
-            # If overrideSearchType exists, remove it
-            if "overrideSearchType" in target_parameter:
-                del target_parameter["overrideSearchType"]
-
-        # Get Knowledge Base from Bedrock Agent API :: get_knowledge_base
-        knowledge_base_info = get_knowledge_base_info(
-            knowledge_base_id=knowledge_base_id
         )
-        # Check the knowledge base resource type
-        if (
-            knowledge_base_info.knowledge_base.knowledge_base_configuration.type
-            == "KENDRA"
-        ):
-            # Omit overrideSearchType option when the type is "KENDRA"
-            omit_override_search_type_parameter(retrieve_parameter)
+        # If overrideSearchType exists, remove it
+        if "overrideSearchType" in target_parameter:
+            del target_parameter["overrideSearchType"]
 
-        # Send retrieve request
+    # Get Knowledge Base from Bedrock Agent API :: get_knowledge_base
+    knowledge_base_info = get_knowledge_base_info(knowledge_base_id=knowledge_base_id)
+    # Check the knowledge base resource type
+    if knowledge_base_info.knowledge_base.knowledge_base_configuration.type == "KENDRA":
+        # Omit overrideSearchType option when the type is "KENDRA"
+        omit_override_search_type_parameter(retrieve_parameter)
+
+    # Send retrieve request with retry for S3 Vectors HYBRID incompatibility
+    try:
         response = agent_client.retrieve(**retrieve_parameter)
+    except Exception as e:
+        # S3 Vectors doesn't support HYBRID search, fallback to SEMANTIC
+        if "HYBRID search type is not supported" in str(e) and search_type == "HYBRID":
+            logger.warning(
+                f"Hybrid search not supported for KB {knowledge_base_id}, retrying with semantic"
+            )
+            retrieve_parameter["retrievalConfiguration"]["vectorSearchConfiguration"][
+                "overrideSearchType"
+            ] = "SEMANTIC"
+            response = agent_client.retrieve(**retrieve_parameter)
+        else:
+            raise
+
+    try:
 
         def extract_source_from_retrieval_result(
             retrieval_result: KnowledgeBaseRetrievalResultTypeDef,

@@ -364,16 +364,13 @@ const BotKbEditPage: React.FC = () => {
     DEFAULT_SEARCH_CONFIG
   );
 
+  // S3 Vectors only supports semantic search (not hybrid)
+  // Removed hybrid option to prevent errors with S3 Vectors-based Knowledge Bases
   const searchTypeOptions: {
     label: string;
     value: SearchType;
     description: string;
   }[] = [
-    {
-      label: t('searchSettings.searchType.hybrid.label'),
-      value: 'hybrid',
-      description: t('searchSettings.searchType.hybrid.hint'),
-    },
     {
       label: t('searchSettings.searchType.semantic.label'),
       value: 'semantic',
