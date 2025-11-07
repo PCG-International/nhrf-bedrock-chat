@@ -1,9 +1,4 @@
-import {
-  CfnOutput,
-  RemovalPolicy,
-  StackProps,
-  IgnoreMode,
-} from "aws-cdk-lib";
+import { CfnOutput, RemovalPolicy, StackProps, IgnoreMode } from "aws-cdk-lib";
 import {
   BlockPublicAccess,
   Bucket,
@@ -343,6 +338,7 @@ export class BedrockChatStack extends cdk.Stack {
           BEDROCK_REGION: props.bedrockRegion,
           CONVERSATION_TABLE_NAME: database.conversationTable.tableName,
           BOT_TABLE_NAME: database.botTable.tableName,
+          DOCUMENT_BUCKET: props.documentBucket.bucketName,
           DOCUMENT_BUCKET_NAME: props.documentBucket.bucketName,
           LARGE_MESSAGE_BUCKET_NAME: largeMessageBucket.bucketName,
           USER_POOL_ID: auth.userPool.userPoolId,

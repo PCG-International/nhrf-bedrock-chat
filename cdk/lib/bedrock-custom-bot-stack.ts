@@ -53,6 +53,7 @@ interface BedrockGuardrailProps {
 
 interface BedrockCustomBotStackProps extends StackProps {
   // Base configuration
+  readonly envName: string;
   readonly ownerUserId: string;
   readonly botId: string;
   readonly bedrockClaudeChatDocumentBucketName: string;
@@ -90,30 +91,44 @@ export class BedrockCustomBotStack extends Stack {
 
     // if knowledge base arn does not exist
     if (props.existKnowledgeBaseId == undefined) {
-      // Import shared S3 vector bucket from main stack
+      // Import shared S3 vector bucket from main stack using environment name
       const sharedVectorBucketArn = Fn.importValue(
-        `${Stack.of(this).stackName.split("-")[0]}-SharedVectorBucketArn`
+        `${props.envName}-SharedVectorBucketArn`
       );
       const sharedVectorBucketName = Fn.importValue(
-        `${Stack.of(this).stackName.split("-")[0]}-SharedVectorBucketName`
+        `${props.envName}-SharedVectorBucketName`
       );
+
+      // Construct the index ARN manually (avoid CloudFormation token issues)
+      const indexName = `kb-index-${props.botId}`.toLowerCase();
+      const indexArn = `arn:aws:s3vectors:${Stack.of(this).region}:${
+        Stack.of(this).account
+      }:bucket/${sharedVectorBucketName}/index/${indexName}`;
 
       // Create lightweight S3 vector index for this bot (no compute cost!)
       // This replaces the expensive OpenSearch Serverless collection ($175/month)
       const s3VectorIndex = new S3VectorIndex(this, "S3VectorIndex", {
         vectorBucketName: sharedVectorBucketName,
-        indexName: `kb-index-${props.botId}`.toLowerCase(),
+        indexName: indexName,
         dimension: props.embeddingsModel.vectorDimensions!,
         distanceMetric: "cosine",
         dataType: "float32",
+        metadataConfiguration: {
+          // Mark Bedrock's standard metadata fields as non-filterable
+          // This avoids the 2KB filterable metadata limit while allowing 40KB total
+          nonFilterableMetadataKeys: [
+            "AMAZON_BEDROCK_TEXT",
+            "AMAZON_BEDROCK_METADATA",
+          ],
+        },
       });
 
-      // Create Knowledge Base with S3 Vectors backend using cdk-s3-vectors construct
-      // This replaces ~$175/month OpenSearch collection with ~$0.06/month S3 storage!
+      // Create Knowledge Base with S3 Vectors using cdk-s3-vectors library
+      // Use the manually constructed indexArn to avoid token resolution issues
       const s3VectorKb = new S3VectorKnowledgeBase(this, "KB", {
         knowledgeBaseName: `kb-${props.botId}`,
         vectorBucketArn: sharedVectorBucketArn,
-        indexArn: s3VectorIndex.indexArn,
+        indexArn: indexArn,  // Use manual ARN instead of s3VectorIndex.indexArn
         knowledgeBaseConfiguration: {
           embeddingModelArn: props.embeddingsModel.asArn(this),
           embeddingDataType: "FLOAT32",
@@ -121,7 +136,13 @@ export class BedrockCustomBotStack extends Stack {
         description: props.instruction,
       });
 
-      // Wrap S3VectorKnowledgeBase as IKnowledgeBase for compatibility with data sources
+      // Add explicit dependency to ensure index is created before KB
+      const kbCustomResource = s3VectorKb.node.findChild(
+        "BedrockKnowledgeBaseCustomResource"
+      );
+      kbCustomResource.node.addDependency(s3VectorIndex);
+
+      // Wrap as IKnowledgeBase for compatibility
       kb = {
         knowledgeBaseId: s3VectorKb.knowledgeBaseId,
         knowledgeBaseArn: s3VectorKb.knowledgeBaseArn,

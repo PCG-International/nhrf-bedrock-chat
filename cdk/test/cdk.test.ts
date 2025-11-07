@@ -597,6 +597,7 @@ describe("Bedrock Knowledge Base Stack", () => {
         : undefined;
 
     const stack = new BedrockCustomBotStack(app, "BedrockCustomBotStackStack", {
+      envName: "test",
       ownerUserId,
       botId,
       embeddingsModel,
