@@ -242,7 +242,17 @@ class ConverseApiStreamHandler:
             try:
                 response = client.converse_stream(**args)
             except ClientError as e:
-                if e.response["Error"]["Code"] == "ThrottlingException":
+                error_msg = str(e) if e else ""
+                # Check if error is due to document size limit (4.5 MB for ConverseStream)
+                if "maximum document size is 4.5 MB" in error_msg:
+                    logger.warning(
+                        f"Document size exceeds ConverseStream limit, falling back to InvokeModel API"
+                    )
+                    return self._run_invoke_api(
+                        messages=messages,
+                        message_for_continue_generate=message_for_continue_generate,
+                    )
+                elif e.response.get("Error", {}).get("Code") == "ThrottlingException":
                     raise BedrockThrottlingException(
                         "Bedrock API is throttling requests"
                     ) from e

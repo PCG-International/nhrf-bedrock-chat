@@ -128,7 +128,7 @@ export class BedrockCustomBotStack extends Stack {
       const s3VectorKb = new S3VectorKnowledgeBase(this, "KB", {
         knowledgeBaseName: `kb-${props.botId}`,
         vectorBucketArn: sharedVectorBucketArn,
-        indexArn: indexArn,  // Use manual ARN instead of s3VectorIndex.indexArn
+        indexArn: indexArn, // Use manual ARN instead of s3VectorIndex.indexArn
         knowledgeBaseConfiguration: {
           embeddingModelArn: props.embeddingsModel.asArn(this),
           embeddingDataType: "FLOAT32",

@@ -73,10 +73,13 @@ export const SUPPORTED_FILE_EXTENSIONS = [
 // Converse API limitations:
 // You can include up to five documents. Each document’s size must be no more than 4.5 MB.
 // Ref: https://awscli.amazonaws.com/v2/documentation/api/latest/reference/bedrock-runtime/converse.html
-export const MAX_FILE_SIZE_MB = 4.5;
+// export const MAX_FILE_SIZE_MB = 4.5;
+// export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+// export const MAX_ATTACHED_FILES = 5;
+
+export const MAX_FILE_SIZE_MB = 50;
 export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_ATTACHED_FILES = 5;
-
 // Claude 4 models use invoke API instead of converse API and have higher file size limits
 export const CLAUDE_4_MAX_FILE_SIZE_MB = 50; // 50 MB limit for Claude 4 models
 export const CLAUDE_4_MAX_FILE_SIZE_BYTES =

@@ -128,7 +128,11 @@ def _bedrock_knowledge_base_search(bot: BotModel, query: str) -> list[SearchResu
         response = agent_client.retrieve(**retrieve_parameter)
     except Exception as e:
         # S3 Vectors doesn't support HYBRID search, fallback to SEMANTIC
-        if "HYBRID search type is not supported" in str(e) and search_type == "HYBRID":
+        error_msg = str(e) if e else ""
+        if (
+            "HYBRID search type is not supported" in error_msg
+            and search_type == "HYBRID"
+        ):
             logger.warning(
                 f"Hybrid search not supported for KB {knowledge_base_id}, retrying with semantic"
             )

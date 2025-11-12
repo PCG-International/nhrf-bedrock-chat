@@ -99,7 +99,7 @@ class TestCustomBotRepository(unittest.TestCase):
                 ),
                 search_params=SearchParamsModelKB(
                     max_results=20,
-                    search_type="hybrid",
+                    search_type="semantic",
                 ),
                 chunking_configuration=FixedSizeParamsModel(
                     chunking_strategy="fixed_size",
@@ -180,7 +180,9 @@ class TestCustomBotRepository(unittest.TestCase):
             ["kuromoji_baseform"],
         )
         self.assertEqual(bot.bedrock_knowledge_base.search_params.max_results, 20)
-        self.assertEqual(bot.bedrock_knowledge_base.search_params.search_type, "hybrid")
+        self.assertEqual(
+            bot.bedrock_knowledge_base.search_params.search_type, "semantic"
+        )
         self.assertEqual(bot.bedrock_guardrails.is_guardrail_enabled, True)
         self.assertEqual(bot.bedrock_guardrails.hate_threshold, 0)
         self.assertEqual(bot.bedrock_guardrails.insults_threshold, 0)
@@ -285,7 +287,7 @@ class TestCustomBotRepository(unittest.TestCase):
                 ),
                 search_params=SearchParamsModelKB(
                     max_results=20,
-                    search_type="hybrid",
+                    search_type="semantic",
                 ),
                 chunking_configuration=FixedSizeParamsModel(
                     chunking_strategy="fixed_size",
@@ -349,7 +351,7 @@ class TestCustomBotRepository(unittest.TestCase):
                 ),
                 search_params=SearchParamsModelKB(
                     max_results=20,
-                    search_type="hybrid",
+                    search_type="semantic",
                 ),
                 chunking_configuration=FixedSizeParamsModel(
                     chunking_strategy="fixed_size",
