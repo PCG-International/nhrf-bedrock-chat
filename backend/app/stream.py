@@ -99,6 +99,10 @@ def _is_reasoning_content(
 
 def _sanitize_text(text: str) -> str:
     """Remove internal processing artifacts from text content."""
+    # Handle None or empty text
+    if not text:
+        return ""
+
     # Remove internal tool use patterns (not legitimate citations)
     text = re.sub(r"\[\^tooluse_[^]]+\]", "", text)
     text = re.sub(r"\[\^new-message-assistant[^]]*\]", "", text)

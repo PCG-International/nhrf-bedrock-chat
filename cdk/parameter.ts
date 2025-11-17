@@ -42,6 +42,7 @@ bedrockChatParams.set("v4", {
     "amazon-nova-pro",
     "amazon-nova-lite",
     "amazon-nova-micro",
+    "deepseek-r1",
   ],
   tokenValidMinutes: 30,
   alternateDomainName: "",
