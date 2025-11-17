@@ -60,16 +60,18 @@ jobs:
       - name: Build backend Docker image
         working-directory: ./backend
         run: |
+          IMAGE_TAG=${{ github.sha }}
           docker build \
             --no-cache \
             --tag backend:latest \
-            --tag ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:latest \
+            --tag ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:${IMAGE_TAG} \
             --file Dockerfile \
             .
 
       - name: Push backend image to ECR
         run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:latest
+          IMAGE_TAG=${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:${IMAGE_TAG}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
