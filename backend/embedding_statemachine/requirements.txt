@@ -1,0 +1,24 @@
+# Minimal dependencies for Lambda functions in Step Functions and DynamoDB Streams
+# These Lambda functions only perform AWS service operations (DynamoDB, CloudFormation, S3)
+# They don't need ML libraries like Docling, PyTorch, or CUDA
+
+# Core AWS SDK
+boto3==1.37.0
+
+# For unique ID generation (used in app.repositories.common)
+python-ulid==1.1.0
+
+# For retry logic in update_bot_status.py
+reretry==0.11.8
+
+# For JWT token operations (imported by app.utils)
+python-jose==3.4.0
+
+# Database driver (imported by app.repositories)
+pg8000==1.31.2
+
+# For TypedDict in Python < 3.10
+typing_extensions==4.13.1
+
+# For schemas and data validation (used in app.routes.schemas)
+pydantic==2.11.2

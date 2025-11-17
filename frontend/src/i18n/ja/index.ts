@@ -57,6 +57,16 @@ const translation: typeof en = {
         label: 'Claude 3.5 (Haiku) v1',
         description: 'Haiku最新バージョン。精度を保ち、高速な応答を実現',
       },
+      'claude-v4.5-sonnet': {
+        label: 'Claude 4.5 (Sonnet)',
+        description:
+          'Enhanced version of Claude 4 Sonnet with improved reasoning and performance capabilities.',
+      },
+      'claude-v4.5-haiku': {
+        label: 'Claude 4.5 (Haiku)',
+        description:
+          'Fast and efficient Claude 4.5 variant optimized for quick responses with improved capabilities.',
+      },
       'claude-v3-opus': {
         label: 'Claude 3 (Opus)',
         description: '非常に複雑なタスクに対応するパワフルなモデル',

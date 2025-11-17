@@ -6,7 +6,9 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
+import * as ecr from "aws-cdk-lib/aws-ecr";
 import { Construct } from "constructs";
+import { EcrRepositories } from "./ecr-repositories";
 
 export interface BackendEcsProps {
   /**
@@ -28,6 +30,16 @@ export interface BackendEcsProps {
    * IAM role for ECS task execution (pulls images, writes logs)
    */
   executionRole?: iam.IRole;
+
+  /**
+   * AWS Account ID for ECR registry
+   */
+  account: string;
+
+  /**
+   * AWS Region for ECR registry
+   */
+  region: string;
 
   /**
    * CPU units for Fargate task (256, 512, 1024, 2048, 4096)
@@ -63,6 +75,12 @@ export interface BackendEcsProps {
    * Environment name for resource tagging
    */
   envName?: string;
+
+  /**
+   * ECR repositories for pre-built images (optional)
+   * If provided, uses ECR image instead of building from source
+   */
+  ecrRepos?: EcrRepositories;
 }
 
 export class BackendEcs extends Construct {
@@ -129,12 +147,22 @@ export class BackendEcs extends Construct {
       executionRole,
     });
 
-    // Add container
+    // Add container with Docker image from ECR or build from source
+    const containerImage = props.ecrRepos
+      ? ecs.ContainerImage.fromEcrRepository(
+          props.ecrRepos.ecsBackendRepo,
+          "latest" // Use "latest" tag, or pass specific tag via props
+        )
+      : ecs.ContainerImage.fromAsset("../backend", {
+          file: "Dockerfile",
+          platform: ecrAssets.Platform.LINUX_AMD64,
+          buildArgs: {
+            BUILDKIT_INLINE_CACHE: "1",
+          },
+        });
+
     taskDefinition.addContainer("Backend", {
-      image: ecs.ContainerImage.fromAsset("../backend", {
-        file: "Dockerfile",
-        platform: ecrAssets.Platform.LINUX_AMD64,
-      }),
+      image: containerImage,
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: "backend",
         logRetention: logs.RetentionDays.THREE_MONTHS,

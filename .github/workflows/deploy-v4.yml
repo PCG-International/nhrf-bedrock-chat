@@ -1,0 +1,117 @@
+name: Deploy V4 Stack to AWS
+
+on:
+  # Manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+  # Optional: Auto-deploy on push to v4 branch
+  # Uncomment if you want automatic deployments
+  # push:
+  #   branches:
+  #     - v4
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY_BACKEND: cdk-hnb659fds-container-assets-${{ secrets.AWS_ACCOUNT_ID }}-eu-central-1
+  NODE_VERSION: '18.x'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        working-directory: ./backend
+        run: |
+          docker build \
+            --cache-from type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:latest \
+            --tag backend:latest \
+            --file Dockerfile \
+            .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cdk/package-lock.json
+
+      - name: Install CDK dependencies
+        working-directory: ./cdk
+        run: npm ci
+
+      - name: CDK Bootstrap (if needed)
+        working-directory: ./cdk
+        run: |
+          npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} \
+            -c envName=v4 \
+            || echo "Bootstrap already exists or failed (non-critical)"
+
+      - name: CDK Synth
+        working-directory: ./cdk
+        run: |
+          npx cdk synth \
+            -c envName=v4 \
+            --all
+
+      - name: CDK Deploy
+        working-directory: ./cdk
+        run: |
+          npx cdk deploy \
+            -c envName=v4 \
+            --all \
+            --require-approval never \
+            --progress events \
+            --outputs-file ./cdk-outputs.json
+
+      - name: Upload CDK outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdk-outputs
+          path: cdk/cdk-outputs.json
+          retention-days: 30
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "### Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack:** v4-BedrockChatStack" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f cdk/cdk-outputs.json ]; then
+            echo "**Stack Outputs:**" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat cdk/cdk-outputs.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

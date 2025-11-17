@@ -55,6 +55,8 @@ export class BotStore extends Construct {
       {
         maxLength: 32,
         lower: true,
+        // Include replicas setting to force replacement when it changes
+        destroyCreate: { replicas: props.enableBotStoreReplicas },
       }
     );
 

@@ -70,7 +70,9 @@ const MAX_IMAGE_HEIGHT = 1568;
 // Converse API can handle 4.5 MB x 5 files, but the API to fetch conversation history is based on the lambda,
 // so we limit the size to 6 MB to prevent the error.
 // Need to refactor if want to increase the limit by using s3 presigned URL.
-const MAX_FILE_SIZE_TO_SEND_MB = 6;
+// const MAX_FILE_SIZE_TO_SEND_MB = 6;
+
+const MAX_FILE_SIZE_TO_SEND_MB = 200;
 const MAX_FILE_SIZE_TO_SEND_BYTES = MAX_FILE_SIZE_TO_SEND_MB * 1024 * 1024;
 
 // Claude 4 uses invoke API and has higher total file size limits

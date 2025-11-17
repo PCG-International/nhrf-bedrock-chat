@@ -1,6 +1,18 @@
 from typing_extensions import NotRequired, TypedDict
 
 
+class DoclingConfig(TypedDict):
+    """Configuration for Docling document processing."""
+
+    enable_processing: bool
+    max_pages_direct: int
+    chunk_size_tokens: int
+    chunk_overlap_tokens: int
+    enable_ocr: bool
+    cache_processed: bool
+    cache_ttl_hours: int
+
+
 class GenerationParams(TypedDict):
     max_tokens: int
     top_k: NotRequired[int]
@@ -182,4 +194,16 @@ BEDROCK_PRICING = {
         },
         "deepseek-r1": {"input": 0.00135, "output": 0.0054},
     },
+}
+
+# Docling configuration for processing large documents
+# Using minimal Docling package with RapidOCR for lightweight PDF processing
+DOCLING_CONFIG: DoclingConfig = {
+    "enable_processing": True,  # Enable Docling processing for large PDFs
+    "max_pages_direct": 50,  # Send PDFs directly to Bedrock if under this page count
+    "chunk_size_tokens": 6000,  # Target chunk size in tokens (~24KB text)
+    "chunk_overlap_tokens": 200,  # Overlap between chunks for context preservation
+    "enable_ocr": True,  # Enable OCR for scanned PDFs (uses RapidOCR)
+    "cache_processed": True,  # Cache processed documents in S3
+    "cache_ttl_hours": 168,  # Cache for 7 days
 }

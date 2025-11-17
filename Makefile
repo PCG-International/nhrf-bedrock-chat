@@ -222,12 +222,18 @@ destroy-v3: ## Destroy v3 stack (WARNING: Deletes resources!)
 
 deploy-v4: ## Deploy v4 (ECS Fargate architecture)
 	@echo "$(BLUE)Deploying v4 stack (ECS Fargate)...$(NC)"
-	@cd cdk && npx cdk deploy --all -c envName=v4 --require-approval never
+	@echo "$(YELLOW)Enabling Docker BuildKit for better caching...$(NC)"
+	@export DOCKER_BUILDKIT=1 && \
+		export BUILDKIT_PROGRESS=plain && \
+		cd cdk && npx cdk deploy --all -c envName=v4 --require-approval never
 	@echo "$(GREEN)✓ v4 stack deployed$(NC)"
 
 deploy-v4-with-approval: ## Deploy v4 with manual approval
 	@echo "$(BLUE)Deploying v4 stack (ECS Fargate) with approval...$(NC)"
-	@cd cdk && npx cdk deploy --all -c envName=v4
+	@echo "$(YELLOW)Enabling Docker BuildKit for better caching...$(NC)"
+	@export DOCKER_BUILDKIT=1 && \
+		export BUILDKIT_PROGRESS=plain && \
+		cd cdk && npx cdk deploy --all -c envName=v4
 	@echo "$(GREEN)✓ v4 stack deployed$(NC)"
 
 diff-v4: ## Show what would change in v4 deployment
@@ -263,6 +269,137 @@ cdk-list-v4: ## List v4 CDK stacks
 cdk-doctor: ## Run CDK doctor to check for issues
 	@echo "$(BLUE)Running CDK doctor...$(NC)"
 	@cd cdk && npx cdk doctor
+
+##@ Docker Cache Optimization
+
+docker-build-backend: ## Pre-build backend Docker image with caching
+	@echo "$(BLUE)Pre-building backend Docker image with BuildKit caching...$(NC)"
+	@cd backend && \
+		DOCKER_BUILDKIT=1 docker build \
+		--build-arg BUILDKIT_INLINE_CACHE=1 \
+		-t backend:cached \
+		-f Dockerfile .
+	@echo "$(GREEN)✓ Backend image cached locally$(NC)"
+
+docker-build-lambda: ## Pre-build Lambda Docker image with caching
+	@echo "$(BLUE)Pre-building Lambda Docker image with BuildKit caching...$(NC)"
+	@cd backend && \
+		DOCKER_BUILDKIT=1 docker build \
+		--build-arg BUILDKIT_INLINE_CACHE=1 \
+		-t lambda:cached \
+		-f lambda-lightweight.Dockerfile .
+	@echo "$(GREEN)✓ Lambda image cached locally$(NC)"
+
+cache-warm: docker-build-backend ## Warm up Docker build cache for ECS backend
+	@echo "$(GREEN)✓ Docker cache warmed up$(NC)"
+
+cache-warm-all: docker-build-backend docker-build-lambda ## Warm up all Docker caches (including Lambda)
+
+##@ ECR Image Management (V4)
+
+ECR_REGION := eu-central-1
+AWS_ACCOUNT_ID := $(shell aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "000000000000")
+ECR_PREFIX := v4-bedrock-chat
+
+ecr-login: ## Login to ECR registry
+	@echo "$(BLUE)Logging into ECR...$(NC)"
+	@aws ecr get-login-password --region $(ECR_REGION) | \
+		docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com
+	@echo "$(GREEN)✓ Logged into ECR$(NC)"
+
+ecr-build-backend: ## Build backend Docker image for ECR
+	@echo "$(BLUE)Building ECS backend image for ECR...$(NC)"
+	@cd backend && \
+		DOCKER_BUILDKIT=1 docker build \
+		--platform linux/amd64 \
+		--build-arg BUILDKIT_INLINE_CACHE=1 \
+		--cache-from $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:latest \
+		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:latest \
+		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:$$(git rev-parse --short HEAD) \
+		-f Dockerfile .
+	@echo "$(GREEN)✓ Backend image built$(NC)"
+
+ecr-build-lambda-lightweight: ## Build Lambda lightweight Docker image for ECR
+	@echo "$(BLUE)Building Lambda lightweight image for ECR...$(NC)"
+	@cd backend && \
+		DOCKER_BUILDKIT=1 docker build \
+		--platform linux/amd64 \
+		--build-arg BUILDKIT_INLINE_CACHE=1 \
+		--cache-from $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-lightweight:latest \
+		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-lightweight:latest \
+		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-lightweight:$$(git rev-parse --short HEAD) \
+		-f lambda-lightweight.Dockerfile .
+	@echo "$(GREEN)✓ Lambda lightweight image built$(NC)"
+
+ecr-build-lambda-full: ## Build Lambda full Docker image for ECR
+	@echo "$(BLUE)Building Lambda full image for ECR...$(NC)"
+	@cd backend && \
+		DOCKER_BUILDKIT=1 docker build \
+		--platform linux/amd64 \
+		--build-arg BUILDKIT_INLINE_CACHE=1 \
+		--cache-from $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-full:latest \
+		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-full:latest \
+		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-full:$$(git rev-parse --short HEAD) \
+		-f lambda.Dockerfile .
+	@echo "$(GREEN)✓ Lambda full image built$(NC)"
+
+ecr-build-all: ecr-build-backend ecr-build-lambda-lightweight ecr-build-lambda-full ## Build all Docker images for ECR
+	@echo "$(GREEN)✓ All images built$(NC)"
+
+ecr-push-backend: ecr-login ## Push backend image to ECR
+	@echo "$(BLUE)Pushing backend image to ECR...$(NC)"
+	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:latest
+	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:$$(git rev-parse --short HEAD)
+	@echo "$(GREEN)✓ Backend image pushed$(NC)"
+
+ecr-push-lambda-lightweight: ecr-login ## Push Lambda lightweight image to ECR
+	@echo "$(BLUE)Pushing Lambda lightweight image to ECR...$(NC)"
+	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-lightweight:latest
+	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-lightweight:$$(git rev-parse --short HEAD)
+	@echo "$(GREEN)✓ Lambda lightweight image pushed$(NC)"
+
+ecr-push-lambda-full: ecr-login ## Push Lambda full image to ECR
+	@echo "$(BLUE)Pushing Lambda full image to ECR...$(NC)"
+	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-full:latest
+	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-lambda-full:$$(git rev-parse --short HEAD)
+	@echo "$(GREEN)✓ Lambda full image pushed$(NC)"
+
+ecr-push-all: ecr-push-backend ecr-push-lambda-lightweight ecr-push-lambda-full ## Push all images to ECR
+	@echo "$(GREEN)✓ All images pushed to ECR$(NC)"
+
+ecr-build-and-push-all: ecr-build-all ecr-push-all ## Build and push all images to ECR
+	@echo "$(GREEN)✓ All images built and pushed to ECR$(NC)"
+
+ecr-list-images: ## List images in ECR repositories
+	@echo "$(BLUE)Backend images:$(NC)"
+	@aws ecr describe-images \
+		--repository-name $(ECR_PREFIX)-backend \
+		--region $(ECR_REGION) \
+		--query 'sort_by(imageDetails,& imagePushedAt)[-5:].[imageTags[0], imagePushedAt, imageSizeInBytes]' \
+		--output table 2>/dev/null || echo "Repository not found or no images"
+	@echo ""
+	@echo "$(BLUE)Lambda lightweight images:$(NC)"
+	@aws ecr describe-images \
+		--repository-name $(ECR_PREFIX)-lambda-lightweight \
+		--region $(ECR_REGION) \
+		--query 'sort_by(imageDetails,& imagePushedAt)[-5:].[imageTags[0], imagePushedAt, imageSizeInBytes]' \
+		--output table 2>/dev/null || echo "Repository not found or no images"
+	@echo ""
+	@echo "$(BLUE)Lambda full images:$(NC)"
+	@aws ecr describe-images \
+		--repository-name $(ECR_PREFIX)-lambda-full \
+		--region $(ECR_REGION) \
+		--query 'sort_by(imageDetails,& imagePushedAt)[-5:].[imageTags[0], imagePushedAt, imageSizeInBytes]' \
+		--output table 2>/dev/null || echo "Repository not found or no images"
+
+# Fast deployment targets using ECR
+deploy-v4-ecr: ecr-build-and-push-all ## Build, push to ECR, then deploy v4
+	@echo "$(BLUE)Deploying v4 with ECR images...$(NC)"
+	@cd cdk && npx cdk deploy --all -c envName=v4 --require-approval never
+	@echo "$(GREEN)✓ V4 deployed with ECR images$(NC)"
+
+fast-v4: ecr-push-backend deploy-v4 ## Fast v4 deployment (push backend only, then deploy)
+	@echo "$(GREEN)✓ Fast V4 deployment complete$(NC)"
 
 ##@ AWS Operations
 
@@ -358,6 +495,8 @@ docs-api: ## Open API documentation (backend must be running)
 all: install check build ## Install, check, and build everything
 
 quick-deploy-v4: build-cdk deploy-v4 ## Quick v4 deployment (build + deploy)
+
+fast-deploy-v4: cache-warm deploy-v4 ## Fast v4 deployment with cache warming
 
 watch-cdk: ## Watch CDK for changes and auto-rebuild
 	@echo "$(BLUE)Watching CDK for changes...$(NC)"

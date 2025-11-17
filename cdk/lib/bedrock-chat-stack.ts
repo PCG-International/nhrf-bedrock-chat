@@ -25,6 +25,7 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as path from "path";
 import { BedrockCustomBotCodebuild } from "./constructs/bedrock-custom-bot-codebuild";
 import { BotStore, Language } from "./constructs/bot-store";
+import { EcrRepositories } from "./constructs/ecr-repositories";
 import { Duration } from "aws-cdk-lib";
 
 export interface BedrockChatStackProps extends StackProps {
@@ -63,6 +64,22 @@ export class BedrockChatStack extends cdk.Stack {
 
     const sepHyphen = props.envPrefix ? "-" : "";
     const idp = identityProvider(props.identityProviders);
+
+    // Create ECR repositories for Docker images (only for v4 ECS deployment)
+    let ecrRepos: EcrRepositories | undefined;
+    let ecrReposForLambda: EcrRepositories | undefined;
+    // Don't use ECR images on first deployment - repositories need to exist first
+    // After first deployment, set this to true and redeploy
+    const useEcrImages = false; // TODO: Set to true after ECR repos exist and images are pushed
+
+    if (props.envName === "v4") {
+      ecrRepos = new EcrRepositories(this, "EcrRepositories", {
+        envPrefix: props.envPrefix,
+        retainImages: false, // Set to true for production
+      });
+
+      ecrReposForLambda = useEcrImages ? ecrRepos : undefined;
+    }
 
     const accessLogBucket = new Bucket(this, "AccessLogBucket", {
       encryption: BucketEncryption.S3_MANAGED,
@@ -332,6 +349,9 @@ export class BedrockChatStack extends cdk.Stack {
       // Create ECS backend
       backendEcs = new BackendEcs(this, "BackendEcs", {
         taskRole,
+        account: this.account,
+        region: this.region,
+        ecrRepos: useEcrImages ? ecrRepos : undefined, // Only use ECR if images are pushed
         environment: {
           ACCOUNT: this.account,
           REGION: this.region,
@@ -507,6 +527,7 @@ export class BedrockChatStack extends cdk.Stack {
       documentBucket: props.documentBucket,
       bedrockCustomBotProject: bedrockCustomBotCodebuild.project,
       enableRagReplicas: props.enableRagReplicas,
+      ecrRepos: ecrReposForLambda, // Pass ECR repositories (only when images exist)
     });
 
     // WebAcl for published API

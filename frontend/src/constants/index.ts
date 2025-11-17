@@ -82,13 +82,12 @@ export const GUARDRAILS_CONTECTUAL_GROUNDING_THRESHOLD = {
 };
 
 export const AVAILABLE_MODEL_KEYS = [
-  'claude-v4-opus',
-  'claude-v4.1-opus',
+  'claude-v4.5-sonnet',  // Latest Sonnet
   'claude-v4-sonnet',
-  'claude-v3-opus',
+  'claude-v4.5-haiku',   // Latest Haiku
   'claude-v3.7-sonnet',
+  'claude-v3-haiku',
   'amazon-nova-pro',
   'amazon-nova-lite',
   'amazon-nova-micro',
-  'deepseek-r1',
 ] as const;
