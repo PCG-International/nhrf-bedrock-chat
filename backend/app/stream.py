@@ -120,9 +120,10 @@ def _content_model_from_partial_content(
     content: _PartialTextContent | _PartialToolUseContent,
 ) -> ContentModel:
     if _is_text_content(content=content):
+        text = content.get("text") or ""
         return TextContentModel(
             content_type="text",
-            body=_sanitize_text(content["text"].rstrip()),
+            body=_sanitize_text(text.rstrip()),
         )
 
     elif _is_tool_use_content(content=content):
