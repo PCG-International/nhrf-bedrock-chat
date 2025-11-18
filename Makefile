@@ -120,8 +120,8 @@ test-backend: ## Run backend tests
 	@echo "$(BLUE)Running backend tests...$(NC)"
 	@cd backend && \
 		. .venv/bin/activate && \
-		poetry run python tests/test_bedrock.py && \
-		poetry run python tests/test_repositories/test_conversation.py
+		python tests/test_bedrock.py && \
+		python tests/test_repositories/test_conversation.py
 	@echo "$(GREEN)✓ Backend tests passed$(NC)"
 
 test-frontend: ## Run frontend tests

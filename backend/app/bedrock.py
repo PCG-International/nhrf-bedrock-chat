@@ -61,17 +61,20 @@ def is_nova_model(model: type_model_name) -> bool:
 
 def is_deepseek_model(model: type_model_name) -> bool:
     """Check if the model is a DeepSeek model"""
-    return False  # DeepSeek models not available in eu-central-1
+    return "deepseek" in model
 
 
 def is_claude_4_model(model: type_model_name) -> bool:
     """Check if the model is a Claude 4 model"""
-    return model in ["claude-v4-sonnet", "claude-v4.5-sonnet", "claude-v4.5-haiku"]
+    return model in ["claude-v4-opus", "claude-v4-sonnet"]
 
 
 def is_tooluse_supported(model: type_model_name) -> bool:
     """Check if the model is supported for tool use"""
-    return True  # All current models support tool use
+    return model not in [
+        "deepseek-r1",
+        "",
+    ]
 
 
 def is_prompt_caching_supported(
@@ -79,20 +82,22 @@ def is_prompt_caching_supported(
 ) -> bool:
     if target == "tool":
         return model in [
-            "claude-v4.5-sonnet",
+            "claude-v4-opus",
+            "claude-v4.1-opus",
             "claude-v4-sonnet",
-            "claude-v4.5-haiku",
             "claude-v3.7-sonnet",
-            "claude-v3-haiku",
+            "claude-v3.5-sonnet-v2",
+            "claude-v3.5-haiku",
         ]
 
     else:
         return model in [
-            "claude-v4.5-sonnet",
+            "claude-v4-opus",
+            "claude-v4.1-opus",
             "claude-v4-sonnet",
-            "claude-v4.5-haiku",
             "claude-v3.7-sonnet",
-            "claude-v3-haiku",
+            "claude-v3.5-sonnet-v2",
+            "claude-v3.5-haiku",
             "amazon-nova-pro",
             "amazon-nova-lite",
             "amazon-nova-micro",
@@ -618,16 +623,17 @@ def get_model_id(
 ) -> str:
     # Ref: https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html
     base_model_ids = {
-        # Latest Claude models available in eu-central-1
-        "claude-v4.5-sonnet": "anthropic.claude-sonnet-4-5-20250929-v1:0",  # Latest Sonnet
+        "claude-v4-opus": "anthropic.claude-opus-4-20250514-v1:0",
+        "claude-v4.1-opus": "anthropic.claude-opus-4-1-20250805-v1:0",
         "claude-v4-sonnet": "anthropic.claude-sonnet-4-20250514-v1:0",
-        "claude-v4.5-haiku": "anthropic.claude-haiku-4-5-20251001-v1:0",  # Latest Haiku
+        "claude-v3-opus": "anthropic.claude-3-opus-20240229-v1:0",
         "claude-v3.7-sonnet": "anthropic.claude-3-7-sonnet-20250219-v1:0",
-        "claude-v3-haiku": "anthropic.claude-3-haiku-20240307-v1:0",
-        # Amazon Nova models
+        # New Amazon Nova models
         "amazon-nova-pro": "amazon.nova-pro-v1:0",
         "amazon-nova-lite": "amazon.nova-lite-v1:0",
         "amazon-nova-micro": "amazon.nova-micro-v1:0",
+        # DeepSeek models
+        "deepseek-r1": "deepseek.r1-v1:0",
     }
 
     # Made this list by scripts/cross_region_inference/get_supported_cross_region_inferences.py
@@ -639,11 +645,12 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
+                "claude-v4-opus",
+                "claude-v4.1-opus",
                 "claude-v4-sonnet",
-                "claude-v4.5-haiku",
+                "claude-v3-opus",
                 "claude-v3.7-sonnet",
-                "claude-v3-haiku",
+                "deepseek-r1",
             ],
         },
         "us-east-2": {
@@ -652,11 +659,11 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
+                "claude-v4-opus",
+                "claude-v4.1-opus",
                 "claude-v4-sonnet",
-                "claude-v4.5-haiku",
                 "claude-v3.7-sonnet",
-                "claude-v3-haiku",
+                "deepseek-r1",
             ],
         },
         "us-west-2": {
@@ -665,11 +672,12 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
+                "claude-v4-opus",
+                "claude-v4.1-opus",
                 "claude-v4-sonnet",
-                "claude-v4.5-haiku",
+                "claude-v3-opus",
                 "claude-v3.7-sonnet",
-                "claude-v3-haiku",
+                "deepseek-r1",
             ],
         },
         "eu-central-1": {
@@ -678,11 +686,8 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
                 "claude-v4-sonnet",
-                "claude-v4.5-haiku",
                 "claude-v3.7-sonnet",
-                "claude-v3-haiku",
             ],
         },
         "eu-west-1": {
@@ -691,11 +696,8 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
                 "claude-v4-sonnet",
-                "claude-v4.5-haiku",
                 "claude-v3.7-sonnet",
-                "claude-v3-haiku",
             ],
         },
         "eu-west-2": {"area": "eu", "models": []},
@@ -705,11 +707,8 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
                 "claude-v4-sonnet",
-                "claude-v4.5-haiku",
                 "claude-v3.7-sonnet",
-                "claude-v3-haiku",
             ],
         },
         "eu-north-1": {
@@ -726,7 +725,6 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
                 "claude-v4-sonnet",
             ],
         },
@@ -736,7 +734,6 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
                 "claude-v4-sonnet",
             ],
         },
@@ -746,7 +743,6 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
                 "claude-v4-sonnet",
             ],
         },
@@ -757,7 +753,6 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
                 "claude-v4-sonnet",
             ],
         },
@@ -767,7 +762,6 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.5-sonnet",
                 "claude-v4-sonnet",
             ],
         },

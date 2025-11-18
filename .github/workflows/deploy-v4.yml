@@ -73,7 +73,16 @@ jobs:
       - name: Push backend image to ECR
         run: |
           IMAGE_TAG=${{ github.sha }}
+          # Push with git SHA tag (unique, always succeeds)
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:${IMAGE_TAG}
+
+          # Delete old 'latest' tag if it exists (ECR has immutable tags)
+          aws ecr batch-delete-image \
+            --repository-name ${{ env.ECR_REPOSITORY_BACKEND }} \
+            --image-ids imageTag=latest \
+            || echo "No existing 'latest' tag to delete"
+
+          # Push new 'latest' tag
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:latest
 
       - name: Set up Node.js

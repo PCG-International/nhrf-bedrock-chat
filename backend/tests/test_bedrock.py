@@ -1,9 +1,6 @@
 import os
 import sys
 
-import boto3
-from ulid import ULID
-
 os.environ["REGION"] = "us-west-2"
 os.environ["BEDROCK_REGION"] = "us-west-2"
 os.environ["ENABLE_BEDROCK_CROSS_REGION_INFERENCE"] = "true"
@@ -11,8 +8,7 @@ os.environ["ENABLE_BEDROCK_CROSS_REGION_INFERENCE"] = "true"
 sys.path.append(".")
 
 import unittest
-from pprint import pprint
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from app.bedrock import call_converse_api, compose_args_for_converse_api, get_model_id
 from app.repositories.models.conversation import SimpleMessageModel, TextContentModel
@@ -25,27 +21,27 @@ MODEL: type_model_name = "claude-v3.7-sonnet"
 
 class TestGetModelId(unittest.TestCase):
     def test_get_model_id_with_cross_region_supported_model(self):
-        model = "claude-v3.5-sonnet"
+        model = "claude-v3.7-sonnet"
         # Prefix with "us." to enable cross-region
-        expected_model_id = "us.anthropic.claude-3-5-sonnet-20240620-v1:0"
+        expected_model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
         self.assertEqual(
             get_model_id(model, enable_cross_region=True, bedrock_region="us-east-1"),
             expected_model_id,
         )
 
     def test_get_model_id_without_cross_region(self):
-        model = "claude-v3.5-sonnet"
+        model = "claude-v3.7-sonnet"
         # No prefix to disable cross-region
-        expected_model_id = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+        expected_model_id = "anthropic.claude-3-7-sonnet-20250219-v1:0"
         self.assertEqual(
             get_model_id(model, enable_cross_region=False, bedrock_region="us-east-1"),
             expected_model_id,
         )
 
     def test_get_model_id_with_unsupported_region_for_cross_region(self):
-        model = "claude-v3.5-sonnet"
+        model = "claude-v3.7-sonnet"
         # Cross region is disabled because the region is not supported
-        expected_model_id = "apac.anthropic.claude-3-5-sonnet-20240620-v1:0"
+        expected_model_id = "anthropic.claude-3-7-sonnet-20250219-v1:0"
         self.assertEqual(
             get_model_id(
                 model, enable_cross_region=True, bedrock_region="ap-northeast-1"
@@ -55,7 +51,14 @@ class TestGetModelId(unittest.TestCase):
 
 
 class TestCallConverseApi(unittest.TestCase):
-    def test_call_converse_api(self):
+    @patch("app.bedrock.get_bedrock_runtime_client")
+    def test_call_converse_api(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": "Test response"}]}}
+        }
+
         message = SimpleMessageModel(
             role="user",
             content=[
@@ -72,32 +75,21 @@ class TestCallConverseApi(unittest.TestCase):
         )
 
         response = call_converse_api(arg)
-        pprint(response)
+        self.assertEqual(response, mock_client.converse.return_value)
+        mock_client.converse.assert_called_once_with(**arg)
 
 
 class TestCallConverseApiWithGuardrails(unittest.TestCase):
     def setUp(self):
-        # Note that the region must be the same as the one used in the bedrock client
-        # https://github.com/aws/aws-sdk-js-v3/issues/6482
-        self.bedrock_client = boto3.client("bedrock", region_name="us-east-1")
-        self.guardrail_name = f"test-guardrail-{ULID()}"
+        self.get_client_patcher = patch("app.bedrock.get_bedrock_runtime_client")
+        self.mock_get_client = self.get_client_patcher.start()
+        self.addCleanup(self.get_client_patcher.stop)
 
-        # Create dummy guardrail
-        res = self.bedrock_client.create_guardrail(
-            name=self.guardrail_name,
-            description="Test guardrail for unit tests",
-            contentPolicyConfig={
-                "filtersConfig": [
-                    {"type": "SEXUAL", "inputStrength": "LOW", "outputStrength": "LOW"},
-                ]
-            },
-            blockedInputMessaging="blocked",
-            blockedOutputsMessaging="blocked",
-        )
-
-        res_ver = self.bedrock_client.create_guardrail_version(
-            guardrailIdentifier=res["guardrailArn"],
-        )
+        self.bedrock_client = MagicMock()
+        self.mock_get_client.return_value = self.bedrock_client
+        self.bedrock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": "Guardrail response"}]}}
+        }
 
         self.guardrail = BedrockGuardrailsModel(
             is_guardrail_enabled=True,
@@ -108,20 +100,9 @@ class TestCallConverseApiWithGuardrails(unittest.TestCase):
             misconduct_threshold=0,
             grounding_threshold=0,
             relevance_threshold=0,
-            guardrail_arn=res["guardrailArn"],
-            guardrail_version=res_ver["version"],
-            # guardrail_version="DRAFT",
+            guardrail_arn="test-arn",
+            guardrail_version="1",
         )
-        self.guardrail_arn = res["guardrailArn"]
-
-    def tearDown(self):
-        print("Cleaning up...")
-        # Delete dummy guardrail
-        try:
-            self.bedrock_client.delete_guardrail(guardrailIdentifier=self.guardrail_arn)
-
-        except Exception as e:
-            print(f"Error deleting guardrail: {e}")
 
     def test_call_converse_api_with_guardrails(self):
         message = SimpleMessageModel(
@@ -140,10 +121,9 @@ class TestCallConverseApiWithGuardrails(unittest.TestCase):
             stream=False,
         )
 
-        pprint(arg)
-
         response = call_converse_api(arg)
-        pprint(response)
+        self.assertEqual(response, self.bedrock_client.converse.return_value)
+        self.bedrock_client.converse.assert_called_once_with(**arg)
 
 
 if __name__ == "__main__":
