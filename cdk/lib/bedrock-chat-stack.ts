@@ -68,8 +68,9 @@ export class BedrockChatStack extends cdk.Stack {
     // Create ECR repositories for Docker images (only for v4 ECS deployment)
     let ecrRepos: EcrRepositories | undefined;
     let ecrReposForLambda: EcrRepositories | undefined;
-    // Use ECR images pushed by GitHub Actions instead of building from source
-    const useEcrImages = true;
+    // Use ECR for ECS backend (pushed by GitHub Actions), but build Lambda images from source
+    const useEcrForEcs = true;    // GitHub Actions pushes ECS backend image
+    const useEcrForLambda = false; // Lambda images still built from source
 
     if (props.envName === "v4") {
       ecrRepos = new EcrRepositories(this, "EcrRepositories", {
@@ -77,7 +78,7 @@ export class BedrockChatStack extends cdk.Stack {
         retainImages: false, // Set to true for production
       });
 
-      ecrReposForLambda = useEcrImages ? ecrRepos : undefined;
+      ecrReposForLambda = useEcrForLambda ? ecrRepos : undefined;
     }
 
     const accessLogBucket = new Bucket(this, "AccessLogBucket", {
@@ -350,7 +351,7 @@ export class BedrockChatStack extends cdk.Stack {
         taskRole,
         account: this.account,
         region: this.region,
-        ecrRepos: useEcrImages ? ecrRepos : undefined, // Only use ECR if images are pushed
+        ecrRepos: useEcrForEcs ? ecrRepos : undefined, // Use ECR image pushed by GitHub Actions
         environment: {
           ACCOUNT: this.account,
           REGION: this.region,
