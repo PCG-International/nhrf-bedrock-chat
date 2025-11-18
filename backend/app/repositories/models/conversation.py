@@ -173,9 +173,18 @@ def _convert_to_valid_file_name(file_name: str) -> str:
     # Note: The document file name can only contain alphanumeric characters,
     # whitespace characters, hyphens, parentheses, and square brackets.
     # The name can't contain more than one consecutive whitespace character.
+
+    # Handle None or empty filename
+    if not file_name:
+        return "document"
+
     file_name = re.sub(r"[^a-zA-Z0-9\s\-\(\)\[\]]", "", file_name)
     file_name = re.sub(r"\s+", " ", file_name)
     file_name = file_name.strip()
+
+    # If stripping results in empty string, return default
+    if not file_name:
+        return "document"
 
     return file_name
 
