@@ -68,9 +68,8 @@ export class BedrockChatStack extends cdk.Stack {
     // Create ECR repositories for Docker images (only for v4 ECS deployment)
     let ecrRepos: EcrRepositories | undefined;
     let ecrReposForLambda: EcrRepositories | undefined;
-    // Don't use ECR images on first deployment - repositories need to exist first
-    // After first deployment, set this to true and redeploy
-    const useEcrImages = false; // TODO: Set to true after ECR repos exist and images are pushed
+    // Use ECR images pushed by GitHub Actions instead of building from source
+    const useEcrImages = true;
 
     if (props.envName === "v4") {
       ecrRepos = new EcrRepositories(this, "EcrRepositories", {
