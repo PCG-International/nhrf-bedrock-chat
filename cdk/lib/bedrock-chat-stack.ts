@@ -371,7 +371,9 @@ export class BedrockChatStack extends cdk.Stack {
           CORS_ALLOW_ORIGINS: frontendOrigin || "*", // Use pre-computed origin
           ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
             props.enableBedrockCrossRegionInference.toString(),
-          GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels?.join(",") || "",
+          GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels
+            ? JSON.stringify(props.globalAvailableModels)
+            : "[]",
           OPENSEARCH_DOMAIN_ENDPOINT: botStore?.openSearchEndpoint || "",
           USAGE_ANALYSIS_DATABASE: usageAnalysis.database.databaseName,
           USAGE_ANALYSIS_TABLE: usageAnalysis.ddbExportTable.tableName,

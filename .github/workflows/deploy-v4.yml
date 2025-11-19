@@ -120,6 +120,15 @@ jobs:
             --progress events \
             --outputs-file ./cdk-outputs.json
 
+      - name: Force ECS deployment with new image
+        run: |
+          # Force ECS to pull the new 'latest' image
+          aws ecs update-service \
+            --cluster v4-backend-cluster \
+            --service v4-backend-service \
+            --force-new-deployment \
+            --no-cli-pager
+
       - name: Upload CDK outputs
         if: always()
         uses: actions/upload-artifact@v4
