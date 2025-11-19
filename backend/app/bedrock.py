@@ -686,8 +686,10 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
+                "claude-v4.1-opus",
                 "claude-v4-sonnet",
                 "claude-v3.7-sonnet",
+                "deepseek-r1",
             ],
         },
         "eu-west-1": {
