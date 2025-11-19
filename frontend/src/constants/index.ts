@@ -90,4 +90,5 @@ export const AVAILABLE_MODEL_KEYS = [
   'amazon-nova-pro',
   'amazon-nova-lite',
   'amazon-nova-micro',
+  'deepseek-r1',
 ] as const;
