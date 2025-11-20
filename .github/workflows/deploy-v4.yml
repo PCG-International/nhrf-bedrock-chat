@@ -124,10 +124,20 @@ jobs:
         run: |
           # Force ECS to pull the new 'latest' image
           aws ecs update-service \
+            --region ${{ env.AWS_REGION }} \
             --cluster v4-backend-cluster \
             --service v4-backend-service \
             --force-new-deployment \
             --no-cli-pager
+
+          echo "ECS deployment triggered, waiting for new task to start..."
+          aws ecs wait services-stable \
+            --region ${{ env.AWS_REGION }} \
+            --cluster v4-backend-cluster \
+            --services v4-backend-service \
+            --timeout 300
+
+          echo "ECS deployment completed successfully!"
 
       - name: Upload CDK outputs
         if: always()

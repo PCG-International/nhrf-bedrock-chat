@@ -35,6 +35,7 @@ bedrockChatParams.set("v4", {
   botStoreLanguage: "en",
   globalAvailableModels: [
     "claude-v4.5-sonnet",
+    "claude-v4.1-opus",
     "claude-v4-sonnet",
     "claude-v4.5-haiku",
     "claude-v3.7-sonnet",
