@@ -517,20 +517,20 @@ def compose_args_for_invoke_api(
         body["stop_sequences"] = stop_sequences
 
     # Return appropriate request type based on streaming
-    # Disable cross-region inference if calling a different region directly
-    use_cross_region = not (target_region and target_region != BEDROCK_REGION)
+    # Always use cross-region inference profiles for target region
+    # For us-east-1 models, get_model_id will return us.model-id format
 
     if stream:
         return {
             "body": json.dumps(body),
-            "modelId": get_model_id(model, enable_cross_region=use_cross_region, bedrock_region=target_region or BEDROCK_REGION),
+            "modelId": get_model_id(model, enable_cross_region=True, bedrock_region=target_region or BEDROCK_REGION),
             "contentType": "application/json",
             "accept": "application/json",
         }
     else:
         return {
             "body": json.dumps(body),
-            "modelId": get_model_id(model, enable_cross_region=use_cross_region, bedrock_region=target_region or BEDROCK_REGION),
+            "modelId": get_model_id(model, enable_cross_region=True, bedrock_region=target_region or BEDROCK_REGION),
             "contentType": "application/json",
             "accept": "application/json",
         }
