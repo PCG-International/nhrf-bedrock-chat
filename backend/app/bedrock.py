@@ -781,6 +781,16 @@ def get_model_id(
             and model in supported_regions[bedrock_region]["models"]
         ):
             region_prefix = supported_regions[bedrock_region]["area"]
+
+            # For models only available in US regions (DeepSeek, Claude 4.1 Opus),
+            # use US prefix even when calling from EU
+            us_only_models = ["deepseek-r1", "claude-v4.1-opus", "claude-v4-opus"]
+            if model in us_only_models:
+                region_prefix = "us"
+                logger.info(
+                    f"Model '{model}' only available in US regions, using US inference profile from '{bedrock_region}'"
+                )
+
             model_id = f"{region_prefix}.{base_model_id}"
             logger.info(
                 f"Using cross-region model ID: {model_id} for model '{model}' in region '{BEDROCK_REGION}'"
