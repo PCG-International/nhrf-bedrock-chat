@@ -205,6 +205,15 @@ class ConverseApiStreamHandler:
         self.on_thinking = on_thinking
         self.on_reasoning = on_reasoning
 
+    def _requires_invoke_api_for_cross_region(self) -> bool:
+        """Check if model requires Invoke API for cross-region inference.
+
+        Models not available in eu-central-1 that need US cross-region routing
+        must use Invoke API because Converse API doesn't support cross-region inference profiles.
+        """
+        cross_region_only_models = ["deepseek-r1", "claude-v4.1-opus", "claude-v4-opus"]
+        return self.model in cross_region_only_models
+
     @retry(
         exceptions=(BedrockThrottlingException,),
         tries=3,
@@ -222,8 +231,8 @@ class ConverseApiStreamHandler:
         prompt_caching_enabled: bool = False,
     ) -> OnStopInput:
         try:
-            # Check if this is a Claude 4 model and use invoke API instead
-            if is_claude_4_model(self.model):
+            # Check if model requires Invoke API (Claude 4 or cross-region only models)
+            if is_claude_4_model(self.model) or self._requires_invoke_api_for_cross_region():
                 return self._run_invoke_api(
                     messages=messages,
                     message_for_continue_generate=message_for_continue_generate,
