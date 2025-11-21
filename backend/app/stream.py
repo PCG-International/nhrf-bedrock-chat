@@ -537,6 +537,17 @@ class ConverseApiStreamHandler:
             logger.error(f"Error: {e}")
             raise e
 
+    def _get_region_for_model(self) -> str:
+        """Get the appropriate AWS region for the model.
+
+        Some models are only available in specific regions and must be called
+        directly in those regions (not via cross-region inference profiles).
+        """
+        us_only_models = ["deepseek-r1", "claude-v4.1-opus", "claude-v4-opus"]
+        if self.model in us_only_models:
+            return "us-east-1"
+        return BEDROCK_REGION
+
     def _run_invoke_api(
         self,
         messages: list[SimpleMessageModel],
@@ -544,6 +555,9 @@ class ConverseApiStreamHandler:
     ) -> OnStopInput:
         """Handle Claude 4 models using the invoke API for file upload support"""
         try:
+            # Get the appropriate region for this model
+            model_region = self._get_region_for_model()
+
             # Create payload for invoke API
             args = compose_args_for_invoke_api(
                 messages=messages,
@@ -551,10 +565,13 @@ class ConverseApiStreamHandler:
                 instructions=self.instructions,
                 generation_params=self.generation_params,
                 stream=True,
+                target_region=model_region,
             )
             logger.info(f"args for invoke_model_with_response_stream: {args}")
+            logger.info(f"Using region: {model_region} for model: {self.model}")
 
-            client = get_bedrock_runtime_client()
+            # Use region-specific client for US-only models
+            client = get_bedrock_runtime_client(region=model_region)
             try:
                 response = client.invoke_model_with_response_stream(**args)
             except ClientError as e:

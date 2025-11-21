@@ -445,10 +445,15 @@ def compose_args_for_invoke_api(
     instructions: list[str] = [],
     generation_params: GenerationParamsModel | None = None,
     stream: bool = True,
+    target_region: str | None = None,
 ) -> InvokeModelWithResponseStreamRequestTypeDef | InvokeModelRequestTypeDef:
     """
     Compose arguments for Claude 4 models using the invoke API instead of converse API.
     This allows for file uploads that are not supported by the converse API.
+
+    Args:
+        target_region: The AWS region where the model will be called. If provided and different from BEDROCK_REGION,
+                      cross-region inference will be disabled to use direct model ID.
     """
     # Convert messages to Claude 4 format
     claude_messages = []
@@ -512,17 +517,20 @@ def compose_args_for_invoke_api(
         body["stop_sequences"] = stop_sequences
 
     # Return appropriate request type based on streaming
+    # Disable cross-region inference if calling a different region directly
+    use_cross_region = not (target_region and target_region != BEDROCK_REGION)
+
     if stream:
         return {
             "body": json.dumps(body),
-            "modelId": get_model_id(model),
+            "modelId": get_model_id(model, enable_cross_region=use_cross_region, bedrock_region=target_region or BEDROCK_REGION),
             "contentType": "application/json",
             "accept": "application/json",
         }
     else:
         return {
             "body": json.dumps(body),
-            "modelId": get_model_id(model),
+            "modelId": get_model_id(model, enable_cross_region=use_cross_region, bedrock_region=target_region or BEDROCK_REGION),
             "contentType": "application/json",
             "accept": "application/json",
         }
