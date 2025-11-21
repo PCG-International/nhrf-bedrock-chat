@@ -694,10 +694,9 @@ def get_model_id(
                 "amazon-nova-lite",
                 "amazon-nova-micro",
                 "amazon-nova-pro",
-                "claude-v4.1-opus",
                 "claude-v4-sonnet",
                 "claude-v3.7-sonnet",
-                "deepseek-r1",
+                # Note: claude-v4.1-opus and deepseek-r1 not available for channel program accounts
             ],
         },
         "eu-west-1": {
