@@ -134,8 +134,7 @@ jobs:
           aws ecs wait services-stable \
             --region ${{ env.AWS_REGION }} \
             --cluster v4-backend-cluster \
-            --services v4-backend-service \
-            --timeout 300
+            --services v4-backend-service
 
           echo "ECS deployment completed successfully!"
 
