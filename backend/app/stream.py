@@ -113,6 +113,11 @@ def _sanitize_text(text: str) -> str:
     # Remove JSON fragments that might leak
     text = re.sub(r'{"tool_use":[^}]*}', "", text)
 
+    # Remove Claude 4 internal search reasoning tags that leak into response
+    text = re.sub(r"<search_quality_score>.*?</search_quality_score>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(r"<search_quality_reasoning>.*?</search_quality_reasoning>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(r"<search_query>.*?</search_query>\s*", "", text, flags=re.DOTALL)
+
     return text.strip()
 
 
@@ -678,8 +683,11 @@ class ConverseApiStreamHandler:
                 f"Claude 4 invoke API processed {event_count} events, text_length={len(current_text)}, thinking_length={len(current_thinking)}, stop_reason={stop_reason}"
             )
 
+            # Sanitize text to remove internal reasoning tags before checking for empty
+            sanitized_for_check = _sanitize_text(current_text)
+
             # Validate that we received content - empty messages will corrupt conversations
-            if not current_text.strip():
+            if not sanitized_for_check.strip():
                 # Log detailed diagnostic info
                 logger.error(
                     f"Empty response from Claude 4: events={event_count}, content_blocks={content_block_types}, stop_reason={stop_reason}, thinking_length={len(current_thinking)}"
@@ -693,13 +701,13 @@ class ConverseApiStreamHandler:
                     f"Received empty response from Bedrock API after {event_count} events. Stop reason: {stop_reason}. Check CloudWatch logs for event details."
                 )
 
-            # Create the final message
+            # Create the final message with sanitized text (reuse the sanitized version)
             message = MessageModel(
                 role="assistant",
                 content=[
                     TextContentModel(
                         content_type="text",
-                        body=current_text,
+                        body=sanitized_for_check,
                     )
                 ],
                 model=self.model,
