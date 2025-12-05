@@ -5,6 +5,9 @@
 # Core AWS SDK
 boto3==1.37.0
 
+# Boto3 type stubs (imported by app.routes.schemas, app.repositories.models)
+boto3-stubs[bedrock,bedrock-agent-runtime,bedrock-runtime]==1.37.0
+
 # For unique ID generation (used in app.repositories.common)
 python-ulid==1.1.0
 
