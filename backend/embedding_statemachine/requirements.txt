@@ -22,3 +22,15 @@ typing_extensions==4.13.1
 
 # For schemas and data validation (used in app.routes.schemas)
 pydantic==2.11.2
+
+# For OpenSearch client (imported by app.repositories.common)
+opensearch-py==2.4.2
+
+# For AWS authentication with OpenSearch (imported by app.repositories.common)
+requests-aws4auth==1.2.3
+
+# For charset utilities (imported by app.routes.schemas.bot)
+charset-normalizer==3.3.2
+
+# For camelCase conversion (imported by app.routes.schemas.base)
+pyhumps==3.8.0
