@@ -572,18 +572,14 @@ def propose_conversation_title(
     )
     messages.append(new_message)
 
-    # Filter out tool use/result and reasoning content from each message,
-    # keeping only text and image content for title generation
+    # Filter to keep ONLY text content for title generation
+    # This avoids the 4.5MB Converse API limit when conversations contain large files/images
     filtered_messages = []
     for message in messages:
         filtered_content = [
-            c
-            for c in message.content
-            if not isinstance(
-                c, (ToolUseContentModel, ToolResultContentModel, ReasoningContentModel)
-            )
+            c for c in message.content if isinstance(c, TextContentModel)
         ]
-        # Only include messages that have content after filtering
+        # Only include messages that have text content after filtering
         if filtered_content:
             filtered_messages.append(
                 SimpleMessageModel(role=message.role, content=filtered_content)

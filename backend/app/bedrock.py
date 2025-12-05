@@ -827,24 +827,24 @@ def get_model_id(
     model_id = base_model_id
 
     if enable_cross_region:
-        if (
+        # Models only available in US regions - must use "us." prefix regardless of deployment region
+        us_only_models = ["deepseek-r1", "claude-v4.1-opus", "claude-v4-opus"]
+
+        if model in us_only_models:
+            # US-only models always use US inference profile
+            model_id = f"us.{base_model_id}"
+            logger.info(
+                f"Model '{model}' only available in US regions, using US inference profile: {model_id}"
+            )
+        elif (
             bedrock_region in supported_regions
             and model in supported_regions[bedrock_region]["models"]
         ):
+            # Model is available in deployment region - use that region's prefix
             region_prefix = supported_regions[bedrock_region]["area"]
-
-            # For models only available in US regions (DeepSeek, Claude 4.1 Opus),
-            # use US prefix even when calling from EU
-            us_only_models = ["deepseek-r1", "claude-v4.1-opus", "claude-v4-opus"]
-            if model in us_only_models:
-                region_prefix = "us"
-                logger.info(
-                    f"Model '{model}' only available in US regions, using US inference profile from '{bedrock_region}'"
-                )
-
             model_id = f"{region_prefix}.{base_model_id}"
             logger.info(
-                f"Using cross-region model ID: {model_id} for model '{model}' in region '{BEDROCK_REGION}'"
+                f"Using cross-region model ID: {model_id} for model '{model}' in region '{bedrock_region}'"
             )
         else:
             logger.warning(
