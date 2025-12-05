@@ -521,14 +521,19 @@ def compose_args_for_invoke_api(
         if generation_params
         else DEFAULT_GENERATION_CONFIG["top_k"]
     )
+    # For Claude 4 Messages API (invoke), only use stop_sequences if explicitly configured
+    # The default "Human: "/"Assistant: " sequences are for old completion API and cause
+    # immediate stops with the Messages API
     stop_sequences = (
         generation_params.stop_sequences
         if (
             generation_params
             and generation_params.stop_sequences
             and any(generation_params.stop_sequences)
+            # Filter out the old default stop sequences that don't work with Messages API
+            and generation_params.stop_sequences != ["Human: ", "Assistant: "]
         )
-        else DEFAULT_GENERATION_CONFIG.get("stop_sequences", [])
+        else []
     )
 
     # Compose the body for Claude 4 invoke API
