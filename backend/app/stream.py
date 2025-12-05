@@ -624,7 +624,8 @@ class ConverseApiStreamHandler:
                     chunk_data = json.loads(chunk["bytes"].decode())
                     event_count += 1
                     event_type = chunk_data.get("type", "unknown")
-                    logger.debug(f"Claude 4 invoke event #{event_count}: {event_type}")
+                    # Log ALL events at INFO level to diagnose empty responses
+                    logger.info(f"Claude 4 event #{event_count}: {event_type} - {json.dumps(chunk_data)[:500]}")
 
                     if event_type == "message_start":
                         usage = chunk_data.get("message", {}).get("usage", {})
@@ -672,16 +673,22 @@ class ConverseApiStreamHandler:
                         raise ValueError(f"Bedrock API error: {error_msg}")
 
             logger.info(
-                f"Claude 4 invoke API processed {event_count} events, text_length={len(current_text)}, thinking_length={len(current_thinking)}"
+                f"Claude 4 invoke API processed {event_count} events, text_length={len(current_text)}, thinking_length={len(current_thinking)}, stop_reason={stop_reason}"
             )
 
             # Validate that we received content - empty messages will corrupt conversations
             if not current_text.strip():
+                # Log detailed diagnostic info
                 logger.error(
-                    f"Empty response from Claude 4: events={event_count}, content_blocks={content_block_types}"
+                    f"Empty response from Claude 4: events={event_count}, content_blocks={content_block_types}, stop_reason={stop_reason}, thinking_length={len(current_thinking)}"
                 )
+                # If we have thinking but no text, include that in the error
+                if current_thinking:
+                    raise ValueError(
+                        f"Model returned thinking ({len(current_thinking)} chars) but no text response after {event_count} events. Stop reason: {stop_reason}"
+                    )
                 raise ValueError(
-                    f"Received empty response from Bedrock API after {event_count} events. This may be due to a timeout or service interruption."
+                    f"Received empty response from Bedrock API after {event_count} events. Stop reason: {stop_reason}. Check CloudWatch logs for event details."
                 )
 
             # Create the final message
