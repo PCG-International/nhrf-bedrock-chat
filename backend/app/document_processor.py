@@ -27,6 +27,7 @@ try:
     # Check if RapidOCR is available (installed separately in ECS Docker)
     try:
         from rapidocr_onnxruntime import RapidOCR
+
         RAPIDOCR_AVAILABLE = True
         logger.info("RapidOCR is available for enhanced OCR processing")
     except ImportError:
@@ -95,7 +96,9 @@ class DoclingProcessor:
             actual_ocr = enable_ocr and RAPIDOCR_AVAILABLE
 
             if enable_ocr and not RAPIDOCR_AVAILABLE:
-                logger.warning("OCR requested but RapidOCR not available, proceeding without OCR")
+                logger.warning(
+                    "OCR requested but RapidOCR not available, proceeding without OCR"
+                )
 
             pdf_options = PdfFormatOption(
                 do_ocr=actual_ocr,  # Uses RapidOCR when enabled

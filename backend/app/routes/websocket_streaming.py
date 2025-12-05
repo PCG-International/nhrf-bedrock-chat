@@ -290,6 +290,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 except Exception as e:
                     import traceback
+
                     tb = traceback.format_exc()
                     logger.error(f"Error processing chat: {e}")
                     logger.error(f"Full traceback:\n{tb}")

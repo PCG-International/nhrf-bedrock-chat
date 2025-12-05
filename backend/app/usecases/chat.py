@@ -572,18 +572,26 @@ def propose_conversation_title(
     )
     messages.append(new_message)
 
+    # Filter out tool use/result and reasoning content from each message,
+    # keeping only text and image content for title generation
+    filtered_messages = []
+    for message in messages:
+        filtered_content = [
+            c
+            for c in message.content
+            if not isinstance(
+                c, (ToolUseContentModel, ToolResultContentModel, ReasoningContentModel)
+            )
+        ]
+        # Only include messages that have content after filtering
+        if filtered_content:
+            filtered_messages.append(
+                SimpleMessageModel(role=message.role, content=filtered_content)
+            )
+
     # Invoke Bedrock
     args = compose_args_for_converse_api(
-        messages=[
-            message
-            for message in messages
-            if not any(
-                isinstance(content, ToolUseContentModel)
-                or isinstance(content, ToolResultContentModel)
-                or isinstance(content, ReasoningContentModel)
-                for content in message.content
-            )
-        ],
+        messages=filtered_messages,
         model=model,
         stream=False,
     )

@@ -209,6 +209,10 @@ def compose_args_for_converse_api(
         ):
             return []
 
+        # Skip empty text content - Bedrock rejects blank text fields
+        if c.content_type == "text" and (not c.body or not c.body.strip()):
+            return []
+
         if c.content_type == "text":
             if (
                 role == "user"
@@ -523,14 +527,22 @@ def compose_args_for_invoke_api(
     if stream:
         return {
             "body": json.dumps(body),
-            "modelId": get_model_id(model, enable_cross_region=True, bedrock_region=target_region or BEDROCK_REGION),
+            "modelId": get_model_id(
+                model,
+                enable_cross_region=True,
+                bedrock_region=target_region or BEDROCK_REGION,
+            ),
             "contentType": "application/json",
             "accept": "application/json",
         }
     else:
         return {
             "body": json.dumps(body),
-            "modelId": get_model_id(model, enable_cross_region=True, bedrock_region=target_region or BEDROCK_REGION),
+            "modelId": get_model_id(
+                model,
+                enable_cross_region=True,
+                bedrock_region=target_region or BEDROCK_REGION,
+            ),
             "contentType": "application/json",
             "accept": "application/json",
         }

@@ -44,7 +44,7 @@ class TestConversationRepository(unittest.TestCase):
         # Set up environment variables
         os.environ["CONVERSATION_TABLE_NAME"] = "test-table"
         os.environ["CONVERSATION_BUCKET_NAME"] = "test-bucket"
-        os.environ["LARGE_MESSAGE_BUCKET"] = "test-large-message-bucket"
+        os.environ["LARGE_MESSAGE_BUCKET_NAME"] = "test-large-message-bucket"
         os.environ["BEDROCK_REGION"] = "us-east-1"
 
         self.title_updated = False
@@ -56,7 +56,7 @@ class TestConversationRepository(unittest.TestCase):
         self.patcher2.stop()
         os.environ.pop("CONVERSATION_TABLE_NAME", None)
         os.environ.pop("CONVERSATION_BUCKET_NAME", None)
-        os.environ.pop("LARGE_MESSAGE_BUCKET", None)
+        os.environ.pop("LARGE_MESSAGE_BUCKET_NAME", None)
         os.environ.pop("BEDROCK_REGION", None)
 
     def test_store_and_find_conversation(self):
