@@ -118,6 +118,12 @@ def _sanitize_text(text: str) -> str:
     text = re.sub(r"<search_quality_reasoning>.*?</search_quality_reasoning>\s*", "", text, flags=re.DOTALL)
     text = re.sub(r"<search_query>.*?</search_query>\s*", "", text, flags=re.DOTALL)
 
+    # Remove leaked tool use XML blocks (Claude 4 sometimes outputs these in text)
+    text = re.sub(r"<function_calls>.*?</function_calls>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(r"<invoke[^>]*>.*?</invoke>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(r"<function_result>.*?</function_result>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(r"<parameter[^>]*>.*?</parameter>\s*", "", text, flags=re.DOTALL)
+
     return text.strip()
 
 
@@ -237,10 +243,13 @@ class ConverseApiStreamHandler:
     ) -> OnStopInput:
         try:
             # Check if model requires Invoke API (Claude 4 or cross-region only models)
-            if (
+            # BUT: Use Converse API when tools are present (for proper tool execution)
+            use_invoke_api = (
                 is_claude_4_model(self.model)
                 or self._requires_invoke_api_for_cross_region()
-            ):
+            ) and not self.tools  # Don't use invoke API if we have tools
+
+            if use_invoke_api:
                 return self._run_invoke_api(
                     messages=messages,
                     message_for_continue_generate=message_for_continue_generate,
@@ -590,6 +599,10 @@ class ConverseApiStreamHandler:
             # Get the appropriate region for this model
             model_region = self._get_region_for_model()
 
+            # Note: Tools are not passed to invoke API yet because full tool use
+            # support (executing tools and returning results) is not implemented.
+            # The model may output XML-style tool calls which are sanitized.
+
             # Create payload for invoke API
             args = compose_args_for_invoke_api(
                 messages=messages,
@@ -664,6 +677,12 @@ class ConverseApiStreamHandler:
                             current_thinking += thinking
                             if self.on_reasoning:
                                 self.on_reasoning(thinking)
+                        elif delta_type == "input_json_delta":
+                            # Tool use input - log but don't process yet
+                            # Full tool use for invoke API requires multi-turn handling
+                            logger.debug(
+                                f"Tool use input delta (not executed): {delta.get('partial_json', '')[:100]}"
+                            )
 
                     elif event_type == "message_delta":
                         delta = chunk_data.get("delta", {})

@@ -450,6 +450,7 @@ def compose_args_for_invoke_api(
     generation_params: GenerationParamsModel | None = None,
     stream: bool = True,
     target_region: str | None = None,
+    tools: list[dict] | None = None,
 ) -> InvokeModelWithResponseStreamRequestTypeDef | InvokeModelRequestTypeDef:
     """
     Compose arguments for Claude 4 models using the invoke API instead of converse API.
@@ -551,6 +552,10 @@ def compose_args_for_invoke_api(
 
     if stop_sequences:
         body["stop_sequences"] = stop_sequences
+
+    # Add tools if provided
+    if tools:
+        body["tools"] = tools
 
     # Return appropriate request type based on streaming
     # Always use cross-region inference profiles for target region
