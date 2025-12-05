@@ -347,11 +347,14 @@ export class BedrockChatStack extends cdk.Stack {
       usageAnalysis.resultOutputBucket.grantReadWrite(taskRole);
 
       // Create ECS backend
+      // Get image tag from context (passed by GitHub Actions)
+      const imageTag = this.node.tryGetContext("imageTag") as string | undefined;
       backendEcs = new BackendEcs(this, "BackendEcs", {
         taskRole,
         account: this.account,
         region: this.region,
         ecrRepos: useEcrForEcs ? ecrRepos : undefined, // Use ECR image pushed by GitHub Actions
+        imageTag, // Use specific tag (git SHA) to ensure CloudFormation detects changes
         environment: {
           ACCOUNT: this.account,
           REGION: this.region,

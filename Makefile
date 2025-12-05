@@ -220,29 +220,35 @@ destroy-v3: ## Destroy v3 stack (WARNING: Deletes resources!)
 
 ##@ Deployment (V4 - ECS Fargate)
 
-deploy-v4: ## Deploy v4 (ECS Fargate architecture)
+deploy-v4: ## Deploy v4 (ECS Fargate architecture) - uses git SHA as image tag
 	@echo "$(BLUE)Deploying v4 stack (ECS Fargate)...$(NC)"
 	@echo "$(YELLOW)Enabling Docker BuildKit for better caching...$(NC)"
-	@export DOCKER_BUILDKIT=1 && \
+	@IMAGE_TAG=$$(git rev-parse HEAD) && \
+		echo "$(YELLOW)Using image tag: $$IMAGE_TAG$(NC)" && \
+		export DOCKER_BUILDKIT=1 && \
 		export BUILDKIT_PROGRESS=plain && \
-		cd cdk && npx cdk deploy --all -c envName=v4 --require-approval never
+		cd cdk && npx cdk deploy --all -c envName=v4 -c imageTag=$$IMAGE_TAG --require-approval never
 	@echo "$(GREEN)✓ v4 stack deployed$(NC)"
 
 deploy-v4-with-approval: ## Deploy v4 with manual approval
 	@echo "$(BLUE)Deploying v4 stack (ECS Fargate) with approval...$(NC)"
 	@echo "$(YELLOW)Enabling Docker BuildKit for better caching...$(NC)"
-	@export DOCKER_BUILDKIT=1 && \
+	@IMAGE_TAG=$$(git rev-parse HEAD) && \
+		echo "$(YELLOW)Using image tag: $$IMAGE_TAG$(NC)" && \
+		export DOCKER_BUILDKIT=1 && \
 		export BUILDKIT_PROGRESS=plain && \
-		cd cdk && npx cdk deploy --all -c envName=v4
+		cd cdk && npx cdk deploy --all -c envName=v4 -c imageTag=$$IMAGE_TAG
 	@echo "$(GREEN)✓ v4 stack deployed$(NC)"
 
 diff-v4: ## Show what would change in v4 deployment
 	@echo "$(BLUE)Showing v4 deployment diff...$(NC)"
-	@cd cdk && npx cdk diff --all -c envName=v4
+	@IMAGE_TAG=$$(git rev-parse HEAD) && \
+		cd cdk && npx cdk diff --all -c envName=v4 -c imageTag=$$IMAGE_TAG
 
 synth-v4: ## Synthesize v4 CloudFormation template
 	@echo "$(BLUE)Synthesizing v4 CloudFormation template...$(NC)"
-	@cd cdk && npx cdk synth --all -c envName=v4
+	@IMAGE_TAG=$$(git rev-parse HEAD) && \
+		cd cdk && npx cdk synth --all -c envName=v4 -c imageTag=$$IMAGE_TAG
 
 destroy-v4: ## Destroy v4 stack (WARNING: Deletes resources!)
 	@echo "$(RED)WARNING: This will destroy all v4 resources!$(NC)"

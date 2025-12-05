@@ -106,15 +106,19 @@ jobs:
       - name: CDK Synth
         working-directory: ./cdk
         run: |
+          IMAGE_TAG=${{ github.sha }}
           npx cdk synth \
             -c envName=v4 \
+            -c imageTag=${IMAGE_TAG} \
             --all
 
       - name: CDK Deploy
         working-directory: ./cdk
         run: |
+          IMAGE_TAG=${{ github.sha }}
           npx cdk deploy \
             -c envName=v4 \
+            -c imageTag=${IMAGE_TAG} \
             --all \
             --require-approval never \
             --progress events \
@@ -122,7 +126,7 @@ jobs:
 
       - name: Force ECS deployment with new image
         run: |
-          # Force ECS to pull the new 'latest' image
+          # Force new deployment to ensure tasks use the updated task definition
           aws ecs update-service \
             --region ${{ env.AWS_REGION }} \
             --cluster v4-backend-cluster \

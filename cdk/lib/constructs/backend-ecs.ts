@@ -81,6 +81,12 @@ export interface BackendEcsProps {
    * If provided, uses ECR image instead of building from source
    */
   ecrRepos?: EcrRepositories;
+
+  /**
+   * Image tag to use when pulling from ECR (e.g., git SHA)
+   * If not provided, defaults to "latest"
+   */
+  imageTag?: string;
 }
 
 export class BackendEcs extends Construct {
@@ -151,7 +157,7 @@ export class BackendEcs extends Construct {
     const containerImage = props.ecrRepos
       ? ecs.ContainerImage.fromEcrRepository(
           props.ecrRepos.ecsBackendRepo,
-          "latest" // Use "latest" tag, or pass specific tag via props
+          props.imageTag || "latest"
         )
       : ecs.ContainerImage.fromAsset("../backend", {
           file: "Dockerfile",
