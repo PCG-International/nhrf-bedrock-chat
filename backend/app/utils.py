@@ -55,7 +55,13 @@ def get_bedrock_client(region=BEDROCK_REGION):
 
 
 def get_bedrock_runtime_client(region=BEDROCK_REGION):
-    client = boto3.client("bedrock-runtime", region_name=region)
+    # Extended timeout for Claude 4 with extended thinking which can take longer
+    config = Config(
+        read_timeout=900,  # 15 minutes max for extended thinking
+        connect_timeout=60,
+        retries={"max_attempts": 3, "mode": "adaptive"},
+    )
+    client = boto3.client("bedrock-runtime", region_name=region, config=config)
     return client
 
 

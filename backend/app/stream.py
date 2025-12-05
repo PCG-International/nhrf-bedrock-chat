@@ -610,38 +610,78 @@ class ConverseApiStreamHandler:
 
             # Process the streaming response for Claude 4 invoke API
             current_text = ""
+            current_thinking = ""
             input_token_count = 0
             output_token_count = 0
             stop_reason: StopReasonType = "end_turn"
+            event_count = 0
+            # Track content block types by index
+            content_block_types: dict[int, str] = {}
 
             for event in response["body"]:
                 chunk = event.get("chunk")
                 if chunk:
                     chunk_data = json.loads(chunk["bytes"].decode())
+                    event_count += 1
+                    event_type = chunk_data.get("type", "unknown")
+                    logger.debug(f"Claude 4 invoke event #{event_count}: {event_type}")
 
-                    if chunk_data.get("type") == "message_start":
+                    if event_type == "message_start":
                         usage = chunk_data.get("message", {}).get("usage", {})
                         input_token_count = usage.get("input_tokens", 0)
 
-                    elif chunk_data.get("type") == "content_block_delta":
+                    elif event_type == "content_block_start":
+                        # Track the type of each content block
+                        index = chunk_data.get("index", 0)
+                        content_block = chunk_data.get("content_block", {})
+                        block_type = content_block.get("type", "text")
+                        content_block_types[index] = block_type
+                        logger.debug(
+                            f"Content block {index} started: type={block_type}"
+                        )
+
+                    elif event_type == "content_block_delta":
+                        index = chunk_data.get("index", 0)
                         delta = chunk_data.get("delta", {})
-                        if delta.get("type") == "text_delta":
+                        delta_type = delta.get("type", "")
+
+                        if delta_type == "text_delta":
                             text = delta.get("text", "")
                             current_text += text
                             if self.on_stream:
                                 self.on_stream(text)
+                        elif delta_type == "thinking_delta":
+                            # Capture thinking content for extended thinking models
+                            thinking = delta.get("thinking", "")
+                            current_thinking += thinking
+                            if self.on_reasoning:
+                                self.on_reasoning(thinking)
 
-                    elif chunk_data.get("type") == "message_delta":
+                    elif event_type == "message_delta":
                         delta = chunk_data.get("delta", {})
                         if "stop_reason" in delta:
                             stop_reason = delta["stop_reason"]
                         usage = chunk_data.get("usage", {})
                         output_token_count = usage.get("output_tokens", 0)
 
+                    elif event_type == "error":
+                        error_msg = chunk_data.get("error", {}).get(
+                            "message", "Unknown error"
+                        )
+                        logger.error(f"Claude 4 invoke API error: {error_msg}")
+                        raise ValueError(f"Bedrock API error: {error_msg}")
+
+            logger.info(
+                f"Claude 4 invoke API processed {event_count} events, text_length={len(current_text)}, thinking_length={len(current_thinking)}"
+            )
+
             # Validate that we received content - empty messages will corrupt conversations
             if not current_text.strip():
+                logger.error(
+                    f"Empty response from Claude 4: events={event_count}, content_blocks={content_block_types}"
+                )
                 raise ValueError(
-                    "Received empty response from Bedrock API. This may be due to a timeout or service interruption."
+                    f"Received empty response from Bedrock API after {event_count} events. This may be due to a timeout or service interruption."
                 )
 
             # Create the final message

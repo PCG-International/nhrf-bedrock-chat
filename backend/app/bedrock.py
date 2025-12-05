@@ -465,8 +465,17 @@ def compose_args_for_invoke_api(
         if _is_conversation_role(message.role):
             content = []
             for c in message.content:
-                content.extend(c.to_contents_for_invoke())
-            claude_messages.append({"role": message.role, "content": content})
+                for block in c.to_contents_for_invoke():
+                    # Filter out empty text blocks
+                    if (
+                        block.get("type") == "text"
+                        and not block.get("text", "").strip()
+                    ):
+                        continue
+                    content.append(block)
+            # Only add messages that have content
+            if content:
+                claude_messages.append({"role": message.role, "content": content})
 
     # Prepare system prompt
     system_prompt = (
