@@ -471,11 +471,29 @@ def compose_args_for_invoke_api(
                         block.get("type") == "text"
                         and not block.get("text", "").strip()
                     ):
+                        logger.warning(
+                            f"Filtered out empty text block from {message.role} message"
+                        )
                         continue
                     content.append(block)
             # Only add messages that have content
             if content:
                 claude_messages.append({"role": message.role, "content": content})
+            else:
+                logger.warning(
+                    f"Skipped {message.role} message with no content after filtering"
+                )
+
+    # Validate we have messages to send
+    if not claude_messages:
+        logger.error(
+            f"No messages to send to Claude 4 after filtering. Original message count: {len(messages)}"
+        )
+        raise ValueError(
+            "No valid messages to send to the model after filtering empty content"
+        )
+
+    logger.info(f"Sending {len(claude_messages)} messages to Claude 4 invoke API")
 
     # Prepare system prompt
     system_prompt = (

@@ -625,7 +625,9 @@ class ConverseApiStreamHandler:
                     event_count += 1
                     event_type = chunk_data.get("type", "unknown")
                     # Log ALL events at INFO level to diagnose empty responses
-                    logger.info(f"Claude 4 event #{event_count}: {event_type} - {json.dumps(chunk_data)[:500]}")
+                    logger.info(
+                        f"Claude 4 event #{event_count}: {event_type} - {json.dumps(chunk_data)[:500]}"
+                    )
 
                     if event_type == "message_start":
                         usage = chunk_data.get("message", {}).get("usage", {})
