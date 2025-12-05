@@ -26,9 +26,15 @@ COPY ./embedding_statemachine /var/task/embedding_statemachine
 
 # 2. The app modules that are imported by the Lambda functions
 COPY ./app/__init__.py /var/task/app/
+COPY ./app/config.py /var/task/app/config.py
+COPY ./app/user.py /var/task/app/user.py
 COPY ./app/repositories /var/task/app/repositories
 COPY ./app/routes/schemas /var/task/app/routes/schemas
 COPY ./app/utils.py /var/task/app/utils.py
 COPY ./app/bot_remove.py /var/task/app/bot_remove.py
+
+# 3. Create __init__.py files for package structure
+RUN touch /var/task/app/routes/__init__.py && \
+    touch /var/task/app/routes/schemas/__init__.py
 
 # The handler will be set by CDK for each Lambda function
