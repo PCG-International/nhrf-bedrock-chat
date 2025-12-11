@@ -11,3 +11,7 @@ memory-bank
 .idea
 .serena
 venv/
+
+# Agents
+.claude/
+CLAUDE.md
