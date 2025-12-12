@@ -321,7 +321,7 @@ ecr-build-backend: ## Build backend Docker image for ECR
 		--build-arg BUILDKIT_INLINE_CACHE=1 \
 		--cache-from $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:latest \
 		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:latest \
-		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:$$(git rev-parse --short HEAD) \
+		--tag $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:$$(git rev-parse HEAD) \
 		-f Dockerfile .
 	@echo "$(GREEN)✓ Backend image built$(NC)"
 
@@ -355,7 +355,7 @@ ecr-build-all: ecr-build-backend ecr-build-lambda-lightweight ecr-build-lambda-f
 ecr-push-backend: ecr-login ## Push backend image to ECR
 	@echo "$(BLUE)Pushing backend image to ECR...$(NC)"
 	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:latest
-	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:$$(git rev-parse --short HEAD)
+	@docker push $(AWS_ACCOUNT_ID).dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_PREFIX)-backend:$$(git rev-parse HEAD)
 	@echo "$(GREEN)✓ Backend image pushed$(NC)"
 
 ecr-push-lambda-lightweight: ecr-login ## Push Lambda lightweight image to ECR

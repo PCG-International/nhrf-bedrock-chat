@@ -114,14 +114,26 @@ def _sanitize_text(text: str) -> str:
     text = re.sub(r'{"tool_use":[^}]*}', "", text)
 
     # Remove Claude 4 internal search reasoning tags that leak into response
-    text = re.sub(r"<search_quality_score>.*?</search_quality_score>\s*", "", text, flags=re.DOTALL)
-    text = re.sub(r"<search_quality_reasoning>.*?</search_quality_reasoning>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(
+        r"<search_quality_score>.*?</search_quality_score>\s*",
+        "",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"<search_quality_reasoning>.*?</search_quality_reasoning>\s*",
+        "",
+        text,
+        flags=re.DOTALL,
+    )
     text = re.sub(r"<search_query>.*?</search_query>\s*", "", text, flags=re.DOTALL)
 
     # Remove leaked tool use XML blocks (Claude 4 sometimes outputs these in text)
     text = re.sub(r"<function_calls>.*?</function_calls>\s*", "", text, flags=re.DOTALL)
     text = re.sub(r"<invoke[^>]*>.*?</invoke>\s*", "", text, flags=re.DOTALL)
-    text = re.sub(r"<function_result>.*?</function_result>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(
+        r"<function_result>.*?</function_result>\s*", "", text, flags=re.DOTALL
+    )
     text = re.sub(r"<parameter[^>]*>.*?</parameter>\s*", "", text, flags=re.DOTALL)
 
     return text.strip()
@@ -269,7 +281,11 @@ class ConverseApiStreamHandler:
             )
             logger.info(f"args for converse_stream: {args}")
 
-            client = get_bedrock_runtime_client()
+            # Use the appropriate region for the model
+            # US-only models (Claude 4 Opus, Claude 4.1 Opus) must be called from a US region
+            model_region = self._get_region_for_model()
+            logger.info(f"Using region: {model_region} for model: {self.model}")
+            client = get_bedrock_runtime_client(region=model_region)
             try:
                 response = client.converse_stream(**args)
             except ClientError as e:

@@ -325,7 +325,8 @@ def compose_args_for_converse_api(
                         and generation_params.stop_sequences
                         and any(generation_params.stop_sequences)
                         # Filter out the old default stop sequences that don't work with Messages API
-                        and generation_params.stop_sequences != ["Human: ", "Assistant: "]
+                        and generation_params.stop_sequences
+                        != ["Human: ", "Assistant: "]
                     )
                     else []
                 ),
@@ -361,7 +362,8 @@ def compose_args_for_converse_api(
                         and generation_params.stop_sequences
                         and any(generation_params.stop_sequences)
                         # Filter out the old default stop sequences that don't work with Messages API
-                        and generation_params.stop_sequences != ["Human: ", "Assistant: "]
+                        and generation_params.stop_sequences
+                        != ["Human: ", "Assistant: "]
                     )
                     else []
                 ),
