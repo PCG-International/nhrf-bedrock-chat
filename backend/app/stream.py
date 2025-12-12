@@ -149,7 +149,7 @@ def _content_model_from_partial_content(
             body=_sanitize_text(text.rstrip()),
         )
 
-    elif _is_tool_use_content(content=content):
+    if _is_tool_use_content(content=content):
         return ToolUseContentModel(
             content_type="toolUse",
             body=ToolUseContentModelBody(
@@ -159,7 +159,7 @@ def _content_model_from_partial_content(
             ),
         )
 
-    elif _is_reasoning_content(content=content):
+    if _is_reasoning_content(content=content):
         return ReasoningContentModel(
             content_type="reasoning",
             text=content["text"],
@@ -167,8 +167,7 @@ def _content_model_from_partial_content(
             redacted_content=content["redacted_content"],
         )
 
-    else:
-        raise ValueError("Unknown content type")
+    raise ValueError("Unknown content type")
 
 
 def _content_model_to_partial_content(
@@ -179,7 +178,7 @@ def _content_model_to_partial_content(
             "text": content.body,
         }
 
-    elif isinstance(content, ToolUseContentModel):
+    if isinstance(content, ToolUseContentModel):
         return {
             "tool_use": {
                 "tool_use_id": content.body.tool_use_id,
@@ -187,15 +186,15 @@ def _content_model_to_partial_content(
                 "input": json.dumps(content.body.input),
             },
         }
-    elif isinstance(content, ReasoningContentModel):
+
+    if isinstance(content, ReasoningContentModel):
         return {
             "text": content.text,
             "signature": content.signature,
             "redacted_content": content.redacted_content,
         }
 
-    else:
-        raise ValueError("Unknown content type")
+    raise ValueError("Unknown content type")
 
 
 class ConverseApiStreamHandler:
@@ -279,12 +278,12 @@ class ConverseApiStreamHandler:
                 enable_reasoning=enable_reasoning,
                 prompt_caching_enabled=prompt_caching_enabled,
             )
-            logger.info(f"args for converse_stream: {args}")
+            logger.info("args for converse_stream: %s", args)
 
             # Use the appropriate region for the model
             # US-only models (Claude 4 Opus, Claude 4.1 Opus) must be called from a US region
             model_region = self._get_region_for_model()
-            logger.info(f"Using region: {model_region} for model: {self.model}")
+            logger.info("Using region: %s for model: %s", model_region, self.model)
             client = get_bedrock_runtime_client(region=model_region)
             try:
                 response = client.converse_stream(**args)
@@ -300,7 +299,7 @@ class ConverseApiStreamHandler:
                         messages=messages,
                         _message_for_continue_generate=message_for_continue_generate,
                     )
-                elif e.response.get("Error", {}).get("Code") == "ThrottlingException":
+                if e.response.get("Error", {}).get("Code") == "ThrottlingException":
                     raise BedrockThrottlingException(
                         "Bedrock API is throttling requests"
                     ) from e
@@ -326,7 +325,7 @@ class ConverseApiStreamHandler:
             cache_read_input_count = 0
             cache_write_input_count = 0
             for event in response["stream"]:
-                logger.debug(f"event: {event}")
+                logger.debug("event: %s", event)
                 if "messageStart" in event:
                     message_start = event["messageStart"]
                     current_message["role"] = message_start["role"]
@@ -369,7 +368,7 @@ class ConverseApiStreamHandler:
                             else:
                                 # Should not happen
                                 logger.warning(
-                                    f"Unexpected reasoning content: {content}"
+                                    "Unexpected reasoning content: %s", content
                                 )
                         else:
                             # If the block is not started, create a new block
@@ -385,11 +384,11 @@ class ConverseApiStreamHandler:
                             self.on_reasoning(reasoning.get("text", ""))
 
                     elif "toolUse" in delta:
-                        input = delta["toolUse"]["input"]
+                        tool_input = delta["toolUse"]["input"]
                         if index in current_message["contents"]:
                             content = current_message["contents"][index]
                             if _is_tool_use_content(content=content):
-                                content["tool_use"]["input"] += input
+                                content["tool_use"]["input"] += tool_input
 
                     elif "text" in delta:
                         text = delta["text"]
@@ -415,14 +414,14 @@ class ConverseApiStreamHandler:
                         tool_use = content["tool_use"]
                         tool_use_id = tool_use["tool_use_id"]
                         tool_name = tool_use["name"]
-                        input = json.loads(tool_use["input"] or "{}")
+                        tool_input = json.loads(tool_use["input"] or "{}")
 
                         if self.on_thinking:
                             self.on_thinking(
                                 {
                                     "tool_use_id": tool_use_id,
                                     "name": tool_name,
-                                    "input": input,
+                                    "input": tool_input,
                                 }
                             )
 
@@ -519,9 +518,7 @@ class ConverseApiStreamHandler:
             if len(current_errors) > 0:
                 if len(current_errors) == 1:
                     raise current_errors[0]
-
-                else:
-                    raise ExceptionGroup("Exceptions in ConverseStream", current_errors)
+                raise ExceptionGroup("Exceptions in ConverseStream", current_errors)
 
             # Validate that we received content - empty messages will corrupt conversations
             if not current_message["contents"]:
@@ -536,10 +533,10 @@ class ConverseApiStreamHandler:
                 if _is_text_content(content) and content.get("text", "").strip():
                     has_non_empty_content = True
                     break
-                elif _is_tool_use_content(content):
+                if _is_tool_use_content(content):
                     has_non_empty_content = True
                     break
-                elif _is_reasoning_content(content):
+                if _is_reasoning_content(content):
                     has_non_empty_content = True
                     break
 
@@ -573,14 +570,17 @@ class ConverseApiStreamHandler:
                 cache_write_input_tokens=cache_write_input_count,
             )
             logger.info(
-                f"token count: {json.dumps({
-                    'input': input_token_count,
-                    'output': output_token_count,
-                    'cache_read_input': cache_read_input_count,
-                    'cache_write_input': cache_write_input_count
-                })}"
+                "token count: %s",
+                json.dumps(
+                    {
+                        "input": input_token_count,
+                        "output": output_token_count,
+                        "cache_read_input": cache_read_input_count,
+                        "cache_write_input": cache_write_input_count,
+                    }
+                ),
             )
-            logger.info(f"price: {price}")
+            logger.info("price: %s", price)
 
             result = OnStopInput(
                 message=message,
@@ -594,7 +594,7 @@ class ConverseApiStreamHandler:
             return result
 
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error("Error: %s", e)
             raise e
 
     def _get_region_for_model(self) -> str:
@@ -631,8 +631,8 @@ class ConverseApiStreamHandler:
                 stream=True,
                 target_region=model_region,
             )
-            logger.info(f"args for invoke_model_with_response_stream: {args}")
-            logger.info(f"Using region: {model_region} for model: {self.model}")
+            logger.info("args for invoke_model_with_response_stream: %s", args)
+            logger.info("Using region: %s for model: %s", model_region, self.model)
 
             # Use region-specific client for US-only models
             client = get_bedrock_runtime_client(region=model_region)
@@ -664,7 +664,10 @@ class ConverseApiStreamHandler:
                     # Log ALL events at INFO level to diagnose empty responses
                     chunk_preview = json.dumps(chunk_data)[:500]
                     logger.info(
-                        f"Claude 4 event #{event_count}: {event_type} - {chunk_preview}"
+                        "Claude 4 event #%d: %s - %s",
+                        event_count,
+                        event_type,
+                        chunk_preview,
                     )
 
                     if event_type == "message_start":
@@ -678,7 +681,7 @@ class ConverseApiStreamHandler:
                         block_type = content_block.get("type", "text")
                         content_block_types[index] = block_type
                         logger.debug(
-                            f"Content block {index} started: type={block_type}"
+                            "Content block %d started: type=%s", index, block_type
                         )
 
                     elif event_type == "content_block_delta":
@@ -702,7 +705,7 @@ class ConverseApiStreamHandler:
                             # Full tool use for invoke API requires multi-turn handling
                             partial_json = delta.get("partial_json", "")[:100]
                             logger.debug(
-                                f"Tool use input delta (not executed): {partial_json}"
+                                "Tool use input delta (not executed): %s", partial_json
                             )
 
                     elif event_type == "message_delta":
@@ -716,13 +719,16 @@ class ConverseApiStreamHandler:
                         error_msg = chunk_data.get("error", {}).get(
                             "message", "Unknown error"
                         )
-                        logger.error(f"Claude 4 invoke API error: {error_msg}")
+                        logger.error("Claude 4 invoke API error: %s", error_msg)
                         raise ValueError(f"Bedrock API error: {error_msg}")
 
             logger.info(
-                f"Claude 4 invoke API processed {event_count} events, "
-                f"text_length={len(current_text)}, "
-                f"thinking_length={len(current_thinking)}, stop_reason={stop_reason}"
+                "Claude 4 invoke API processed %d events, "
+                "text_length=%d, thinking_length=%d, stop_reason=%s",
+                event_count,
+                len(current_text),
+                len(current_thinking),
+                stop_reason,
             )
 
             # Sanitize text to remove internal reasoning tags before checking for empty
@@ -733,9 +739,12 @@ class ConverseApiStreamHandler:
                 # Log detailed diagnostic info
                 thinking_len = len(current_thinking)
                 logger.error(
-                    f"Empty response from Claude 4: events={event_count}, "
-                    f"content_blocks={content_block_types}, stop_reason={stop_reason}, "
-                    f"thinking_length={thinking_len}"
+                    "Empty response from Claude 4: events=%d, "
+                    "content_blocks=%s, stop_reason=%s, thinking_length=%d",
+                    event_count,
+                    content_block_types,
+                    stop_reason,
+                    thinking_len,
                 )
                 # If we have thinking but no text, include that in the error
                 if current_thinking:
@@ -788,5 +797,5 @@ class ConverseApiStreamHandler:
             return result
 
         except Exception as e:
-            logger.error(f"Error in invoke API: {e}")
+            logger.error("Error in invoke API: %s", e)
             raise e
