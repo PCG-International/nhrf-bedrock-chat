@@ -168,7 +168,7 @@ def _content_model_from_partial_content(
         )
 
     else:
-        raise ValueError(f"Unknown content type")
+        raise ValueError("Unknown content type")
 
 
 def _content_model_to_partial_content(
@@ -195,7 +195,7 @@ def _content_model_to_partial_content(
         }
 
     else:
-        raise ValueError(f"Unknown content type")
+        raise ValueError("Unknown content type")
 
 
 class ConverseApiStreamHandler:
@@ -206,7 +206,7 @@ class ConverseApiStreamHandler:
     def __init__(
         self,
         model: type_model_name,
-        instructions: list[str] = [],
+        instructions: list[str] | None = None,
         generation_params: GenerationParamsModel | None = None,
         guardrail: BedrockGuardrailsModel | None = None,
         tools: dict[str, AgentTool] | None = None,
@@ -220,7 +220,7 @@ class ConverseApiStreamHandler:
         :param on_stop: Callback function for stopping the stream.
         """
         self.model: type_model_name = model
-        self.instructions = instructions
+        self.instructions = instructions if instructions is not None else []
         self.generation_params = generation_params
         self.guardrail = guardrail
         self.tools = tools
@@ -264,7 +264,7 @@ class ConverseApiStreamHandler:
             if use_invoke_api:
                 return self._run_invoke_api(
                     messages=messages,
-                    message_for_continue_generate=message_for_continue_generate,
+                    _message_for_continue_generate=message_for_continue_generate,
                 )
 
             # Create payload to invoke Bedrock (original converse API)
@@ -293,11 +293,12 @@ class ConverseApiStreamHandler:
                 # Check if error is due to document size limit (4.5 MB for ConverseStream)
                 if "maximum document size is 4.5 MB" in error_msg:
                     logger.warning(
-                        f"Document size exceeds ConverseStream limit, falling back to InvokeModel API"
+                        "Document size exceeds ConverseStream limit, "
+                        "falling back to InvokeModel API"
                     )
                     return self._run_invoke_api(
                         messages=messages,
-                        message_for_continue_generate=message_for_continue_generate,
+                        _message_for_continue_generate=message_for_continue_generate,
                     )
                 elif e.response.get("Error", {}).get("Code") == "ThrottlingException":
                     raise BedrockThrottlingException(
@@ -525,7 +526,8 @@ class ConverseApiStreamHandler:
             # Validate that we received content - empty messages will corrupt conversations
             if not current_message["contents"]:
                 raise ValueError(
-                    "Received empty response from Bedrock API. This may be due to a timeout or service interruption."
+                    "Received empty response from Bedrock API. "
+                    "This may be due to a timeout or service interruption."
                 )
 
             # Check if all text content is empty
@@ -543,7 +545,8 @@ class ConverseApiStreamHandler:
 
             if not has_non_empty_content:
                 raise ValueError(
-                    "Received empty text response from Bedrock API. This may be due to a timeout or service interruption."
+                    "Received empty text response from Bedrock API. "
+                    "This may be due to a timeout or service interruption."
                 )
 
             # Append entire completion as the last message
@@ -608,7 +611,7 @@ class ConverseApiStreamHandler:
     def _run_invoke_api(
         self,
         messages: list[SimpleMessageModel],
-        message_for_continue_generate: SimpleMessageModel | None = None,
+        _message_for_continue_generate: SimpleMessageModel | None = None,
     ) -> OnStopInput:
         """Handle Claude 4 models using the invoke API for file upload support"""
         try:
@@ -659,8 +662,9 @@ class ConverseApiStreamHandler:
                     event_count += 1
                     event_type = chunk_data.get("type", "unknown")
                     # Log ALL events at INFO level to diagnose empty responses
+                    chunk_preview = json.dumps(chunk_data)[:500]
                     logger.info(
-                        f"Claude 4 event #{event_count}: {event_type} - {json.dumps(chunk_data)[:500]}"
+                        f"Claude 4 event #{event_count}: {event_type} - {chunk_preview}"
                     )
 
                     if event_type == "message_start":
@@ -696,8 +700,9 @@ class ConverseApiStreamHandler:
                         elif delta_type == "input_json_delta":
                             # Tool use input - log but don't process yet
                             # Full tool use for invoke API requires multi-turn handling
+                            partial_json = delta.get("partial_json", "")[:100]
                             logger.debug(
-                                f"Tool use input delta (not executed): {delta.get('partial_json', '')[:100]}"
+                                f"Tool use input delta (not executed): {partial_json}"
                             )
 
                     elif event_type == "message_delta":
@@ -715,7 +720,9 @@ class ConverseApiStreamHandler:
                         raise ValueError(f"Bedrock API error: {error_msg}")
 
             logger.info(
-                f"Claude 4 invoke API processed {event_count} events, text_length={len(current_text)}, thinking_length={len(current_thinking)}, stop_reason={stop_reason}"
+                f"Claude 4 invoke API processed {event_count} events, "
+                f"text_length={len(current_text)}, "
+                f"thinking_length={len(current_thinking)}, stop_reason={stop_reason}"
             )
 
             # Sanitize text to remove internal reasoning tags before checking for empty
@@ -724,16 +731,22 @@ class ConverseApiStreamHandler:
             # Validate that we received content - empty messages will corrupt conversations
             if not sanitized_for_check.strip():
                 # Log detailed diagnostic info
+                thinking_len = len(current_thinking)
                 logger.error(
-                    f"Empty response from Claude 4: events={event_count}, content_blocks={content_block_types}, stop_reason={stop_reason}, thinking_length={len(current_thinking)}"
+                    f"Empty response from Claude 4: events={event_count}, "
+                    f"content_blocks={content_block_types}, stop_reason={stop_reason}, "
+                    f"thinking_length={thinking_len}"
                 )
                 # If we have thinking but no text, include that in the error
                 if current_thinking:
                     raise ValueError(
-                        f"Model returned thinking ({len(current_thinking)} chars) but no text response after {event_count} events. Stop reason: {stop_reason}"
+                        f"Model returned thinking ({thinking_len} chars) but no text "
+                        f"response after {event_count} events. Stop reason: {stop_reason}"
                     )
                 raise ValueError(
-                    f"Received empty response from Bedrock API after {event_count} events. Stop reason: {stop_reason}. Check CloudWatch logs for event details."
+                    f"Received empty response from Bedrock API after {event_count} "
+                    f"events. Stop reason: {stop_reason}. "
+                    "Check CloudWatch logs for event details."
                 )
 
             # Create the final message with sanitized text (reuse the sanitized version)
@@ -754,12 +767,13 @@ class ConverseApiStreamHandler:
                 thinking_log=None,
             )
 
+            # Claude 4 invoke API doesn't support prompt caching yet
             price = calculate_price(
                 model=self.model,
                 input_tokens=input_token_count,
                 output_tokens=output_token_count,
-                cache_read_input_tokens=0,  # Claude 4 invoke API doesn't support prompt caching yet
-                cache_write_input_tokens=0,  # Claude 4 invoke API doesn't support prompt caching yet
+                cache_read_input_tokens=0,
+                cache_write_input_tokens=0,
             )
 
             result = OnStopInput(
