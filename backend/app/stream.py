@@ -174,25 +174,28 @@ def _content_model_to_partial_content(
     content: ContentModel,
 ) -> _PartialTextContent | _PartialToolUseContent | _PartialReasoningContent:
     if isinstance(content, TextContentModel):
-        return {
+        result: _PartialTextContent = {
             "text": content.body,
         }
+        return result
 
     if isinstance(content, ToolUseContentModel):
-        return {
+        tool_result: _PartialToolUseContent = {
             "tool_use": {
                 "tool_use_id": content.body.tool_use_id,
                 "name": content.body.name,
                 "input": json.dumps(content.body.input),
             },
         }
+        return tool_result
 
     if isinstance(content, ReasoningContentModel):
-        return {
+        reasoning_result: _PartialReasoningContent = {
             "text": content.text,
             "signature": content.signature,
             "redacted_content": content.redacted_content,
         }
+        return reasoning_result
 
     raise ValueError("Unknown content type")
 
