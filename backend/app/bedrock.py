@@ -66,7 +66,7 @@ def is_deepseek_model(model: type_model_name) -> bool:
 
 def is_claude_4_model(model: type_model_name) -> bool:
     """Check if the model is a Claude 4 model"""
-    return model in ["claude-v4-opus", "claude-v4-sonnet"]
+    return model in ["claude-v4-opus", "claude-v4.1-opus", "claude-v4-sonnet"]
 
 
 def is_tooluse_supported(model: type_model_name) -> bool:
@@ -324,8 +324,10 @@ def compose_args_for_converse_api(
                         generation_params
                         and generation_params.stop_sequences
                         and any(generation_params.stop_sequences)
+                        # Filter out the old default stop sequences that don't work with Messages API
+                        and generation_params.stop_sequences != ["Human: ", "Assistant: "]
                     )
-                    else DEFAULT_GENERATION_CONFIG.get("stop_sequences", [])
+                    else []
                 ),
             }
             additional_model_request_fields = {
@@ -358,8 +360,10 @@ def compose_args_for_converse_api(
                         generation_params
                         and generation_params.stop_sequences
                         and any(generation_params.stop_sequences)
+                        # Filter out the old default stop sequences that don't work with Messages API
+                        and generation_params.stop_sequences != ["Human: ", "Assistant: "]
                     )
-                    else DEFAULT_GENERATION_CONFIG.get("stop_sequences", [])
+                    else []
                 ),
             }
             additional_model_request_fields = {
