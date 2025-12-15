@@ -230,6 +230,7 @@ new BedrockCustomBotStack(app, `BrChatKbStack${baseConfig.botId}`, {
   },
 
   // Base configuration
+  envName: baseConfig.envName,
   ownerUserId: baseConfig.ownerUserId,
   botId: baseConfig.botId,
   bedrockClaudeChatDocumentBucketName: baseConfig.documentBucketName,

@@ -542,7 +542,7 @@ def chat_output_from_message(
 def propose_conversation_title(
     user_id: str,
     conversation_id: str,
-    model: type_model_name = "claude-v3-haiku",
+    model: type_model_name = "claude-v3.7-sonnet",
 ) -> str:
     PROMPT = """Reading the conversation above, what is the appropriate title for the conversation? When answering the title, please follow the rules below:
 <rules>
@@ -572,18 +572,22 @@ def propose_conversation_title(
     )
     messages.append(new_message)
 
+    # Filter to keep ONLY text content for title generation
+    # This avoids the 4.5MB Converse API limit when conversations contain large files/images
+    filtered_messages = []
+    for message in messages:
+        filtered_content = [
+            c for c in message.content if isinstance(c, TextContentModel)
+        ]
+        # Only include messages that have text content after filtering
+        if filtered_content:
+            filtered_messages.append(
+                SimpleMessageModel(role=message.role, content=filtered_content)
+            )
+
     # Invoke Bedrock
     args = compose_args_for_converse_api(
-        messages=[
-            message
-            for message in messages
-            if not any(
-                isinstance(content, ToolUseContentModel)
-                or isinstance(content, ToolResultContentModel)
-                or isinstance(content, ReasoningContentModel)
-                for content in message.content
-            )
-        ],
+        messages=filtered_messages,
         model=model,
         stream=False,
     )

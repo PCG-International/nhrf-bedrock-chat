@@ -21,14 +21,7 @@ type Props = BaseProps & {
   disabled?: boolean;
 };
 
-const SUPPORTED_FILES = [
-  '.txt',
-  '.md',
-  '.xlsx',
-  '.docx',
-  '.pdf',
-  '.csv',
-];
+const SUPPORTED_FILES = ['.txt', '.md', '.xlsx', '.docx', '.pdf', '.csv'];
 
 const KnowledgeFileUploaderState = create<{
   files: BotFile[];
@@ -56,7 +49,9 @@ const KnowledgeFileUploader: React.FC<Props> = (props) => {
 
   const uploadFiles = useCallback(
     (targetFiles: FileList) => {
-      if (props.disabled) {return;}
+      if (props.disabled) {
+        return;
+      }
 
       const originalLength = props.files.length;
 
@@ -154,8 +149,10 @@ const KnowledgeFileUploader: React.FC<Props> = (props) => {
 
   const onDeleteFile = useCallback(
     (idx: number) => {
-      if (props.disabled) {return;}
-      
+      if (props.disabled) {
+        return;
+      }
+
       props.onDelete(
         produce(props.files, (draft) => {
           draft.splice(idx, 1);
@@ -173,7 +170,7 @@ const KnowledgeFileUploader: React.FC<Props> = (props) => {
         onDrop={onDrop}
         className={twMerge(
           'flex h-full w-full flex-col items-center justify-center gap-3 rounded border-4 border-gray text-dark-gray dark:text-light-gray',
-          props.disabled && 'opacity-50 cursor-not-allowed',
+          props.disabled && 'cursor-not-allowed opacity-50',
           props.className
         )}>
         <div>

@@ -7,6 +7,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as path from "path";
 import { Platform } from "aws-cdk-lib/aws-ecr-assets";
+import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as wafv2 from "aws-cdk-lib/aws-wafv2";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -24,6 +25,12 @@ interface ApiPublishmentStackProps extends StackProps {
   readonly deploymentStage?: string;
   readonly largeMessageBucketName: string;
   readonly corsOptions?: apigateway.CorsOptions;
+
+  /**
+   * ECR repository URI for Lambda Full image (optional)
+   * If provided, uses pre-built image from ECR instead of building from source
+   */
+  readonly lambdaFullRepoUri?: string;
 }
 
 export class ApiPublishmentStack extends Stack {
@@ -74,16 +81,41 @@ export class ApiPublishmentStack extends Stack {
     );
     largeMessageBucket.grantReadWrite(handlerRole);
 
-    // Handler for FastAPI
-    const apiHandler = new DockerImageFunction(this, "ApiHandler", {
-      code: DockerImageCode.fromImageAsset(
+    // Helper method for image selection
+    const getLambdaImage = (
+      dockerfile: string,
+      cmd?: string[]
+    ): DockerImageCode => {
+      // Use ECR if provided
+      if (props.lambdaFullRepoUri && (dockerfile === "Dockerfile" || dockerfile === "lambda.Dockerfile")) {
+        const [registryAndRepo, tag] = props.lambdaFullRepoUri.split(":");
+        const repoName = registryAndRepo.split("/").slice(1).join("/");
+        const repo = ecr.Repository.fromRepositoryName(
+          this,
+          `LambdaFullRepo-${dockerfile}`,
+          repoName
+        );
+        return DockerImageCode.fromEcr(repo, {
+          tagOrDigest: tag || "latest",
+          cmd,
+        });
+      }
+
+      // Fallback to building from source
+      return DockerImageCode.fromImageAsset(
         path.join(__dirname, "../../backend"),
         {
           platform: Platform.LINUX_AMD64,
-          file: "Dockerfile",
+          file: dockerfile,
+          cmd,
           exclude: [...excludeDockerImage],
         }
-      ),
+      );
+    };
+
+    // Handler for FastAPI
+    const apiHandler = new DockerImageFunction(this, "ApiHandler", {
+      code: getLambdaImage("Dockerfile"),
       memorySize: 1024,
       timeout: cdk.Duration.minutes(15),
       environment: {
@@ -109,15 +141,7 @@ export class ApiPublishmentStack extends Stack {
       this,
       "SqsConsumeHandler",
       {
-        code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../backend"),
-          {
-            platform: Platform.LINUX_AMD64,
-            file: "lambda.Dockerfile",
-            cmd: ["app.sqs_consumer.handler"],
-            exclude: [...excludeDockerImage],
-          }
-        ),
+        code: getLambdaImage("lambda.Dockerfile", ["app.sqs_consumer.handler"]),
         memorySize: 1024,
         timeout: cdk.Duration.minutes(15),
         environment: {
@@ -130,7 +154,8 @@ export class ApiPublishmentStack extends Stack {
           ),
           ACCOUNT: Stack.of(this).account,
           REGION: Stack.of(this).region,
-          ENABLE_BEDROCK_CROSS_REGION_INFERENCE: props.enableBedrockCrossRegionInference.toString(),
+          ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
+            props.enableBedrockCrossRegionInference.toString(),
           BEDROCK_REGION: props.bedrockRegion,
           TABLE_ACCESS_ROLE_ARN: props.tableAccessRoleArn,
         },

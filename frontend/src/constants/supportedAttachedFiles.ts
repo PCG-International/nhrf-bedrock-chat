@@ -73,13 +73,34 @@ export const SUPPORTED_FILE_EXTENSIONS = [
 // Converse API limitations:
 // You can include up to five documents. Each document’s size must be no more than 4.5 MB.
 // Ref: https://awscli.amazonaws.com/v2/documentation/api/latest/reference/bedrock-runtime/converse.html
-export const MAX_FILE_SIZE_MB = 4.5;
+// export const MAX_FILE_SIZE_MB = 4.5;
+// export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+// export const MAX_ATTACHED_FILES = 5;
+
+//export const MAX_FILE_SIZE_MB = 4.5;
+export const MAX_FILE_SIZE_MB = 200;
 export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_ATTACHED_FILES = 5;
 
+// Maximum total file size to send to lambda (Converse API)
+// export const MAX_FILE_SIZE_TO_SEND_MB = 6; // 6 MB (Lambda response size limit)
+
+export const MAX_FILE_SIZE_TO_SEND_MB = 200;
+export const MAX_FILE_SIZE_TO_SEND_BYTES =
+  MAX_FILE_SIZE_TO_SEND_MB * 1024 * 1024;
+
 // Claude 4 models use invoke API instead of converse API and have higher file size limits
-export const CLAUDE_4_MAX_FILE_SIZE_MB = 50; // 50 MB limit for Claude 4 models
-export const CLAUDE_4_MAX_FILE_SIZE_BYTES = CLAUDE_4_MAX_FILE_SIZE_MB * 1024 * 1024;
+// Large PDFs (>50 pages or >2MB) are now processed with Docling for intelligent chunking
+//export const CLAUDE_4_MAX_FILE_SIZE_MB = 50; // 50 MB limit per file (PDFs are chunked if needed)
+export const CLAUDE_4_MAX_FILE_SIZE_MB = 200;
+export const CLAUDE_4_MAX_FILE_SIZE_BYTES =
+  CLAUDE_4_MAX_FILE_SIZE_MB * 1024 * 1024;
+
+// Maximum total file size to send to lambda (Claude 4)
+// Note: Large PDFs are automatically chunked by Docling, so they won't hit this limit
+export const CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB = 200; // 200 MB total limit for Claude 4
+export const CLAUDE_4_MAX_FILE_SIZE_TO_SEND_BYTES =
+  CLAUDE_4_MAX_FILE_SIZE_TO_SEND_MB * 1024 * 1024;
 
 // Claude 4 model detection
 export const CLAUDE_4_MODELS = ['claude-v4-opus', 'claude-v4-sonnet'];

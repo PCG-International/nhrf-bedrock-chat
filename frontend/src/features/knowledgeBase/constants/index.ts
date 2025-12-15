@@ -53,11 +53,11 @@ export const DEFAULT_BEDROCK_KNOWLEDGEBASE: BedrockKnowledgeBase = {
   embeddingsModel: 'cohere_multilingual_v3',
   openSearch: OPENSEARCH_ANALYZER['none'],
   chunkingConfiguration: {
-    chunkingStrategy: 'default'
+    chunkingStrategy: 'default',
   },
   searchParams: {
     maxResults: 20,
-    searchType: 'hybrid',
+    searchType: 'semantic', // Changed from 'hybrid' - S3 Vectors only supports semantic search
   },
 };
 
@@ -68,7 +68,7 @@ export const DEFAULT_FIXED_CHUNK_PARAMS: FixedSizeParams = {
 };
 
 // Fixed size chunking valid range
-// Ref: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_FixedSizeChunkingConfiguration.html 
+// Ref: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_FixedSizeChunkingConfiguration.html
 export const EDGE_FIXED_CHUNK_PARAMS = {
   maxTokens: {
     MAX: {
@@ -157,5 +157,5 @@ export const EDGE_SEARCH_PARAMS = {
 
 export const DEFAULT_SEARCH_CONFIG: SearchParams = {
   maxResults: 5,
-  searchType: 'hybrid',
+  searchType: 'semantic', // Changed from 'hybrid' - S3 Vectors only supports semantic search
 };

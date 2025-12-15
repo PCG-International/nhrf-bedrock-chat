@@ -1,0 +1,85 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Testing and linting
+.pytest_cache/
+.mypy_cache/
+.coverage
+.tox/
+htmlcov/
+*.cover
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Development
+.env*
+!.env.example
+tests/
+docs/
+*.ipynb
+.ipynb_checkpoints/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Poetry
+poetry.lock.bak
+
+# Temporary files
+*.tmp
+*.log
+tmp/
+temp/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Scripts
+scripts/
+*.sh
+
+# CDK
+cdk.out/
+
+# Other cache directories
+.cache/
+.ruff_cache/
+.pytype/
+.dmypy.json
+dmypy.json
+
+# Lambda specific (not needed for main ECS build)
+# Note: These are kept for lambda-lightweight.Dockerfile
+# embedding_statemachine/
+# user_usage/
+# auth/check_email_domain/
+# s3_exporter/

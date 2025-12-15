@@ -1,4 +1,4 @@
-import { CfnOutput, RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
+import { CfnOutput, RemovalPolicy, Stack, StackProps, Fn } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { VectorCollection } from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/opensearchserverless";
 import {
@@ -6,8 +6,13 @@ import {
   VectorIndex,
 } from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/opensearch-vectorindex";
 import { VectorCollectionStandbyReplicas } from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/opensearchserverless";
+import {
+  Index as S3VectorIndex,
+  KnowledgeBase as S3VectorKnowledgeBase,
+} from "cdk-s3-vectors";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
+import { IGrantable } from "aws-cdk-lib/aws-iam";
 import { BedrockFoundationModel } from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock";
 import { ChunkingStrategy } from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock/data-sources/chunking";
 import { S3DataSource } from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock/data-sources/s3-data-source";
@@ -48,6 +53,7 @@ interface BedrockGuardrailProps {
 
 interface BedrockCustomBotStackProps extends StackProps {
   // Base configuration
+  readonly envName: string;
   readonly ownerUserId: string;
   readonly botId: string;
   readonly bedrockClaudeChatDocumentBucketName: string;
@@ -85,41 +91,95 @@ export class BedrockCustomBotStack extends Stack {
 
     // if knowledge base arn does not exist
     if (props.existKnowledgeBaseId == undefined) {
-      const vectorCollection = new VectorCollection(this, "KBVectors", {
-        collectionName: `kb-${props.botId.slice(0, 20).toLowerCase()}`,
-        standbyReplicas:
-          props.enableRagReplicas === true
-            ? VectorCollectionStandbyReplicas.ENABLED
-            : VectorCollectionStandbyReplicas.DISABLED,
-      });
-      const vectorIndex = new VectorIndex(this, "KBIndex", {
-        collection: vectorCollection,
-        // DO NOT CHANGE THIS VALUE
-        indexName: "bedrock-knowledge-base-default-index",
-        // DO NOT CHANGE THIS VALUE
-        vectorField: "bedrock-knowledge-base-default-vector",
-        vectorDimensions: props.embeddingsModel.vectorDimensions!,
-        mappings: [
-          {
-            mappingField: "AMAZON_BEDROCK_TEXT_CHUNK",
-            dataType: "text",
-            filterable: true,
-          },
-          {
-            mappingField: "AMAZON_BEDROCK_METADATA",
-            dataType: "text",
-            filterable: false,
-          },
-        ],
-        analyzer: props.analyzer,
+      // Import shared S3 vector bucket from main stack using environment name
+      const sharedVectorBucketArn = Fn.importValue(
+        `${props.envName}-SharedVectorBucketArn`
+      );
+      const sharedVectorBucketName = Fn.importValue(
+        `${props.envName}-SharedVectorBucketName`
+      );
+
+      // Construct the index ARN manually (avoid CloudFormation token issues)
+      const indexName = `kb-index-${props.botId}`.toLowerCase();
+      const indexArn = `arn:aws:s3vectors:${Stack.of(this).region}:${
+        Stack.of(this).account
+      }:bucket/${sharedVectorBucketName}/index/${indexName}`;
+
+      // Create lightweight S3 vector index for this bot (no compute cost!)
+      // This replaces the expensive OpenSearch Serverless collection ($175/month)
+      const s3VectorIndex = new S3VectorIndex(this, "S3VectorIndex", {
+        vectorBucketName: sharedVectorBucketName,
+        indexName: indexName,
+        dimension: props.embeddingsModel.vectorDimensions!,
+        distanceMetric: "cosine",
+        dataType: "float32",
+        metadataConfiguration: {
+          // Mark Bedrock's standard metadata fields as non-filterable
+          // This avoids the 2KB filterable metadata limit while allowing 40KB total
+          nonFilterableMetadataKeys: [
+            "AMAZON_BEDROCK_TEXT",
+            "AMAZON_BEDROCK_METADATA",
+          ],
+        },
       });
 
-      kb = new KnowledgeBase(this, "KB", {
-        embeddingsModel: props.embeddingsModel,
-        vectorStore: vectorCollection,
-        vectorIndex: vectorIndex,
-        instruction: props.instruction,
+      // Create Knowledge Base with S3 Vectors using cdk-s3-vectors library
+      // Use the manually constructed indexArn to avoid token resolution issues
+      const s3VectorKb = new S3VectorKnowledgeBase(this, "KB", {
+        knowledgeBaseName: `kb-${props.botId}`,
+        vectorBucketArn: sharedVectorBucketArn,
+        indexArn: indexArn, // Use manual ARN instead of s3VectorIndex.indexArn
+        knowledgeBaseConfiguration: {
+          embeddingModelArn: props.embeddingsModel.asArn(this),
+          embeddingDataType: "FLOAT32",
+        },
+        description: props.instruction,
       });
+
+      // Add explicit dependency to ensure index is created before KB
+      const kbCustomResource = s3VectorKb.node.findChild(
+        "BedrockKnowledgeBaseCustomResource"
+      );
+      kbCustomResource.node.addDependency(s3VectorIndex);
+
+      // Wrap as IKnowledgeBase for compatibility
+      kb = {
+        knowledgeBaseId: s3VectorKb.knowledgeBaseId,
+        knowledgeBaseArn: s3VectorKb.knowledgeBaseArn,
+        role: s3VectorKb.role,
+        // Add required methods for IKnowledgeBase interface
+        addS3DataSource: () => {
+          throw new Error("Use S3DataSource directly");
+        },
+        addWebCrawlerDataSource: () => {
+          throw new Error("Use WebCrawlerDataSource directly");
+        },
+        addSharePointDataSource: () => {
+          throw new Error("Not implemented");
+        },
+        addConfluenceDataSource: () => {
+          throw new Error("Not implemented");
+        },
+        addSalesforceDataSource: () => {
+          throw new Error("Not implemented");
+        },
+        addCustomTransformation: () => {
+          throw new Error("Not implemented");
+        },
+        addGuardrailConfiguration: () => {},
+        applyRemovalPolicy: () => {}, // S3 vectors cleaned up automatically
+        env: this,
+        grantRetrieve: (grantee: iam.IPrincipal) => {
+          grantee.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+              actions: ["bedrock:Retrieve"],
+              resources: [s3VectorKb.knowledgeBaseArn],
+            })
+          );
+        },
+        stack: this,
+        node: s3VectorKb.node,
+      } as unknown as IKnowledgeBase;
 
       const dataSources = docBucketsAndPrefixes.map(({ bucket, prefix }) => {
         bucket.grantRead(kb.role);

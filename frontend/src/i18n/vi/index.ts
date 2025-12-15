@@ -35,6 +35,16 @@ const translation = {
         description:
           'Phiên bản mới nhất, phản hồi nhanh hơn và cải tiến khả năng so với Haiku 3.',
       },
+      'claude-v4.5-sonnet': {
+        label: 'Claude 4.5 (Sonnet)',
+        description:
+          'Enhanced version of Claude 4 Sonnet with improved reasoning and performance capabilities.',
+      },
+      'claude-v4.5-haiku': {
+        label: 'Claude 4.5 (Haiku)',
+        description:
+          'Fast and efficient Claude 4.5 variant optimized for quick responses with improved capabilities.',
+      },
       'claude-v4.1-opus': {
         label: 'Claude 4.1 (Opus)',
         description:

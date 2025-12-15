@@ -70,6 +70,14 @@ class AgentTool(Generic[T]):
             inputSchema={"json": self._generate_input_schema()},
         )
 
+    def to_invoke_spec(self) -> dict:
+        """Convert to Claude Messages API (invoke) tool format."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "input_schema": self._generate_input_schema(),
+        }
+
     def run(
         self,
         tool_use_id: str,

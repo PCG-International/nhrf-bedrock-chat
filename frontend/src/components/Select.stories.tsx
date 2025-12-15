@@ -80,11 +80,6 @@ export const Descriptive = () => {
     description: string;
   }[] = [
     {
-      label: t('searchSettings.searchType.hybrid.label'),
-      value: 'hybrid',
-      description: t('searchSettings.searchType.hybrid.hint'),
-    },
-    {
       label: t('searchSettings.searchType.semantic.label'),
       value: 'semantic',
       description: t('searchSettings.searchType.semantic.hint'),
@@ -109,11 +104,6 @@ export const DescriptiveDisabled = () => {
     value: string;
     description: string;
   }[] = [
-    {
-      label: t('searchSettings.searchType.hybrid.label'),
-      value: 'hybrid',
-      description: t('searchSettings.searchType.hybrid.hint'),
-    },
     {
       label: t('searchSettings.searchType.semantic.label'),
       value: 'semantic',

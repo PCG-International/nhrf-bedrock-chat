@@ -18,7 +18,9 @@ import { DynamoEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import { Platform } from "aws-cdk-lib/aws-ecr-assets";
+import * as ecr from "aws-cdk-lib/aws-ecr";
 import { Database } from "./database";
+import { EcrRepositories } from "./ecr-repositories";
 
 export interface EmbeddingProps {
   readonly database: Database;
@@ -26,6 +28,11 @@ export interface EmbeddingProps {
   readonly documentBucket: IBucket;
   readonly bedrockCustomBotProject: codebuild.IProject;
   readonly enableRagReplicas: boolean;
+
+  /**
+   * ECR repositories for pre-built Lambda images (optional)
+   */
+  readonly ecrRepos?: EcrRepositories;
 }
 
 export class Embedding extends Construct {
@@ -47,6 +54,37 @@ export class Embedding extends Construct {
       .setupRemovalHandler(props);
 
     this.removalHandler = this._removalHandler;
+  }
+
+  /**
+   * Helper method to get Lambda image from ECR or build from source
+   */
+  private getLambdaImage(
+    dockerfile: string,
+    cmd: string[],
+    props: EmbeddingProps
+  ): DockerImageCode {
+    // Use ECR if provided, otherwise build from source
+    if (props.ecrRepos && dockerfile === "lambda-lightweight.Dockerfile") {
+      return DockerImageCode.fromEcr(
+        props.ecrRepos.lambdaLightweightRepo,
+        {
+          tagOrDigest: "latest",
+          cmd,
+        }
+      );
+    }
+
+    // Fallback to building from source
+    return DockerImageCode.fromImageAsset(
+      path.join(__dirname, "../../../backend"),
+      {
+        platform: Platform.LINUX_AMD64,
+        file: dockerfile,
+        cmd,
+        exclude: [...excludeDockerImage],
+      }
+    );
   }
 
   private setupStateMachineHandlers(props: EmbeddingProps): this {
@@ -92,16 +130,12 @@ export class Embedding extends Construct {
       this,
       "UpdateSyncStatusHandler",
       {
-        code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../../backend"),
-          {
-            platform: Platform.LINUX_AMD64,
-            file: "lambda.Dockerfile",
-            cmd: [
-              "embedding_statemachine.bedrock_knowledge_base.update_bot_status.handler",
-            ],
-            exclude: [...excludeDockerImage],
-          }
+        code: this.getLambdaImage(
+          "lambda-lightweight.Dockerfile",
+          [
+            "embedding_statemachine.bedrock_knowledge_base.update_bot_status.handler",
+          ],
+          props
         ),
         memorySize: 512,
         timeout: Duration.minutes(1),
@@ -121,16 +155,12 @@ export class Embedding extends Construct {
       this,
       "FetchStackOutputHandler",
       {
-        code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../../backend"),
-          {
-            platform: Platform.LINUX_AMD64,
-            file: "lambda.Dockerfile",
-            cmd: [
-              "embedding_statemachine.bedrock_knowledge_base.fetch_stack_output.handler",
-            ],
-            exclude: [...excludeDockerImage],
-          }
+        code: this.getLambdaImage(
+          "lambda-lightweight.Dockerfile",
+          [
+            "embedding_statemachine.bedrock_knowledge_base.fetch_stack_output.handler",
+          ],
+          props
         ),
         memorySize: 512,
         timeout: Duration.minutes(1),
@@ -145,16 +175,12 @@ export class Embedding extends Construct {
       this,
       "StoreKnowledgeBaseIdHandler",
       {
-        code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../../backend"),
-          {
-            platform: Platform.LINUX_AMD64,
-            file: "lambda.Dockerfile",
-            cmd: [
-              "embedding_statemachine.bedrock_knowledge_base.store_knowledge_base_id.handler",
-            ],
-            exclude: [...excludeDockerImage],
-          }
+        code: this.getLambdaImage(
+          "lambda-lightweight.Dockerfile",
+          [
+            "embedding_statemachine.bedrock_knowledge_base.store_knowledge_base_id.handler",
+          ],
+          props
         ),
         memorySize: 512,
         timeout: Duration.minutes(1),
@@ -173,16 +199,12 @@ export class Embedding extends Construct {
       this,
       "StoreGuardrailArnHandler",
       {
-        code: DockerImageCode.fromImageAsset(
-          path.join(__dirname, "../../../backend"),
-          {
-            platform: Platform.LINUX_AMD64,
-            file: "lambda.Dockerfile",
-            cmd: [
-              "embedding_statemachine.guardrails.store_guardrail_arn.handler",
-            ],
-            exclude: [...excludeDockerImage],
-          }
+        code: this.getLambdaImage(
+          "lambda-lightweight.Dockerfile",
+          [
+            "embedding_statemachine.guardrails.store_guardrail_arn.handler",
+          ],
+          props
         ),
         memorySize: 512,
         timeout: Duration.minutes(1),
@@ -578,14 +600,10 @@ export class Embedding extends Construct {
     props.documentBucket.grantReadWrite(removeHandlerRole);
 
     this._removalHandler = new DockerImageFunction(this, "BotRemovalHandler", {
-      code: DockerImageCode.fromImageAsset(
-        path.join(__dirname, "../../../backend"),
-        {
-          platform: Platform.LINUX_AMD64,
-          file: "lambda.Dockerfile",
-          cmd: ["app.bot_remove.handler"],
-          exclude: [...excludeDockerImage],
-        }
+      code: this.getLambdaImage(
+        "lambda-lightweight.Dockerfile",
+        ["app.bot_remove.handler"],
+        props
       ),
       timeout: Duration.minutes(1),
       environment: {

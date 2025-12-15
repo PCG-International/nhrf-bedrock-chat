@@ -235,7 +235,7 @@ export class Api extends Construct {
         assetExcludes: [...excludeDockerImage],
         buildArgs: { POETRY_VERSION: "1.8.3" },
       },
-      runtime: Runtime.PYTHON_3_13,
+      runtime: Runtime.PYTHON_3_12,
       architecture: Architecture.X86_64,
       memorySize: 1024,
       timeout: Duration.minutes(15),
@@ -264,7 +264,7 @@ export class Api extends Construct {
         USAGE_ANALYSIS_OUTPUT_LOCATION: usageAnalysisOutputLocation,
         ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
           props.enableBedrockCrossRegionInference.toString(),
-        GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels 
+        GLOBAL_AVAILABLE_MODELS: props.globalAvailableModels
           ? JSON.stringify(props.globalAvailableModels)
           : "[]",
         OPENSEARCH_DOMAIN_ENDPOINT: props.openSearchEndpoint || "",

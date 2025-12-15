@@ -2,7 +2,7 @@ import os
 import json
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import boto3
 
@@ -18,7 +18,7 @@ async def async_handler(event, context):
     logger.info("Event: %s", json.dumps(event))
 
     limit = 10
-    now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     start_time = now - timedelta(days=30)
 
     start = start_time.strftime("%Y%m%d%H")
@@ -33,32 +33,15 @@ async def async_handler(event, context):
     avg_price = total_price / total_users if total_users else 0
 
     aggregate_metrics = [
-        {
-            "MetricName": "TotalUsers",
-            "Value": total_users,
-            "Unit": "Count"
-        },
-        {
-            "MetricName": "TotalPrice",
-            "Value": total_price,
-            "Unit": "None"
-        },
-        {
-            "MetricName": "MaxUserPrice",
-            "Value": max_price,
-            "Unit": "None"
-        },
-        {
-            "MetricName": "AvgUserPrice",
-            "Value": avg_price,
-            "Unit": "None"
-        },
+        {"MetricName": "TotalUsers", "Value": total_users, "Unit": "Count"},
+        {"MetricName": "TotalPrice", "Value": total_price, "Unit": "None"},
+        {"MetricName": "MaxUserPrice", "Value": max_price, "Unit": "None"},
+        {"MetricName": "AvgUserPrice", "Value": avg_price, "Unit": "None"},
     ]
 
     try:
         cloudwatch.put_metric_data(
-            Namespace="AIChatbot/Usage",
-            MetricData=aggregate_metrics
+            Namespace="AIChatbot/Usage", MetricData=aggregate_metrics
         )
         logger.info("Pushed metrics to CloudWatch")
     except Exception as e:
@@ -71,14 +54,13 @@ async def async_handler(event, context):
                 {"Name": "UserId", "Value": user.id},
                 {"Name": "Email", "Value": user.email},
             ],
-            "Timestamp": datetime.utcnow(),
+            "Timestamp": datetime.now(timezone.utc),
             "Value": user.total_price,
             "Unit": "None",
         }
         try:
             cloudwatch.put_metric_data(
-                Namespace="AIChatbot/UserUsage",
-                MetricData=[metric]
+                Namespace="AIChatbot/UserUsage", MetricData=[metric]
             )
         except Exception as e:
             logger.error("Failed to put user metric for %s: %s", user.id, str(e))

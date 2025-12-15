@@ -23,7 +23,7 @@ from app.repositories.models.conversation import (
 from app.repositories.models.custom_bot import GenerationParamsModel
 from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
 from app.routes.schemas.conversation import type_model_name
-from app.utils import get_bedrock_runtime_client, get_current_time
+from app.utils import BEDROCK_REGION, get_bedrock_runtime_client, get_current_time
 from botocore.exceptions import ClientError
 from mypy_boto3_bedrock_runtime.literals import ConversationRoleType, StopReasonType
 from mypy_boto3_bedrock_runtime.type_defs import GuardrailConverseContentBlockTypeDef
@@ -99,6 +99,10 @@ def _is_reasoning_content(
 
 def _sanitize_text(text: str) -> str:
     """Remove internal processing artifacts from text content."""
+    # Handle None or empty text
+    if not text:
+        return ""
+
     # Remove internal tool use patterns (not legitimate citations)
     text = re.sub(r"\[\^tooluse_[^]]+\]", "", text)
     text = re.sub(r"\[\^new-message-assistant[^]]*\]", "", text)
@@ -109,6 +113,29 @@ def _sanitize_text(text: str) -> str:
     # Remove JSON fragments that might leak
     text = re.sub(r'{"tool_use":[^}]*}', "", text)
 
+    # Remove Claude 4 internal search reasoning tags that leak into response
+    text = re.sub(
+        r"<search_quality_score>.*?</search_quality_score>\s*",
+        "",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"<search_quality_reasoning>.*?</search_quality_reasoning>\s*",
+        "",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(r"<search_query>.*?</search_query>\s*", "", text, flags=re.DOTALL)
+
+    # Remove leaked tool use XML blocks (Claude 4 sometimes outputs these in text)
+    text = re.sub(r"<function_calls>.*?</function_calls>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(r"<invoke[^>]*>.*?</invoke>\s*", "", text, flags=re.DOTALL)
+    text = re.sub(
+        r"<function_result>.*?</function_result>\s*", "", text, flags=re.DOTALL
+    )
+    text = re.sub(r"<parameter[^>]*>.*?</parameter>\s*", "", text, flags=re.DOTALL)
+
     return text.strip()
 
 
@@ -116,12 +143,13 @@ def _content_model_from_partial_content(
     content: _PartialTextContent | _PartialToolUseContent,
 ) -> ContentModel:
     if _is_text_content(content=content):
+        text = content.get("text") or ""
         return TextContentModel(
             content_type="text",
-            body=_sanitize_text(content["text"].rstrip()),
+            body=_sanitize_text(text.rstrip()),
         )
 
-    elif _is_tool_use_content(content=content):
+    if _is_tool_use_content(content=content):
         return ToolUseContentModel(
             content_type="toolUse",
             body=ToolUseContentModelBody(
@@ -131,7 +159,7 @@ def _content_model_from_partial_content(
             ),
         )
 
-    elif _is_reasoning_content(content=content):
+    if _is_reasoning_content(content=content):
         return ReasoningContentModel(
             content_type="reasoning",
             text=content["text"],
@@ -139,35 +167,37 @@ def _content_model_from_partial_content(
             redacted_content=content["redacted_content"],
         )
 
-    else:
-        raise ValueError(f"Unknown content type")
+    raise ValueError("Unknown content type")
 
 
 def _content_model_to_partial_content(
     content: ContentModel,
 ) -> _PartialTextContent | _PartialToolUseContent | _PartialReasoningContent:
     if isinstance(content, TextContentModel):
-        return {
+        result: _PartialTextContent = {
             "text": content.body,
         }
+        return result
 
-    elif isinstance(content, ToolUseContentModel):
-        return {
+    if isinstance(content, ToolUseContentModel):
+        tool_result: _PartialToolUseContent = {
             "tool_use": {
                 "tool_use_id": content.body.tool_use_id,
                 "name": content.body.name,
                 "input": json.dumps(content.body.input),
             },
         }
-    elif isinstance(content, ReasoningContentModel):
-        return {
+        return tool_result
+
+    if isinstance(content, ReasoningContentModel):
+        reasoning_result: _PartialReasoningContent = {
             "text": content.text,
             "signature": content.signature,
             "redacted_content": content.redacted_content,
         }
+        return reasoning_result
 
-    else:
-        raise ValueError(f"Unknown content type")
+    raise ValueError("Unknown content type")
 
 
 class ConverseApiStreamHandler:
@@ -178,7 +208,7 @@ class ConverseApiStreamHandler:
     def __init__(
         self,
         model: type_model_name,
-        instructions: list[str] = [],
+        instructions: list[str] | None = None,
         generation_params: GenerationParamsModel | None = None,
         guardrail: BedrockGuardrailsModel | None = None,
         tools: dict[str, AgentTool] | None = None,
@@ -192,13 +222,22 @@ class ConverseApiStreamHandler:
         :param on_stop: Callback function for stopping the stream.
         """
         self.model: type_model_name = model
-        self.instructions = instructions
+        self.instructions = instructions if instructions is not None else []
         self.generation_params = generation_params
         self.guardrail = guardrail
         self.tools = tools
         self.on_stream = on_stream
         self.on_thinking = on_thinking
         self.on_reasoning = on_reasoning
+
+    def _requires_invoke_api_for_cross_region(self) -> bool:
+        """Check if model requires Invoke API for cross-region inference.
+
+        Models not available in eu-central-1 that need US cross-region routing
+        must use Invoke API because Converse API doesn't support cross-region inference profiles.
+        """
+        cross_region_only_models = ["deepseek-r1", "claude-v4.1-opus", "claude-v4-opus"]
+        return self.model in cross_region_only_models
 
     @retry(
         exceptions=(BedrockThrottlingException,),
@@ -217,11 +256,17 @@ class ConverseApiStreamHandler:
         prompt_caching_enabled: bool = False,
     ) -> OnStopInput:
         try:
-            # Check if this is a Claude 4 model and use invoke API instead
-            if is_claude_4_model(self.model):
+            # Check if model requires Invoke API (Claude 4 or cross-region only models)
+            # BUT: Use Converse API when tools are present (for proper tool execution)
+            use_invoke_api = (
+                is_claude_4_model(self.model)
+                or self._requires_invoke_api_for_cross_region()
+            ) and not self.tools  # Don't use invoke API if we have tools
+
+            if use_invoke_api:
                 return self._run_invoke_api(
                     messages=messages,
-                    message_for_continue_generate=message_for_continue_generate,
+                    _message_for_continue_generate=message_for_continue_generate,
                 )
 
             # Create payload to invoke Bedrock (original converse API)
@@ -236,13 +281,28 @@ class ConverseApiStreamHandler:
                 enable_reasoning=enable_reasoning,
                 prompt_caching_enabled=prompt_caching_enabled,
             )
-            logger.info(f"args for converse_stream: {args}")
+            logger.info("args for converse_stream: %s", args)
 
-            client = get_bedrock_runtime_client()
+            # Use the appropriate region for the model
+            # US-only models (Claude 4 Opus, Claude 4.1 Opus) must be called from a US region
+            model_region = self._get_region_for_model()
+            logger.info("Using region: %s for model: %s", model_region, self.model)
+            client = get_bedrock_runtime_client(region=model_region)
             try:
                 response = client.converse_stream(**args)
             except ClientError as e:
-                if e.response["Error"]["Code"] == "ThrottlingException":
+                error_msg = str(e) if e else ""
+                # Check if error is due to document size limit (4.5 MB for ConverseStream)
+                if "maximum document size is 4.5 MB" in error_msg:
+                    logger.warning(
+                        "Document size exceeds ConverseStream limit, "
+                        "falling back to InvokeModel API"
+                    )
+                    return self._run_invoke_api(
+                        messages=messages,
+                        _message_for_continue_generate=message_for_continue_generate,
+                    )
+                if e.response.get("Error", {}).get("Code") == "ThrottlingException":
                     raise BedrockThrottlingException(
                         "Bedrock API is throttling requests"
                     ) from e
@@ -268,7 +328,7 @@ class ConverseApiStreamHandler:
             cache_read_input_count = 0
             cache_write_input_count = 0
             for event in response["stream"]:
-                logger.debug(f"event: {event}")
+                logger.debug("event: %s", event)
                 if "messageStart" in event:
                     message_start = event["messageStart"]
                     current_message["role"] = message_start["role"]
@@ -311,7 +371,7 @@ class ConverseApiStreamHandler:
                             else:
                                 # Should not happen
                                 logger.warning(
-                                    f"Unexpected reasoning content: {content}"
+                                    "Unexpected reasoning content: %s", content
                                 )
                         else:
                             # If the block is not started, create a new block
@@ -327,11 +387,11 @@ class ConverseApiStreamHandler:
                             self.on_reasoning(reasoning.get("text", ""))
 
                     elif "toolUse" in delta:
-                        input = delta["toolUse"]["input"]
+                        tool_input = delta["toolUse"]["input"]
                         if index in current_message["contents"]:
                             content = current_message["contents"][index]
                             if _is_tool_use_content(content=content):
-                                content["tool_use"]["input"] += input
+                                content["tool_use"]["input"] += tool_input
 
                     elif "text" in delta:
                         text = delta["text"]
@@ -357,14 +417,14 @@ class ConverseApiStreamHandler:
                         tool_use = content["tool_use"]
                         tool_use_id = tool_use["tool_use_id"]
                         tool_name = tool_use["name"]
-                        input = json.loads(tool_use["input"] or "{}")
+                        tool_input = json.loads(tool_use["input"] or "{}")
 
                         if self.on_thinking:
                             self.on_thinking(
                                 {
                                     "tool_use_id": tool_use_id,
                                     "name": tool_name,
-                                    "input": input,
+                                    "input": tool_input,
                                 }
                             )
 
@@ -461,9 +521,33 @@ class ConverseApiStreamHandler:
             if len(current_errors) > 0:
                 if len(current_errors) == 1:
                     raise current_errors[0]
+                raise ExceptionGroup("Exceptions in ConverseStream", current_errors)
 
-                else:
-                    raise ExceptionGroup("Exceptions in ConverseStream", current_errors)
+            # Validate that we received content - empty messages will corrupt conversations
+            if not current_message["contents"]:
+                raise ValueError(
+                    "Received empty response from Bedrock API. "
+                    "This may be due to a timeout or service interruption."
+                )
+
+            # Check if all text content is empty
+            has_non_empty_content = False
+            for content in current_message["contents"].values():
+                if _is_text_content(content) and content.get("text", "").strip():
+                    has_non_empty_content = True
+                    break
+                if _is_tool_use_content(content):
+                    has_non_empty_content = True
+                    break
+                if _is_reasoning_content(content):
+                    has_non_empty_content = True
+                    break
+
+            if not has_non_empty_content:
+                raise ValueError(
+                    "Received empty text response from Bedrock API. "
+                    "This may be due to a timeout or service interruption."
+                )
 
             # Append entire completion as the last message
             message = MessageModel(
@@ -489,14 +573,17 @@ class ConverseApiStreamHandler:
                 cache_write_input_tokens=cache_write_input_count,
             )
             logger.info(
-                f"token count: {json.dumps({
-                    'input': input_token_count,
-                    'output': output_token_count,
-                    'cache_read_input': cache_read_input_count,
-                    'cache_write_input': cache_write_input_count
-                })}"
+                "token count: %s",
+                json.dumps(
+                    {
+                        "input": input_token_count,
+                        "output": output_token_count,
+                        "cache_read_input": cache_read_input_count,
+                        "cache_write_input": cache_write_input_count,
+                    }
+                ),
             )
-            logger.info(f"price: {price}")
+            logger.info("price: %s", price)
 
             result = OnStopInput(
                 message=message,
@@ -510,16 +597,34 @@ class ConverseApiStreamHandler:
             return result
 
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error("Error: %s", e)
             raise e
+
+    def _get_region_for_model(self) -> str:
+        """Get the appropriate AWS region for the model.
+
+        Some models are only available in specific regions and must be called
+        directly in those regions (not via cross-region inference profiles).
+        """
+        us_only_models = ["deepseek-r1", "claude-v4.1-opus", "claude-v4-opus"]
+        if self.model in us_only_models:
+            return "us-east-1"
+        return BEDROCK_REGION
 
     def _run_invoke_api(
         self,
         messages: list[SimpleMessageModel],
-        message_for_continue_generate: SimpleMessageModel | None = None,
+        _message_for_continue_generate: SimpleMessageModel | None = None,
     ) -> OnStopInput:
         """Handle Claude 4 models using the invoke API for file upload support"""
         try:
+            # Get the appropriate region for this model
+            model_region = self._get_region_for_model()
+
+            # Note: Tools are not passed to invoke API yet because full tool use
+            # support (executing tools and returning results) is not implemented.
+            # The model may output XML-style tool calls which are sanitized.
+
             # Create payload for invoke API
             args = compose_args_for_invoke_api(
                 messages=messages,
@@ -527,10 +632,13 @@ class ConverseApiStreamHandler:
                 instructions=self.instructions,
                 generation_params=self.generation_params,
                 stream=True,
+                target_region=model_region,
             )
-            logger.info(f"args for invoke_model_with_response_stream: {args}")
+            logger.info("args for invoke_model_with_response_stream: %s", args)
+            logger.info("Using region: %s for model: %s", model_region, self.model)
 
-            client = get_bedrock_runtime_client()
+            # Use region-specific client for US-only models
+            client = get_bedrock_runtime_client(region=model_region)
             try:
                 response = client.invoke_model_with_response_stream(**args)
             except ClientError as e:
@@ -542,41 +650,124 @@ class ConverseApiStreamHandler:
 
             # Process the streaming response for Claude 4 invoke API
             current_text = ""
+            current_thinking = ""
             input_token_count = 0
             output_token_count = 0
             stop_reason: StopReasonType = "end_turn"
+            event_count = 0
+            # Track content block types by index
+            content_block_types: dict[int, str] = {}
 
             for event in response["body"]:
                 chunk = event.get("chunk")
                 if chunk:
                     chunk_data = json.loads(chunk["bytes"].decode())
+                    event_count += 1
+                    event_type = chunk_data.get("type", "unknown")
+                    # Log ALL events at INFO level to diagnose empty responses
+                    chunk_preview = json.dumps(chunk_data)[:500]
+                    logger.info(
+                        "Claude 4 event #%d: %s - %s",
+                        event_count,
+                        event_type,
+                        chunk_preview,
+                    )
 
-                    if chunk_data.get("type") == "message_start":
+                    if event_type == "message_start":
                         usage = chunk_data.get("message", {}).get("usage", {})
                         input_token_count = usage.get("input_tokens", 0)
 
-                    elif chunk_data.get("type") == "content_block_delta":
+                    elif event_type == "content_block_start":
+                        # Track the type of each content block
+                        index = chunk_data.get("index", 0)
+                        content_block = chunk_data.get("content_block", {})
+                        block_type = content_block.get("type", "text")
+                        content_block_types[index] = block_type
+                        logger.debug(
+                            "Content block %d started: type=%s", index, block_type
+                        )
+
+                    elif event_type == "content_block_delta":
+                        index = chunk_data.get("index", 0)
                         delta = chunk_data.get("delta", {})
-                        if delta.get("type") == "text_delta":
+                        delta_type = delta.get("type", "")
+
+                        if delta_type == "text_delta":
                             text = delta.get("text", "")
                             current_text += text
                             if self.on_stream:
                                 self.on_stream(text)
+                        elif delta_type == "thinking_delta":
+                            # Capture thinking content for extended thinking models
+                            thinking = delta.get("thinking", "")
+                            current_thinking += thinking
+                            if self.on_reasoning:
+                                self.on_reasoning(thinking)
+                        elif delta_type == "input_json_delta":
+                            # Tool use input - log but don't process yet
+                            # Full tool use for invoke API requires multi-turn handling
+                            partial_json = delta.get("partial_json", "")[:100]
+                            logger.debug(
+                                "Tool use input delta (not executed): %s", partial_json
+                            )
 
-                    elif chunk_data.get("type") == "message_delta":
+                    elif event_type == "message_delta":
                         delta = chunk_data.get("delta", {})
                         if "stop_reason" in delta:
                             stop_reason = delta["stop_reason"]
                         usage = chunk_data.get("usage", {})
                         output_token_count = usage.get("output_tokens", 0)
 
-            # Create the final message
+                    elif event_type == "error":
+                        error_msg = chunk_data.get("error", {}).get(
+                            "message", "Unknown error"
+                        )
+                        logger.error("Claude 4 invoke API error: %s", error_msg)
+                        raise ValueError(f"Bedrock API error: {error_msg}")
+
+            logger.info(
+                "Claude 4 invoke API processed %d events, "
+                "text_length=%d, thinking_length=%d, stop_reason=%s",
+                event_count,
+                len(current_text),
+                len(current_thinking),
+                stop_reason,
+            )
+
+            # Sanitize text to remove internal reasoning tags before checking for empty
+            sanitized_for_check = _sanitize_text(current_text)
+
+            # Validate that we received content - empty messages will corrupt conversations
+            if not sanitized_for_check.strip():
+                # Log detailed diagnostic info
+                thinking_len = len(current_thinking)
+                logger.error(
+                    "Empty response from Claude 4: events=%d, "
+                    "content_blocks=%s, stop_reason=%s, thinking_length=%d",
+                    event_count,
+                    content_block_types,
+                    stop_reason,
+                    thinking_len,
+                )
+                # If we have thinking but no text, include that in the error
+                if current_thinking:
+                    raise ValueError(
+                        f"Model returned thinking ({thinking_len} chars) but no text "
+                        f"response after {event_count} events. Stop reason: {stop_reason}"
+                    )
+                raise ValueError(
+                    f"Received empty response from Bedrock API after {event_count} "
+                    f"events. Stop reason: {stop_reason}. "
+                    "Check CloudWatch logs for event details."
+                )
+
+            # Create the final message with sanitized text (reuse the sanitized version)
             message = MessageModel(
                 role="assistant",
                 content=[
                     TextContentModel(
                         content_type="text",
-                        body=current_text,
+                        body=sanitized_for_check,
                     )
                 ],
                 model=self.model,
@@ -588,12 +779,13 @@ class ConverseApiStreamHandler:
                 thinking_log=None,
             )
 
+            # Claude 4 invoke API doesn't support prompt caching yet
             price = calculate_price(
                 model=self.model,
                 input_tokens=input_token_count,
                 output_tokens=output_token_count,
-                cache_read_input_tokens=0,  # Claude 4 invoke API doesn't support prompt caching yet
-                cache_write_input_tokens=0,  # Claude 4 invoke API doesn't support prompt caching yet
+                cache_read_input_tokens=0,
+                cache_write_input_tokens=0,
             )
 
             result = OnStopInput(
@@ -608,5 +800,5 @@ class ConverseApiStreamHandler:
             return result
 
         except Exception as e:
-            logger.error(f"Error in invoke API: {e}")
+            logger.error("Error in invoke API: %s", e)
             raise e

@@ -1,0 +1,167 @@
+name: Deploy V4 Stack to AWS
+
+on:
+  # Manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+  # Optional: Auto-deploy on push to v4 branch
+  # Uncomment if you want automatic deployments
+  # push:
+  #   branches:
+  #     - v4
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY_BACKEND: v4-bedrock-chat-backend
+  NODE_VERSION: '18.x'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          docker system prune -af --volumes
+          df -h
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        working-directory: ./backend
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          docker build \
+            --platform linux/amd64 \
+            --no-cache \
+            --tag backend:latest \
+            --tag ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:${IMAGE_TAG} \
+            --tag ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:latest \
+            --file Dockerfile \
+            .
+
+      - name: Push backend image to ECR
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          # Push with git SHA tag (unique, always succeeds)
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:${IMAGE_TAG}
+
+          # Delete old 'latest' tag if it exists (ECR has immutable tags)
+          aws ecr batch-delete-image \
+            --repository-name ${{ env.ECR_REPOSITORY_BACKEND }} \
+            --image-ids imageTag=latest \
+            || echo "No existing 'latest' tag to delete"
+
+          # Push new 'latest' tag
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cdk/package-lock.json
+
+      - name: Install CDK dependencies
+        working-directory: ./cdk
+        run: npm ci
+
+      - name: CDK Bootstrap (if needed)
+        working-directory: ./cdk
+        run: |
+          npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} \
+            -c envName=v4 \
+            || echo "Bootstrap already exists or failed (non-critical)"
+
+      - name: CDK Synth
+        working-directory: ./cdk
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          npx cdk synth \
+            -c envName=v4 \
+            -c imageTag=${IMAGE_TAG} \
+            --all
+
+      - name: CDK Deploy
+        working-directory: ./cdk
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          npx cdk deploy \
+            -c envName=v4 \
+            -c imageTag=${IMAGE_TAG} \
+            --all \
+            --require-approval never \
+            --progress events \
+            --outputs-file ./cdk-outputs.json
+
+      - name: Force ECS deployment with new image
+        run: |
+          # Force new deployment to ensure tasks use the updated task definition
+          aws ecs update-service \
+            --region ${{ env.AWS_REGION }} \
+            --cluster v4-backend-cluster \
+            --service v4-backend-service \
+            --force-new-deployment \
+            --no-cli-pager
+
+          echo "ECS deployment triggered, waiting for new task to start..."
+          aws ecs wait services-stable \
+            --region ${{ env.AWS_REGION }} \
+            --cluster v4-backend-cluster \
+            --services v4-backend-service
+
+          echo "ECS deployment completed successfully!"
+
+      - name: Upload CDK outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdk-outputs
+          path: cdk/cdk-outputs.json
+          retention-days: 30
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "### Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack:** v4-BedrockChatStack" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f cdk/cdk-outputs.json ]; then
+            echo "**Stack Outputs:**" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat cdk/cdk-outputs.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

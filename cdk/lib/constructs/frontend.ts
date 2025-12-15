@@ -10,8 +10,14 @@ import {
   CachePolicy,
   Distribution,
   ViewerProtocolPolicy,
+  AllowedMethods,
+  CachedMethods,
+  CacheHeaderBehavior,
+  CacheQueryStringBehavior,
+  OriginRequestPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
-import { S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import { S3BucketOrigin, HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import { NodejsBuild } from "deploy-time-build";
 import { Auth } from "./auth";
 import { Idp } from "../utils/identity-provider";
@@ -24,7 +30,7 @@ export interface FrontendProps {
   readonly webAclId: string;
   readonly accessLogBucket?: IBucket;
   readonly enableIpV6: boolean;
-  /** 
+  /**
    * Alternative domain name for CloudFront distribution (e.g., chat.example.com)
    * If provided, CloudFront will be accessible via this domain
    */
@@ -34,6 +40,11 @@ export interface FrontendProps {
    * Required if alternateDomainName is provided
    */
   readonly hostedZoneId?: string;
+  /**
+   * Optional backend ALB to add as an origin (for v4 ECS architecture)
+   * If provided, CloudFront will route /api/* requests to the ALB
+   */
+  readonly backendAlb?: elbv2.IApplicationLoadBalancer;
 }
 
 export class Frontend extends Construct {
@@ -60,17 +71,61 @@ export class Frontend extends Construct {
     });
 
     if (props.alternateDomainName && props.hostedZoneId) {
-      this.hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-        hostedZoneId: props.hostedZoneId,
-        zoneName: this.getDomainZoneName(props.alternateDomainName),
-      });
+      this.hostedZone = route53.HostedZone.fromHostedZoneAttributes(
+        this,
+        "HostedZone",
+        {
+          hostedZoneId: props.hostedZoneId,
+          zoneName: this.getDomainZoneName(props.alternateDomainName),
+        }
+      );
 
-      this.certificate = new acm.DnsValidatedCertificate(this, 'Certificate', {
+      this.certificate = new acm.DnsValidatedCertificate(this, "Certificate", {
         domainName: props.alternateDomainName,
         hostedZone: this.hostedZone,
-        region: 'us-east-1',
+        region: "us-east-1",
         validation: acm.CertificateValidation.fromDns(this.hostedZone),
       });
+    }
+
+    // Prepare additional behaviors for backend ALB if provided
+    const additionalBehaviors: Record<string, any> = {};
+    if (props.backendAlb) {
+      const albOrigin = new HttpOrigin(props.backendAlb.loadBalancerDnsName, {
+        protocolPolicy: "http-only" as any, // ALB uses HTTP internally
+        httpPort: 80,
+      });
+
+      // Create cache policy for API requests (don't cache, forward all headers/query strings)
+      const apiCachePolicy = new CachePolicy(this, "ApiCachePolicy", {
+        cachePolicyName: `${Stack.of(this).stackName}-ApiCachePolicy`,
+        minTtl: Duration.seconds(0),
+        maxTtl: Duration.seconds(1),
+        defaultTtl: Duration.seconds(0),
+        headerBehavior: CacheHeaderBehavior.allowList(
+          "Authorization",
+          "Content-Type",
+          "Accept",
+          "Origin",
+          "Referer"
+        ),
+        queryStringBehavior: CacheQueryStringBehavior.all(),
+        enableAcceptEncodingGzip: true,
+        enableAcceptEncodingBrotli: true,
+      });
+
+      // Add behaviors for API routes (REST and WebSocket)
+      // This covers: /api/bot, /api/conversation, /api/ws (WebSocket), etc.
+      // CloudFront automatically supports WebSocket upgrade for this behavior
+      additionalBehaviors["/api/*"] = {
+        origin: albOrigin,
+        viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+        allowedMethods: AllowedMethods.ALLOW_ALL,
+        cachedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
+        cachePolicy: apiCachePolicy,
+        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // Forwards all headers including WebSocket upgrade headers
+        compress: true,
+      };
     }
 
     const distribution = new Distribution(this, "Distribution", {
@@ -80,10 +135,16 @@ export class Frontend extends Construct {
         viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
       },
-      ...(this.alternateDomainName && this.certificate ? {
-        domainNames: [this.alternateDomainName],
-        certificate: this.certificate,
-      } : {}),
+      additionalBehaviors,
+      ...(this.alternateDomainName && this.certificate
+        ? {
+            domainNames: [this.alternateDomainName],
+            certificate: this.certificate,
+          }
+        : {}),
+      // Error responses for SPA routing (only affects S3 origin/default behavior)
+      // Note: These will NOT interfere with /api/* routing to ALB because
+      // cache behaviors are evaluated before error responses
       errorResponses: [
         {
           httpStatus: 404,
@@ -107,7 +168,7 @@ export class Frontend extends Construct {
     });
 
     if (this.alternateDomainName && this.hostedZone) {
-      new route53.ARecord(this, 'AliasRecord', {
+      new route53.ARecord(this, "AliasRecord", {
         zone: this.hostedZone,
         target: route53.RecordTarget.fromAlias(
           new targets.CloudFrontTarget(distribution)
@@ -116,7 +177,7 @@ export class Frontend extends Construct {
       });
 
       if (props.enableIpV6) {
-        new route53.AaaaRecord(this, 'AaaaRecord', {
+        new route53.AaaaRecord(this, "AaaaRecord", {
           zone: this.hostedZone,
           target: route53.RecordTarget.fromAlias(
             new targets.CloudFrontTarget(distribution)
@@ -137,15 +198,15 @@ export class Frontend extends Construct {
     this.cloudFrontWebDistribution = distribution;
 
     if (this.alternateDomainName) {
-      new CfnOutput(this, 'AlternateDomain', {
+      new CfnOutput(this, "AlternateDomain", {
         value: this.alternateDomainName,
-        description: 'Alternate domain name for the CloudFront distribution',
+        description: "Alternate domain name for the CloudFront distribution",
       });
     }
     if (this.certificate) {
-      new CfnOutput(this, 'CertificateArn', {
+      new CfnOutput(this, "CertificateArn", {
         value: this.certificate.certificateArn,
-        description: 'ARN of the ACM certificate',
+        description: "ARN of the ACM certificate",
       });
     }
   }
@@ -155,9 +216,9 @@ export class Frontend extends Construct {
    * e.g., 'chat.example.com' -> 'example.com'
    */
   private getDomainZoneName(domainName: string): string {
-    const parts = domainName.split('.');
+    const parts = domainName.split(".");
     if (parts.length <= 2) return domainName;
-    return parts.slice(-2).join('.');
+    return parts.slice(-2).join(".");
   }
 
   getOrigin(): string {
@@ -165,6 +226,14 @@ export class Frontend extends Construct {
       return `https://${this.alternateDomainName}`;
     }
     return `https://${this.cloudFrontWebDistribution.distributionDomainName}`;
+  }
+
+  /**
+   * Get the backend API endpoint URL through CloudFront
+   * Returns the CloudFront URL with /api path
+   */
+  getBackendApiEndpoint(): string {
+    return `${this.getOrigin()}/api`;
   }
 
   buildViteApp({

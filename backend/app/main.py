@@ -17,8 +17,9 @@ from app.routes.conversation import router as conversation_router
 from app.routes.global_config import router as global_config_router
 from app.routes.published_api import router as published_api_router
 from app.routes.user import router as user_router
+from app.routes.websocket_streaming import router as websocket_router
 from app.user import User
-from app.utils import is_running_on_lambda
+from app.utils import is_production
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -31,6 +32,7 @@ from starlette.types import ASGIApp, Message
 
 CORS_ALLOW_ORIGINS = os.environ.get("CORS_ALLOW_ORIGINS", "*")
 PUBLISHED_API_ID = os.environ.get("PUBLISHED_API_ID", None)
+ENV_NAME = os.environ.get("ENV_NAME", "")
 
 is_published_api = PUBLISHED_API_ID is not None
 
@@ -60,13 +62,20 @@ app = FastAPI(
 
 
 if not is_published_api:
-    app.include_router(conversation_router)
-    app.include_router(bot_router)
-    app.include_router(api_publication_router)
-    app.include_router(admin_router)
-    app.include_router(user_router)
-    app.include_router(bot_store_router)
-    app.include_router(global_config_router)
+    # Mount all routes under /api prefix for CloudFront routing (v4 ECS)
+    # Lambda deployment (v3) uses API Gateway which doesn't need this prefix
+    api_prefix = "/api" if ENV_NAME == "v4" else ""
+    app.include_router(conversation_router, prefix=api_prefix)
+    app.include_router(bot_router, prefix=api_prefix)
+    app.include_router(api_publication_router, prefix=api_prefix)
+    app.include_router(admin_router, prefix=api_prefix)
+    app.include_router(user_router, prefix=api_prefix)
+    app.include_router(bot_store_router, prefix=api_prefix)
+    app.include_router(global_config_router, prefix=api_prefix)
+
+    # WebSocket for v4 ECS (v3 uses Lambda WebSocket)
+    if ENV_NAME == "v4":
+        app.include_router(websocket_router, prefix="/api")
 else:
     app.include_router(published_api_router)
 
@@ -103,7 +112,7 @@ app.add_exception_handler(Exception, error_handler_factory(500))
 
 @app.middleware("http")
 def add_current_user_to_request(request: Request, call_next: ASGIApp):
-    if is_running_on_lambda():
+    if is_production():
         if not is_published_api:
             authorization = request.headers.get("Authorization")
             if authorization:
@@ -136,8 +145,9 @@ async def add_log_requests(request: Request, call_next: ASGIApp):
     logger.info(f"Request method: {request.method}")
     logger.info(f"Request headers: {request.headers}")
 
-    body = await request.body()
-    logger.info(f"Request body: {body.decode('utf-8')[:100]}...")
+    # Note: DO NOT read request.body() here as it consumes the stream
+    # and makes it unavailable for the actual endpoint handler
+    # Only log path, method, and headers for debugging
 
     response = await call_next(request)  # type: ignore
 

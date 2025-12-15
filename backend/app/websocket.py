@@ -19,7 +19,7 @@ from app.user import User
 from boto3.dynamodb.conditions import Attr, Key
 
 WEBSOCKET_SESSION_TABLE_NAME = os.environ["WEBSOCKET_SESSION_TABLE_NAME"]
-LARGE_MESSAGE_BUCKET = os.environ.get("LARGE_MESSAGE_BUCKET")
+LARGE_MESSAGE_BUCKET = os.environ.get("LARGE_MESSAGE_BUCKET_NAME")
 REGION = os.environ.get("REGION", "eu-central-1")
 
 # Threshold for hybrid storage approach

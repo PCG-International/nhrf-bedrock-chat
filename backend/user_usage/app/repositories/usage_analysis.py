@@ -58,7 +58,6 @@ async def _find_cognito_users_by_ids(user_ids: list[str]) -> list[dict]:
     return [result for result in results if result is not None]
 
 
-
 async def run_athena_query(
     query: str,
     database: str,
@@ -97,7 +96,6 @@ async def run_athena_query(
         QueryExecutionId=execution_id, MaxResults=query_limit
     )
     return results
-
 
 
 async def find_users_sorted_by_price(
@@ -193,10 +191,10 @@ LIMIT {limit};
         user = users_dict.get(user_id)
         if user:
             usages.append(
-                Any(
-                    id=user_id,
-                    email=user["email"],
-                    total_price=total_price,
-                )
+                {
+                    "id": user_id,
+                    "email": user["email"],
+                    "total_price": total_price,
+                }
             )
     return usages

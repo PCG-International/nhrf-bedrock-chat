@@ -10,7 +10,9 @@ const ErrorFallback: React.FC = () => {
         <PiSmileyXEyesFill />
         ERROR
       </div>
-      <div className="mt-4 text-lg dark:text-aws-font-color-dark">{t('error.unexpectedError.title')}</div>
+      <div className="mt-4 text-lg dark:text-aws-font-color-dark">
+        {t('error.unexpectedError.title')}
+      </div>
       <button
         className="underline dark:text-aws-font-color-blue dark:hover:text-aws-sea-blue-hover-dark"
         onClick={() => (window.location.href = '/')}>

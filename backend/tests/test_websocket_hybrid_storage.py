@@ -8,7 +8,7 @@ sys.path.insert(0, ".")
 
 # Set up environment variables for testing
 os.environ["WEBSOCKET_SESSION_TABLE_NAME"] = "test-websocket-sessions"
-os.environ["LARGE_MESSAGE_BUCKET"] = "test-large-messages"
+os.environ["LARGE_MESSAGE_BUCKET_NAME"] = "test-large-messages"
 os.environ["REGION"] = "us-east-1"
 
 from app.websocket import LARGE_PAYLOAD_THRESHOLD

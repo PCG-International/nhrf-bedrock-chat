@@ -28,6 +28,8 @@ from app.repositories.models.conversation import (
     ToolUseContentModelBody,
 )
 
+SUPPORTED_MODEL = "claude-v3.7-sonnet"
+
 
 class TestConversationRepository(unittest.TestCase):
     def setUp(self):
@@ -42,7 +44,7 @@ class TestConversationRepository(unittest.TestCase):
         # Set up environment variables
         os.environ["CONVERSATION_TABLE_NAME"] = "test-table"
         os.environ["CONVERSATION_BUCKET_NAME"] = "test-bucket"
-        os.environ["LARGE_MESSAGE_BUCKET"] = "test-large-message-bucket"
+        os.environ["LARGE_MESSAGE_BUCKET_NAME"] = "test-large-message-bucket"
         os.environ["BEDROCK_REGION"] = "us-east-1"
 
         self.title_updated = False
@@ -54,7 +56,7 @@ class TestConversationRepository(unittest.TestCase):
         self.patcher2.stop()
         os.environ.pop("CONVERSATION_TABLE_NAME", None)
         os.environ.pop("CONVERSATION_BUCKET_NAME", None)
-        os.environ.pop("LARGE_MESSAGE_BUCKET", None)
+        os.environ.pop("LARGE_MESSAGE_BUCKET_NAME", None)
         os.environ.pop("BEDROCK_REGION", None)
 
     def test_store_and_find_conversation(self):
@@ -79,7 +81,7 @@ class TestConversationRepository(unittest.TestCase):
                             media_type="image/png",
                         ),
                     ],
-                    model="claude-v3-haiku",
+                    model=SUPPORTED_MODEL,
                     children=["x", "y"],
                     parent="z",
                     create_time=1627984879.9,
@@ -206,7 +208,7 @@ class TestConversationRepository(unittest.TestCase):
             base64.b64encode(content[1].body).decode(),
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
         )
-        self.assertEqual(message_map["a"].model, "claude-v3-haiku")
+        self.assertEqual(message_map["a"].model, SUPPORTED_MODEL)
         self.assertEqual(message_map["a"].children, ["x", "y"])
         self.assertEqual(message_map["a"].parent, "z")
         self.assertEqual(message_map["a"].create_time, 1627984879.9)
@@ -290,7 +292,7 @@ class TestConversationRepository(unittest.TestCase):
                         * 1000,  # Repeating to make it large
                     )
                 ],
-                model="claude-v3-haiku",
+                model=SUPPORTED_MODEL,
                 children=[],
                 parent=None,
                 create_time=1627984879.9,
@@ -347,7 +349,7 @@ class TestConversationRepository(unittest.TestCase):
                                                 "media_type": None,
                                             }
                                         ],
-                                        "model": "claude-v3-haiku",
+                                        "model": SUPPORTED_MODEL,
                                         "children": [],
                                         "parent": None,
                                         "create_time": 1627984879.9,
@@ -409,7 +411,7 @@ class TestConversationRepository(unittest.TestCase):
             self.assertEqual(len(message.content), 1)
             self.assertEqual(message.content[0].content_type, "text")
             self.assertEqual(message.content[0].body, "This is a large message." * 1000)
-            self.assertEqual(message.model, "claude-v3-haiku")
+            self.assertEqual(message.model, SUPPORTED_MODEL)
             self.assertEqual(message.children, [])
             self.assertEqual(message.parent, None)
             self.assertEqual(message.create_time, 1627984879.9)

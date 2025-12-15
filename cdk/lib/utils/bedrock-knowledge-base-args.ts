@@ -1,7 +1,5 @@
 import { unmarshall } from "@aws-sdk/util-dynamodb";
-import {
-  BedrockFoundationModel,
-} from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock";
+import { BedrockFoundationModel } from "@cdklabs/generative-ai-cdk-constructs/lib/cdk-lib/bedrock";
 import {
   HierarchicalChunkingProps,
   ChunkingStrategy,
@@ -50,78 +48,100 @@ export const getParsingModel = (
     case "anthropic.claude-3-haiku-v1":
       return BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0;
     case "disabled":
-      return undefined
+      return undefined;
     default:
       throw new Error(`Unknown parsing model: ${parsingModel}`);
   }
-}
+};
 
 export const getCrowlingScope = (
   web_crawling_scope: string
 ): CrawlingScope | undefined => {
-
-  switch(web_crawling_scope) {
+  switch (web_crawling_scope) {
     case "DEFAULT":
-      return CrawlingScope.DEFAULT
+      return CrawlingScope.DEFAULT;
     case "HOST_ONLY":
-      return CrawlingScope.HOST_ONLY
+      return CrawlingScope.HOST_ONLY;
     case "SUBDOMAINS":
-      return CrawlingScope.SUBDOMAINS
+      return CrawlingScope.SUBDOMAINS;
     default:
-      return undefined
+      return undefined;
   }
-}
+};
 
-export const getCrawlingFilters =(
+export const getCrawlingFilters = (
   web_crawling_filters: any
 ): CrawlingFilters => {
   const regularJson = unmarshall(web_crawling_filters);
-  console.log(`regularJson: ${JSON.stringify(regularJson)}`)
+  console.log(`regularJson: ${JSON.stringify(regularJson)}`);
 
-  let excludePatterns = undefined
-  let includePatterns = undefined
+  let excludePatterns = undefined;
+  let includePatterns = undefined;
 
-  if (regularJson.exclude_patterns.length > 0 && regularJson.exclude_patterns[0] != "") excludePatterns = regularJson.exclude_patterns
-  if (regularJson.include_patterns.length > 0 && regularJson.include_patterns[0] != "") includePatterns = regularJson.include_patterns
+  if (
+    regularJson.exclude_patterns.length > 0 &&
+    regularJson.exclude_patterns[0] != ""
+  )
+    excludePatterns = regularJson.exclude_patterns;
+  if (
+    regularJson.include_patterns.length > 0 &&
+    regularJson.include_patterns[0] != ""
+  )
+    includePatterns = regularJson.include_patterns;
 
   return {
     excludePatterns,
     includePatterns,
-  }
-}
+  };
+};
 
 export const getChunkingStrategy = (
   chunkingStrategy: string,
   embeddingsModel: string,
-  options?: Partial<FixedSizeOptions & HierarchicalChunkingProps & SemanticOptions>
+  options?: Partial<
+    FixedSizeOptions & HierarchicalChunkingProps & SemanticOptions
+  >
 ): ChunkingStrategy => {
   switch (chunkingStrategy) {
     case "default":
       return ChunkingStrategy.DEFAULT;
     case "fixed_size":
-      if (options?.maxTokens !== undefined && options?.overlapPercentage !== undefined) {
+      if (
+        options?.maxTokens !== undefined &&
+        options?.overlapPercentage !== undefined
+      ) {
         return ChunkingStrategy.fixedSize({
           maxTokens: options.maxTokens,
-          overlapPercentage: options.overlapPercentage
+          overlapPercentage: options.overlapPercentage,
         });
       }
       return ChunkingStrategy.FIXED_SIZE;
     case "hierarchical":
-      if (options?.overlapTokens !== undefined && options?.maxParentTokenSize !== undefined && options?.maxChildTokenSize !== undefined) {
+      if (
+        options?.overlapTokens !== undefined &&
+        options?.maxParentTokenSize !== undefined &&
+        options?.maxChildTokenSize !== undefined
+      ) {
         return ChunkingStrategy.hierarchical({
           overlapTokens: options.overlapTokens,
           maxParentTokenSize: options.maxParentTokenSize,
-          maxChildTokenSize: options.maxChildTokenSize
+          maxChildTokenSize: options.maxChildTokenSize,
         });
       }
-      return embeddingsModel === 'titan_v2' ? ChunkingStrategy.HIERARCHICAL_TITAN : ChunkingStrategy.HIERARCHICAL_COHERE;
+      return embeddingsModel === "titan_v2"
+        ? ChunkingStrategy.HIERARCHICAL_TITAN
+        : ChunkingStrategy.HIERARCHICAL_COHERE;
     case "semantic":
       // Check that it is not explicitly undefined because bufferSize is set to 0, it will be created with the default value even if other parameters changed.
-      if (options?.maxTokens !== undefined && options?.bufferSize !== undefined && options?.breakpointPercentileThreshold !== undefined) {
+      if (
+        options?.maxTokens !== undefined &&
+        options?.bufferSize !== undefined &&
+        options?.breakpointPercentileThreshold !== undefined
+      ) {
         return ChunkingStrategy.semantic({
           maxTokens: options.maxTokens,
           bufferSize: options.bufferSize,
-          breakpointPercentileThreshold: options.breakpointPercentileThreshold
+          breakpointPercentileThreshold: options.breakpointPercentileThreshold,
         });
       }
       return ChunkingStrategy.SEMANTIC;

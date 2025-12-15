@@ -27,8 +27,7 @@ const translation: typeof en = {
       },
       'claude-v4.1-opus': {
         label: 'Claude 4.1 (Opus)',
-        description:
-          '最も強力なClaudeモデルの最新版。推論能力が向上',
+        description: '最も強力なClaudeモデルの最新版。推論能力が向上',
       },
       'claude-v4-sonnet': {
         label: 'Claude 4 (Sonnet)',
@@ -57,6 +56,16 @@ const translation: typeof en = {
       'claude-v3.5-haiku': {
         label: 'Claude 3.5 (Haiku) v1',
         description: 'Haiku最新バージョン。精度を保ち、高速な応答を実現',
+      },
+      'claude-v4.5-sonnet': {
+        label: 'Claude 4.5 (Sonnet)',
+        description:
+          'Enhanced version of Claude 4 Sonnet with improved reasoning and performance capabilities.',
+      },
+      'claude-v4.5-haiku': {
+        label: 'Claude 4.5 (Haiku)',
+        description:
+          'Fast and efficient Claude 4.5 variant optimized for quick responses with improved capabilities.',
       },
       'claude-v3-opus': {
         label: 'Claude 3 (Opus)',
@@ -507,7 +516,8 @@ const translation: typeof en = {
         title: 'プロンプトキャッシュ',
         promptCachingEnabled: {
           title: 'モデルが対応している場合、プロンプトキャッシュを利用する。',
-          description: '有効にすると、このボットと繰り返し会話した際のコストとレイテンシーを削減できます。',
+          description:
+            '有効にすると、このボットと繰り返し会話した際のコストとレイテンシーを削減できます。',
         },
       },
     },

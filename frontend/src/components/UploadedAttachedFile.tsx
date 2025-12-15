@@ -48,11 +48,11 @@ const UploadedFileText: React.FC<Props> = (props) => {
           className="block size-4 shrink-0 drop-shadow">
           <path
             d="M0 0L16 16H0V0Z"
-            className="fill-aws-paper-light dark:fill-aws-paper-dark stroke-gray"
+            className="fill-aws-paper-light stroke-gray dark:fill-aws-paper-dark"
             strokeWidth="0.5"></path>
         </svg>
       </div>
-      <div className="flex h-20 items-center justify-center rounded-b-lg border-x border-b border-gray bg-aws-paper-light dark:bg-aws-paper-dark p-2 ">
+      <div className="flex h-20 items-center justify-center rounded-b-lg border-x border-b border-gray bg-aws-paper-light p-2 dark:bg-aws-paper-dark ">
         <div className="w-16 break-words text-center text-xs font-bold text-dark-gray dark:text-light-gray">
           {shortFileName}
         </div>

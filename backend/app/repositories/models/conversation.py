@@ -173,9 +173,18 @@ def _convert_to_valid_file_name(file_name: str) -> str:
     # Note: The document file name can only contain alphanumeric characters,
     # whitespace characters, hyphens, parentheses, and square brackets.
     # The name can't contain more than one consecutive whitespace character.
+
+    # Handle None or empty filename
+    if not file_name:
+        return "document"
+
     file_name = re.sub(r"[^a-zA-Z0-9\s\-\(\)\[\]]", "", file_name)
     file_name = re.sub(r"\s+", " ", file_name)
     file_name = file_name.strip()
+
+    # If stripping results in empty string, return default
+    if not file_name:
+        return "document"
 
     return file_name
 
@@ -259,35 +268,79 @@ class AttachmentContentModel(BaseModel):
             file_bytes = base64.b64decode(self.body)
             data_str = self.body
 
-        # Special validation for PDFs - Claude 4 invoke API has a 100 page limit
+        # Special handling for PDFs - use Docling for large documents
         if file_ext == ".pdf":
             try:
                 # Try to count PDF pages using pypdf if available
+                page_count = None
                 try:
                     import pypdf
 
                     pdf_stream = io.BytesIO(file_bytes)
                     pdf_reader = pypdf.PdfReader(pdf_stream)
                     page_count = len(pdf_reader.pages)
-
-                    if page_count > 100:
-                        return [
-                            {
-                                "type": "text",
-                                "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF has {page_count} pages, which exceeds the 100-page limit for PDF processing. Please try with a smaller PDF (≤100 pages).",
-                            }
-                        ]
                 except ImportError:
                     # pypdf not available, fall back to size-based estimation
                     # Rough estimation: assume ~5KB per page on average
-                    estimated_pages = len(file_bytes) // (5 * 1024)
-                    if estimated_pages > 100:
-                        return [
-                            {
-                                "type": "text",
-                                "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF appears to be large (estimated >{estimated_pages} pages) and may exceed the 100-page limit for PDF processing. If you encounter errors, please try with a smaller PDF.",
-                            }
-                        ]
+                    page_count = len(file_bytes) // (5 * 1024)
+
+                # Check if we should use Docling for processing
+                from app.config import DOCLING_CONFIG
+
+                if DOCLING_CONFIG["enable_processing"]:
+                    from app.document_processor import get_docling_processor
+
+                    processor = get_docling_processor()
+
+                    # Check if document should be processed with Docling
+                    if processor.should_process_with_docling(
+                        file_bytes, file_ext.lstrip("."), page_count
+                    ):
+                        try:
+                            # Extract and chunk the document
+                            chunks = processor.extract_and_chunk(
+                                file_bytes, self.file_name, file_ext.lstrip(".")
+                            )
+
+                            # Format chunks for Bedrock
+                            formatted_chunks = processor.format_chunks_for_bedrock(
+                                chunks
+                            )
+
+                            # Return chunks as text blocks
+                            result = []
+                            for chunk_data in formatted_chunks:
+                                result.append(
+                                    {"type": "text", "text": chunk_data["text"]}
+                                )
+
+                            logger.info(
+                                f"Processed PDF {self.file_name} into {len(chunks)} chunks using Docling"
+                            )
+                            return result
+
+                        except Exception as e:
+                            logger.error(
+                                f"Docling processing failed for {self.file_name}: {e}"
+                            )
+                            # Fall back to validation message if processing fails
+                            if page_count and page_count > 100:
+                                return [
+                                    {
+                                        "type": "text",
+                                        "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF has {page_count} pages. Processing failed, please try with a smaller PDF (≤100 pages) or contact support.",
+                                    }
+                                ]
+
+                # Regular validation for non-Docling path or smaller PDFs
+                if page_count and page_count > 100:
+                    return [
+                        {
+                            "type": "text",
+                            "text": f"[PDF Document: {self.file_name}]\n\nNote: This PDF has {page_count} pages, which exceeds the 100-page limit for PDF processing. Please try with a smaller PDF (≤100 pages).",
+                        }
+                    ]
+
             except Exception as e:
                 logger.warning(
                     f"Failed to validate PDF page count for {self.file_name}: {e}"

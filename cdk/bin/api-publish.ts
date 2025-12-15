@@ -36,6 +36,17 @@ const largeMessageBucketName = cdk.Fn.importValue(
   `${params.envPrefix}${sepHyphen}BedrockClaudeChatLargeMessageBucketName`
 );
 
+// Try to import Lambda Full ECR repository URI (optional, may not exist)
+let lambdaFullRepoUri: string | undefined;
+try {
+  lambdaFullRepoUri = cdk.Fn.importValue(
+    `${params.envPrefix}${sepHyphen}LambdaFullRepoUri`
+  );
+} catch {
+  // ECR exports may not exist if v4 stack hasn't been deployed
+  lambdaFullRepoUri = undefined;
+}
+
 // NOTE: DO NOT change the stack id naming rule.
 new ApiPublishmentStack(app, `ApiPublishmentStack${params.publishedApiId}`, {
   env: {
@@ -48,6 +59,7 @@ new ApiPublishmentStack(app, `ApiPublishmentStack${params.publishedApiId}`, {
   tableAccessRoleArn: tableAccessRoleArn,
   webAclArn: webAclArn,
   largeMessageBucketName: largeMessageBucketName,
+  lambdaFullRepoUri: lambdaFullRepoUri,
   usagePlan: {
     throttle:
       params.publishedApiThrottleRateLimit !== undefined &&

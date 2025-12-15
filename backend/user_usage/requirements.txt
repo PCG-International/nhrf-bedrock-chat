@@ -1,0 +1,3 @@
+# Minimal dependencies for user_usage Lambda
+# This Lambda only needs boto3 for AWS SDK operations
+boto3==1.37.0

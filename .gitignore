@@ -10,7 +10,8 @@ memory-bank
 .clinerules
 .idea
 .serena
+venv/
 
-# Claude Code related files
+# Agents
 .claude/
 CLAUDE.md

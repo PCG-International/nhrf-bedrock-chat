@@ -16,9 +16,12 @@ type Props = BaseProps & {
 };
 
 const variantStyles: Record<RadioButtonVariant, string> = {
-  default: 'border-aws-font-color-light/50 dark:border-aws-font-color-dark/50 after:bg-aws-sea-blue-light dark:after:bg-aws-sea-blue-dark',
-  outlined: 'border-gray-300 dark:border-aws-font-color-dark after:bg-aws-sea-blue-light dark:after:bg-aws-sea-blue-dark',
-  colored: 'border-aws-sea-blue-light dark:border-aws-sea-blue-dark after:bg-aws-sea-blue-light dark:after:bg-aws-sea-blue-dark',
+  default:
+    'border-aws-font-color-light/50 dark:border-aws-font-color-dark/50 after:bg-aws-sea-blue-light dark:after:bg-aws-sea-blue-dark',
+  outlined:
+    'border-gray-300 dark:border-aws-font-color-dark after:bg-aws-sea-blue-light dark:after:bg-aws-sea-blue-dark',
+  colored:
+    'border-aws-sea-blue-light dark:border-aws-sea-blue-dark after:bg-aws-sea-blue-light dark:after:bg-aws-sea-blue-dark',
 };
 
 const RadioButton: React.FC<Props> = ({
@@ -59,10 +62,10 @@ const RadioButton: React.FC<Props> = ({
           <div
             className={twMerge(
               'h-5 w-5 rounded-full border',
-              'after:absolute after:left-1/2 after:top-1/2 after:h-3 after:w-3 after:rounded-full after:-translate-x-1/2 after:-translate-y-1/2',
+              'after:absolute after:left-1/2 after:top-1/2 after:h-3 after:w-3 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full',
               'after:transition-all after:content-[""]',
               variantStyles[variant],
-              'dark:bg-aws-ui-color-dark peer-checked:border-aws-sea-blue-light dark:after:bg-white dark:peer-checked:border-white peer-checked:after:opacity-100',
+              'peer-checked:border-aws-sea-blue-light peer-checked:after:opacity-100 dark:bg-aws-ui-color-dark dark:after:bg-white dark:peer-checked:border-white',
               'after:opacity-0',
               disabled ? 'opacity-30' : 'hover:brightness-90'
             )}
@@ -74,9 +77,7 @@ const RadioButton: React.FC<Props> = ({
           </div>
         )}
       </label>
-      {hint && (
-        <div className="ml-8 w-full pl-2 text-xs text-gray">{hint}</div>
-      )}
+      {hint && <div className="ml-8 w-full pl-2 text-xs text-gray">{hint}</div>}
     </div>
   );
 };

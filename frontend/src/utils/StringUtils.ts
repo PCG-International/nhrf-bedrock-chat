@@ -3,7 +3,7 @@ export const toCamelCase = (str: string): string => {
     .split('-')
     .map((part, index) => {
       part = part.replace(/\./g, '');
-      
+
       if (index === 0) {
         return part;
       } else {
@@ -11,4 +11,4 @@ export const toCamelCase = (str: string): string => {
       }
     })
     .join('');
-}
+};

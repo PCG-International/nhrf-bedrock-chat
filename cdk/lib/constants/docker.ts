@@ -8,4 +8,4 @@ export const excludeDockerImage = [
   "dev-dist",
   ".env",
   ".env.local",
-]
+];

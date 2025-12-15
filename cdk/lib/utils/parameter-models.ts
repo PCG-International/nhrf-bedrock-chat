@@ -50,7 +50,6 @@ function getEnvVar(name: string, defaultValue?: string): string | undefined {
  * Parameters schema for the main Bedrock Chat application
  */
 const BedrockChatParametersSchema = BaseParametersSchema.extend({
-
   // IP address restrictions
   allowedIpV4AddressRanges: z
     .array(z.string())
@@ -105,7 +104,7 @@ const BedrockChatParametersSchema = BaseParametersSchema.extend({
   globalAvailableModels: z.array(z.string()).default([]),
 
   // debug parameter
-  devAccessIamRoleArn: z.string().default("")
+  devAccessIamRoleArn: z.string().default(""),
 });
 
 /**

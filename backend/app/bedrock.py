@@ -9,8 +9,6 @@ from app.config import (
     BEDROCK_PRICING,
     DEFAULT_DEEP_SEEK_GENERATION_CONFIG,
     DEFAULT_GENERATION_CONFIG,
-    DEFAULT_LLAMA_GENERATION_CONFIG,
-    DEFAULT_MISTRAL_GENERATION_CONFIG,
 )
 from app.repositories.models.custom_bot import GenerationParamsModel
 from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
@@ -66,27 +64,15 @@ def is_deepseek_model(model: type_model_name) -> bool:
     return "deepseek" in model
 
 
-def is_llama_model(model: type_model_name) -> bool:
-    """Check if the model is a Meta Llama model"""
-    return "llama" in model
-
-
-def is_mistral(model: type_model_name) -> bool:
-    """Check if the model is a Mistral model"""
-    return "mistral" in model
-
-
 def is_claude_4_model(model: type_model_name) -> bool:
     """Check if the model is a Claude 4 model"""
-    return model in ["claude-v4-opus", "claude-v4-sonnet"]
+    return model in ["claude-v4-opus", "claude-v4.1-opus", "claude-v4-sonnet"]
 
 
 def is_tooluse_supported(model: type_model_name) -> bool:
     """Check if the model is supported for tool use"""
     return model not in [
         "deepseek-r1",
-        "llama3-2-1b-instruct",
-        "llama3-2-3b-instruct",
         "",
     ]
 
@@ -158,94 +144,6 @@ def _prepare_deepseek_model_params(
     return inference_config, None
 
 
-def _prepare_mistral_model_params(
-    model: type_model_name, generation_params: Optional[GenerationParamsModel] = None
-) -> Tuple[InferenceConfigurationTypeDef, Dict[str, int] | None]:
-    """
-    Prepare inference configuration and additional model request fields for Mistral models
-    > Note that Mistral models expect inference parameters as a JSON object under an inferenceConfig attribute,
-    > similar to other models.
-    """
-    # Base inference configuration
-    inference_config: InferenceConfigurationTypeDef = {
-        "maxTokens": (
-            generation_params.max_tokens
-            if generation_params
-            else DEFAULT_MISTRAL_GENERATION_CONFIG["max_tokens"]
-        ),
-        "temperature": (
-            generation_params.temperature
-            if generation_params
-            else DEFAULT_MISTRAL_GENERATION_CONFIG["temperature"]
-        ),
-        "topP": (
-            generation_params.top_p
-            if generation_params
-            else DEFAULT_MISTRAL_GENERATION_CONFIG["top_p"]
-        ),
-    }
-
-    inference_config["stopSequences"] = (
-        generation_params.stop_sequences
-        if (
-            generation_params
-            and generation_params.stop_sequences
-            and any(generation_params.stop_sequences)
-        )
-        else DEFAULT_MISTRAL_GENERATION_CONFIG.get("stop_sequences", [])
-    )
-
-    # Add top_k if specified in generation params
-    additional_fields = None
-    if generation_params and generation_params.top_k is not None:
-        additional_fields = {"topK": generation_params.top_k}
-
-    return inference_config, additional_fields
-
-
-def _prepare_llama_model_params(
-    model: type_model_name, generation_params: Optional[GenerationParamsModel] = None
-) -> Tuple[InferenceConfigurationTypeDef, None]:
-    """
-    Prepare inference configuration and additional model request fields for Meta Llama models
-    > Note that Llama models expect inference parameters as a JSON object under an inferenceConfig attribute,
-    > similar to Amazon Nova models.
-    """
-    # Base inference configuration
-    inference_config: InferenceConfigurationTypeDef = {
-        "maxTokens": (
-            generation_params.max_tokens
-            if generation_params
-            else DEFAULT_LLAMA_GENERATION_CONFIG["max_tokens"]
-        ),
-        "temperature": (
-            generation_params.temperature
-            if generation_params
-            else DEFAULT_LLAMA_GENERATION_CONFIG["temperature"]
-        ),
-        "topP": (
-            generation_params.top_p
-            if generation_params
-            else DEFAULT_LLAMA_GENERATION_CONFIG["top_p"]
-        ),
-    }
-
-    inference_config["stopSequences"] = (
-        generation_params.stop_sequences
-        if (
-            generation_params
-            and generation_params.stop_sequences
-            and any(generation_params.stop_sequences)
-        )
-        else DEFAULT_LLAMA_GENERATION_CONFIG.get("stop_sequences", [])
-    )
-
-    # No additional fields for Llama models
-    additional_fields = None
-
-    return inference_config, additional_fields
-
-
 def _prepare_nova_model_params(
     model: type_model_name, generation_params: Optional[GenerationParamsModel] = None
 ) -> Tuple[InferenceConfigurationTypeDef, Dict[str, Any]]:
@@ -309,6 +207,10 @@ def compose_args_for_converse_api(
             and c.content_type == "reasoning"
             and not getattr(c, "signature", None)
         ):
+            return []
+
+        # Skip empty text content - Bedrock rejects blank text fields
+        if c.content_type == "text" and (not c.body or not c.body.strip()):
             return []
 
         if c.content_type == "text":
@@ -387,36 +289,6 @@ def compose_args_for_converse_api(
             else []
         )
 
-    elif is_llama_model(model):
-        # Special handling for Llama models
-        inference_config, additional_model_request_fields = _prepare_llama_model_params(
-            model, generation_params
-        )
-        system_prompts = (
-            [
-                {
-                    "text": "\n\n".join(instructions),
-                }
-            ]
-            if instructions and any(instructions)
-            else []
-        )
-
-    elif is_mistral(model):
-        # Special handling for Mistral models
-        inference_config, additional_model_request_fields = (
-            _prepare_mistral_model_params(model, generation_params)
-        )
-        system_prompts = (
-            [
-                {
-                    "text": "\n\n".join(instructions),
-                }
-            ]
-            if instructions and any(instructions)
-            else []
-        )
-
     else:
         # Standard handling for non-Nova models
         if enable_reasoning:
@@ -452,8 +324,11 @@ def compose_args_for_converse_api(
                         generation_params
                         and generation_params.stop_sequences
                         and any(generation_params.stop_sequences)
+                        # Filter out the old default stop sequences that don't work with Messages API
+                        and generation_params.stop_sequences
+                        != ["Human: ", "Assistant: "]
                     )
-                    else DEFAULT_GENERATION_CONFIG.get("stop_sequences", [])
+                    else []
                 ),
             }
             additional_model_request_fields = {
@@ -486,8 +361,11 @@ def compose_args_for_converse_api(
                         generation_params
                         and generation_params.stop_sequences
                         and any(generation_params.stop_sequences)
+                        # Filter out the old default stop sequences that don't work with Messages API
+                        and generation_params.stop_sequences
+                        != ["Human: ", "Assistant: "]
                     )
-                    else DEFAULT_GENERATION_CONFIG.get("stop_sequences", [])
+                    else []
                 ),
             }
             additional_model_request_fields = {
@@ -577,10 +455,16 @@ def compose_args_for_invoke_api(
     instructions: list[str] = [],
     generation_params: GenerationParamsModel | None = None,
     stream: bool = True,
+    target_region: str | None = None,
+    tools: list[dict] | None = None,
 ) -> InvokeModelWithResponseStreamRequestTypeDef | InvokeModelRequestTypeDef:
     """
     Compose arguments for Claude 4 models using the invoke API instead of converse API.
     This allows for file uploads that are not supported by the converse API.
+
+    Args:
+        target_region: The AWS region where the model will be called. If provided and different from BEDROCK_REGION,
+                      cross-region inference will be disabled to use direct model ID.
     """
     # Convert messages to Claude 4 format
     claude_messages = []
@@ -588,8 +472,35 @@ def compose_args_for_invoke_api(
         if _is_conversation_role(message.role):
             content = []
             for c in message.content:
-                content.extend(c.to_contents_for_invoke())
-            claude_messages.append({"role": message.role, "content": content})
+                for block in c.to_contents_for_invoke():
+                    # Filter out empty text blocks
+                    if (
+                        block.get("type") == "text"
+                        and not block.get("text", "").strip()
+                    ):
+                        logger.warning(
+                            f"Filtered out empty text block from {message.role} message"
+                        )
+                        continue
+                    content.append(block)
+            # Only add messages that have content
+            if content:
+                claude_messages.append({"role": message.role, "content": content})
+            else:
+                logger.warning(
+                    f"Skipped {message.role} message with no content after filtering"
+                )
+
+    # Validate we have messages to send
+    if not claude_messages:
+        logger.error(
+            f"No messages to send to Claude 4 after filtering. Original message count: {len(messages)}"
+        )
+        raise ValueError(
+            "No valid messages to send to the model after filtering empty content"
+        )
+
+    logger.info(f"Sending {len(claude_messages)} messages to Claude 4 invoke API")
 
     # Prepare system prompt
     system_prompt = (
@@ -617,14 +528,19 @@ def compose_args_for_invoke_api(
         if generation_params
         else DEFAULT_GENERATION_CONFIG["top_k"]
     )
+    # For Claude 4 Messages API (invoke), only use stop_sequences if explicitly configured
+    # The default "Human: "/"Assistant: " sequences are for old completion API and cause
+    # immediate stops with the Messages API
     stop_sequences = (
         generation_params.stop_sequences
         if (
             generation_params
             and generation_params.stop_sequences
             and any(generation_params.stop_sequences)
+            # Filter out the old default stop sequences that don't work with Messages API
+            and generation_params.stop_sequences != ["Human: ", "Assistant: "]
         )
-        else DEFAULT_GENERATION_CONFIG.get("stop_sequences", [])
+        else []
     )
 
     # Compose the body for Claude 4 invoke API
@@ -643,18 +559,33 @@ def compose_args_for_invoke_api(
     if stop_sequences:
         body["stop_sequences"] = stop_sequences
 
+    # Add tools if provided
+    if tools:
+        body["tools"] = tools
+
     # Return appropriate request type based on streaming
+    # Always use cross-region inference profiles for target region
+    # For us-east-1 models, get_model_id will return us.model-id format
+
     if stream:
         return {
             "body": json.dumps(body),
-            "modelId": get_model_id(model),
+            "modelId": get_model_id(
+                model,
+                enable_cross_region=True,
+                bedrock_region=target_region or BEDROCK_REGION,
+            ),
             "contentType": "application/json",
             "accept": "application/json",
         }
     else:
         return {
             "body": json.dumps(body),
-            "modelId": get_model_id(model),
+            "modelId": get_model_id(
+                model,
+                enable_cross_region=True,
+                bedrock_region=target_region or BEDROCK_REGION,
+            ),
             "contentType": "application/json",
             "accept": "application/json",
         }
@@ -758,28 +689,14 @@ def get_model_id(
         "claude-v4-opus": "anthropic.claude-opus-4-20250514-v1:0",
         "claude-v4.1-opus": "anthropic.claude-opus-4-1-20250805-v1:0",
         "claude-v4-sonnet": "anthropic.claude-sonnet-4-20250514-v1:0",
-        "claude-v3-haiku": "anthropic.claude-3-haiku-20240307-v1:0",
         "claude-v3-opus": "anthropic.claude-3-opus-20240229-v1:0",
-        "claude-v3.5-sonnet": "anthropic.claude-3-5-sonnet-20240620-v1:0",
-        "claude-v3.5-sonnet-v2": "anthropic.claude-3-5-sonnet-20241022-v2:0",
         "claude-v3.7-sonnet": "anthropic.claude-3-7-sonnet-20250219-v1:0",
-        "claude-v3.5-haiku": "anthropic.claude-3-5-haiku-20241022-v1:0",
-        "mistral-7b-instruct": "mistral.mistral-7b-instruct-v0:2",
-        "mixtral-8x7b-instruct": "mistral.mixtral-8x7b-instruct-v0:1",
-        "mistral-large": "mistral.mistral-large-2402-v1:0",
-        "mistral-large-2": "mistral.mistral-large-2407-v1:0",
         # New Amazon Nova models
         "amazon-nova-pro": "amazon.nova-pro-v1:0",
         "amazon-nova-lite": "amazon.nova-lite-v1:0",
         "amazon-nova-micro": "amazon.nova-micro-v1:0",
         # DeepSeek models
         "deepseek-r1": "deepseek.r1-v1:0",
-        # Meta Llama 3 models
-        "llama3-3-70b-instruct": "meta.llama3-3-70b-instruct-v1:0",
-        "llama3-2-1b-instruct": "meta.llama3-2-1b-instruct-v1:0",
-        "llama3-2-3b-instruct": "meta.llama3-2-3b-instruct-v1:0",
-        "llama3-2-11b-instruct": "meta.llama3-2-11b-instruct-v1:0",
-        "llama3-2-90b-instruct": "meta.llama3-2-90b-instruct-v1:0",
     }
 
     # Made this list by scripts/cross_region_inference/get_supported_cross_region_inferences.py
@@ -794,18 +711,9 @@ def get_model_id(
                 "claude-v4-opus",
                 "claude-v4.1-opus",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
                 "claude-v3-opus",
-                "claude-v3.5-haiku",
-                "claude-v3.5-sonnet",
-                "claude-v3.5-sonnet-v2",
                 "claude-v3.7-sonnet",
                 "deepseek-r1",
-                "llama3-3-70b-instruct",
-                "llama3-2-1b-instruct",
-                "llama3-2-3b-instruct",
-                "llama3-2-11b-instruct",
-                "llama3-2-90b-instruct",
             ],
         },
         "us-east-2": {
@@ -817,17 +725,8 @@ def get_model_id(
                 "claude-v4-opus",
                 "claude-v4.1-opus",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-haiku",
-                "claude-v3.5-sonnet",
-                "claude-v3.5-sonnet-v2",
                 "claude-v3.7-sonnet",
                 "deepseek-r1",
-                "llama3-3-70b-instruct",
-                "llama3-2-1b-instruct",
-                "llama3-2-3b-instruct",
-                "llama3-2-11b-instruct",
-                "llama3-2-90b-instruct",
             ],
         },
         "us-west-2": {
@@ -839,18 +738,9 @@ def get_model_id(
                 "claude-v4-opus",
                 "claude-v4.1-opus",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
                 "claude-v3-opus",
-                "claude-v3.5-haiku",
-                "claude-v3.5-sonnet",
-                "claude-v3.5-sonnet-v2",
                 "claude-v3.7-sonnet",
                 "deepseek-r1",
-                "llama3-3-70b-instruct",
-                "llama3-2-1b-instruct",
-                "llama3-2-3b-instruct",
-                "llama3-2-11b-instruct",
-                "llama3-2-90b-instruct",
             ],
         },
         "eu-central-1": {
@@ -860,11 +750,8 @@ def get_model_id(
                 "amazon-nova-micro",
                 "amazon-nova-pro",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-sonnet",
                 "claude-v3.7-sonnet",
-                "llama3-2-1b-instruct",
-                "llama3-2-3b-instruct",
+                # Note: claude-v4.1-opus and deepseek-r1 not available for channel program accounts
             ],
         },
         "eu-west-1": {
@@ -874,11 +761,7 @@ def get_model_id(
                 "amazon-nova-micro",
                 "amazon-nova-pro",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-sonnet",
                 "claude-v3.7-sonnet",
-                "llama3-2-1b-instruct",
-                "llama3-2-3b-instruct",
             ],
         },
         "eu-west-2": {"area": "eu", "models": []},
@@ -889,11 +772,7 @@ def get_model_id(
                 "amazon-nova-micro",
                 "amazon-nova-pro",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-sonnet",
                 "claude-v3.7-sonnet",
-                "llama3-2-1b-instruct",
-                "llama3-2-3b-instruct",
             ],
         },
         "eu-north-1": {
@@ -911,9 +790,6 @@ def get_model_id(
                 "amazon-nova-micro",
                 "amazon-nova-pro",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-sonnet",
-                "claude-v3.5-sonnet-v2",
             ],
         },
         "ap-northeast-1": {
@@ -923,9 +799,6 @@ def get_model_id(
                 "amazon-nova-micro",
                 "amazon-nova-pro",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-sonnet",
-                "claude-v3.5-sonnet-v2",
             ],
         },
         "ap-northeast-2": {
@@ -935,12 +808,9 @@ def get_model_id(
                 "amazon-nova-micro",
                 "amazon-nova-pro",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-sonnet",
-                "claude-v3.5-sonnet-v2",
             ],
         },
-        "ap-northeast-3": {"area": "apac", "models": ["claude-v3.5-sonnet-v2"]},
+        "ap-northeast-3": {"area": "apac", "models": []},
         "ap-southeast-1": {
             "area": "apac",
             "models": [
@@ -948,9 +818,6 @@ def get_model_id(
                 "amazon-nova-micro",
                 "amazon-nova-pro",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-sonnet",
-                "claude-v3.5-sonnet-v2",
             ],
         },
         "ap-southeast-2": {
@@ -960,9 +827,6 @@ def get_model_id(
                 "amazon-nova-micro",
                 "amazon-nova-pro",
                 "claude-v4-sonnet",
-                "claude-v3-haiku",
-                "claude-v3.5-sonnet",
-                "claude-v3.5-sonnet-v2",
             ],
         },
     }
@@ -974,14 +838,24 @@ def get_model_id(
     model_id = base_model_id
 
     if enable_cross_region:
-        if (
+        # Models only available in US regions - must use "us." prefix regardless of deployment region
+        us_only_models = ["deepseek-r1", "claude-v4.1-opus", "claude-v4-opus"]
+
+        if model in us_only_models:
+            # US-only models always use US inference profile
+            model_id = f"us.{base_model_id}"
+            logger.info(
+                f"Model '{model}' only available in US regions, using US inference profile: {model_id}"
+            )
+        elif (
             bedrock_region in supported_regions
             and model in supported_regions[bedrock_region]["models"]
         ):
+            # Model is available in deployment region - use that region's prefix
             region_prefix = supported_regions[bedrock_region]["area"]
             model_id = f"{region_prefix}.{base_model_id}"
             logger.info(
-                f"Using cross-region model ID: {model_id} for model '{model}' in region '{BEDROCK_REGION}'"
+                f"Using cross-region model ID: {model_id} for model '{model}' in region '{bedrock_region}'"
             )
         else:
             logger.warning(

@@ -57,6 +57,16 @@ const translation = {
         description:
           'The latest version, offering even faster responsiveness and improved capabilities over Haiku 3.',
       },
+      'claude-v4.5-sonnet': {
+        label: 'Claude 4.5 (Sonnet)',
+        description:
+          'Enhanced version of Claude 4 Sonnet with improved reasoning and performance capabilities.',
+      },
+      'claude-v4.5-haiku': {
+        label: 'Claude 4.5 (Haiku)',
+        description:
+          'Fast and efficient Claude 4.5 variant optimized for quick responses with improved capabilities.',
+      },
       'claude-v3-opus': {
         label: 'Claude 3 (Opus)',
         description: 'Powerful model for highly complex tasks.',
@@ -501,7 +511,8 @@ How would you categorize this email?`,
         title: 'Prompt Caching',
         promptCachingEnabled: {
           title: 'Use prompt caching if the model supports it.',
-          description: 'If enabled, it may reduce the cost and latency of repeated conversations with this bot.',
+          description:
+            'If enabled, it may reduce the cost and latency of repeated conversations with this bot.',
         },
       },
     },

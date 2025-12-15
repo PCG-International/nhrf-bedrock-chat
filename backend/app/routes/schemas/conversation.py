@@ -9,29 +9,14 @@ type_model_name = Literal[
     "claude-v4-opus",
     "claude-v4.1-opus",
     "claude-v4-sonnet",
-    "claude-v3.5-sonnet",
-    "claude-v3.5-sonnet-v2",
     "claude-v3.7-sonnet",
-    "claude-v3.5-haiku",
-    "claude-v3-haiku",
     "claude-v3-opus",
-    # Mistral
-    "mistral-7b-instruct",
-    "mixtral-8x7b-instruct",
-    "mistral-large",
-    "mistral-large-2",
     # New Amazon Nova models
     "amazon-nova-pro",
     "amazon-nova-lite",
     "amazon-nova-micro",
     # DeepSeek models
     "deepseek-r1",
-    # Meta Llama 3 models
-    "llama3-3-70b-instruct",
-    "llama3-2-1b-instruct",
-    "llama3-2-3b-instruct",
-    "llama3-2-11b-instruct",
-    "llama3-2-90b-instruct",
 ]
 
 
